@@ -88,26 +88,3 @@ export function useDeleteClient() {
     },
   });
 }
-
-export function useBulkImportClients() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: ClientService.bulkImport,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-      toast({
-        title: 'Import completed',
-        description: `${data.imported} clients imported successfully. ${data.failed} failed.`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.response?.data?.message || 'Failed to import clients.',
-        variant: 'destructive',
-      });
-    },
-  });
-}

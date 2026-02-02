@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { useClients, useInvoices, useQuotes, useRecurringBilling } from '@/hooks/useData';
+import { 
+  useClients as useClientsAPI, 
+  useCreateClient, 
+  useUpdateClient, 
+  useDeleteClient 
+} from '@/hooks/api/useClients';
+import { useInvoices, useQuotes, useRecurringBilling } from '@/hooks/useData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -83,7 +89,13 @@ import { format } from 'date-fns';
 import { Client, ClientType } from '@/types/app';
 
 export default function Clients() {
-  const { clients, addClient, updateClient, deleteClient } = useClients();
+  // API hooks
+  const { data: clients = [], isLoading } = useClientsAPI();
+  const createMutation = useCreateClient();
+  const updateMutation = useUpdateClient();
+  const deleteMutation = useDeleteClient();
+  
+  // Old localStorage hooks for invoices, quotes, recurring (will migrate later)
   const { invoices } = useInvoices();
   const { quotes } = useQuotes();
   const { recurringBillings } = useRecurringBilling();
@@ -99,7 +111,7 @@ export default function Clients() {
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
 
   const [formData, setFormData] = useState({
-    type: 'individual' as ClientType,
+    clientType: 'individual' as ClientType,
     name: '',
     email: '',
     phone: '',
@@ -164,7 +176,7 @@ export default function Clients() {
     if (client) {
       setEditingClient(client);
       setFormData({
-        type: client.type || 'individual',
+        clientType: client.clientType || 'individual',
         name: client.name,
         email: client.email,
         phone: client.phone || '',
@@ -175,7 +187,7 @@ export default function Clients() {
     } else {
       setEditingClient(null);
       setFormData({
-        type: 'individual',
+        clientType: 'individual',
         name: '',
         email: '',
         phone: '',
@@ -197,63 +209,78 @@ export default function Clients() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleSubmit = () => {
-    if (!formData.name || !formData.email) {
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.email || !formData.phone || !formData.address) {
       toast({
         title: 'Missing required fields',
-        description: 'Name and email are required.',
+        description: 'Name, email, phone, and address are required.',
         variant: 'destructive',
       });
       return;
     }
 
-    if (editingClient) {
-      updateClient(editingClient.id, formData);
-      toast({
-        title: 'Client updated',
-        description: `${formData.name} has been updated.`,
-      });
-    } else {
-      addClient(formData);
-      toast({
-        title: 'Client added',
-        description: `${formData.name} has been added to your clients.`,
-      });
-    }
+    try {
+      if (editingClient) {
+        await updateMutation.mutateAsync({
+          id: editingClient._id,
+          data: formData,
+        });
+      } else {
+        await createMutation.mutateAsync(formData);
+      }
 
-    setIsDialogOpen(false);
+      setIsDialogOpen(false);
+      setEditingClient(null);
+      setFormData({
+        clientType: 'individual',
+        name: '',
+        email: '',
+        phone: '',
+        company: '',
+        address: '',
+        notes: '',
+      });
+    } catch (error) {
+      // Error is handled by the mutation hooks
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deletingClient) {
-      deleteClient(deletingClient.id);
-      toast({
-        title: 'Client deleted',
-        description: `${deletingClient.name} has been deleted.`,
-      });
-      setIsDeleteDialogOpen(false);
-      setDeletingClient(null);
+      try {
+        await deleteMutation.mutateAsync(deletingClient._id);
+        setIsDeleteDialogOpen(false);
+        setDeletingClient(null);
+      } catch (error) {
+        // Error is handled by the mutation hook
+      }
     }
   };
 
-  const handleBulkImport = (clients: Array<{
-    type: 'individual' | 'company';
+  const handleBulkImport = async (clients: Array<{
+    clientType: 'individual' | 'company';
     name: string;
     email: string;
-    phone?: string;
+    phone: string;
     company?: string;
-    address?: string;
+    address: string;
     notes?: string;
   }>) => {
     let imported = 0;
-    clients.forEach(client => {
-      addClient(client);
-      imported++;
-    });
+    let failed = 0;
+    
+    for (const client of clients) {
+      try {
+        await createMutation.mutateAsync(client);
+        imported++;
+      } catch (error) {
+        failed++;
+      }
+    }
     
     toast({
       title: 'Bulk import complete',
-      description: `Successfully imported ${imported} client${imported !== 1 ? 's' : ''}`,
+      description: `Successfully imported ${imported} client${imported !== 1 ? 's' : ''}${failed > 0 ? `. ${failed} failed.` : ''}`,
     });
   };
 
@@ -269,11 +296,11 @@ export default function Clients() {
 
     // Prepare export data with stats
     const exportData = clients.map(client => {
-      const stats = getClientStats(client.id);
+      const stats = getClientStats(client._id);
       return {
         Name: client.name,
         Email: client.email,
-        Type: client.type,
+        Type: client.clientType,
         Phone: client.phone || '',
         Company: client.company || '',
         Address: client.address || '',
@@ -322,10 +349,10 @@ export default function Clients() {
   // Summary stats
   const totalClients = clients.length;
   const activeClients = clients.filter(c => {
-    const stats = getClientStats(c.id);
+    const stats = getClientStats(c._id);
     return stats.pendingInvoices > 0 || stats.hasSubscription;
   }).length;
-  const clientsWithOverdue = clients.filter(c => getClientStats(c.id).overdueInvoices > 0).length;
+  const clientsWithOverdue = clients.filter(c => getClientStats(c._id).overdueInvoices > 0).length;
 
   return (
     <DashboardLayout>
@@ -452,31 +479,47 @@ export default function Clients() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredClients.map((client) => {
-                      const stats = getClientStats(client.id);
-                      return (
-                        <TableRow key={client.id}>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium">{client.name}</p>
-                                <Badge variant={client.type === 'company' ? 'default' : 'secondary'} className="text-xs">
-                                  {client.type === 'company' ? (
-                                    <><Building2 className="h-3 w-3 mr-1" />Company</>
-                                  ) : (
-                                    <><User className="h-3 w-3 mr-1" />Individual</>
-                                  )}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Mail className="h-3 w-3" />
-                                {client.email}
-                              </div>
-                              {client.company && client.type === 'individual' && (
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Building2 className="h-3 w-3" />
-                                  {client.company}
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            <p className="text-muted-foreground">Loading clients...</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredClients.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          No clients found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredClients.map((client) => {
+                        const stats = getClientStats(client._id);
+                        return (
+                          <TableRow key={client._id}>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">{client.name}</p>
+                                  <Badge variant={client.clientType === 'company' ? 'default' : 'secondary'} className="text-xs">
+                                    {client.clientType === 'company' ? (
+                                      <><Building2 className="h-3 w-3 mr-1" />Company</>
+                                    ) : (
+                                      <><User className="h-3 w-3 mr-1" />Individual</>
+                                    )}
+                                  </Badge>
                                 </div>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Mail className="h-3 w-3" />
+                                  {client.email}
+                                </div>
+                                {client.company && client.clientType === 'individual' && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Building2 className="h-3 w-3" />
+                                    {client.company}
+                                  </div>
                               )}
                             </div>
                           </TableCell>
@@ -558,16 +601,26 @@ export default function Clients() {
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  disabled={deleteMutation.isPending || updateMutation.isPending}
+                                >
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleViewClient(client)}>
+                                <DropdownMenuItem 
+                                  onClick={() => handleViewClient(client)}
+                                  disabled={deleteMutation.isPending}
+                                >
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenDialog(client)}>
+                                <DropdownMenuItem 
+                                  onClick={() => handleOpenDialog(client)}
+                                  disabled={deleteMutation.isPending}
+                                >
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>
@@ -575,6 +628,7 @@ export default function Clients() {
                                 <DropdownMenuItem 
                                   onClick={() => handleConfirmDelete(client)}
                                   className="text-destructive"
+                                  disabled={deleteMutation.isPending}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Delete
@@ -584,7 +638,8 @@ export default function Clients() {
                           </TableCell>
                         </TableRow>
                       );
-                    })}
+                    })
+                  )}
                   </TableBody>
                 </Table>
               </div>
@@ -607,8 +662,8 @@ export default function Clients() {
               <div className="space-y-2">
                 <Label>Client Type *</Label>
                 <Select
-                  value={formData.type}
-                  onValueChange={(value: ClientType) => setFormData({ ...formData, type: value })}
+                  value={formData.clientType}
+                  onValueChange={(value: ClientType) => setFormData({ ...formData, clientType: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
@@ -629,7 +684,7 @@ export default function Clients() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  {formData.type === 'company' 
+                  {formData.clientType === 'company' 
                     ? 'Add company details for business clients' 
                     : 'Add individual client personal details'}
                 </p>
@@ -637,9 +692,9 @@ export default function Clients() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{formData.type === 'company' ? 'Company Name *' : 'Name *'}</Label>
+                  <Label>{formData.clientType === 'company' ? 'Company Name *' : 'Name *'}</Label>
                   <Input
-                    placeholder={formData.type === 'company' ? 'Acme Inc.' : 'John Doe'}
+                    placeholder={formData.clientType === 'company' ? 'Acme Inc.' : 'John Doe'}
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
@@ -648,7 +703,7 @@ export default function Clients() {
                   <Label>Email *</Label>
                   <Input
                     type="email"
-                    placeholder={formData.type === 'company' ? 'info@company.com' : 'john@example.com'}
+                    placeholder={formData.clientType === 'company' ? 'info@company.com' : 'john@example.com'}
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
@@ -657,14 +712,14 @@ export default function Clients() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Phone</Label>
+                  <Label>Phone *</Label>
                   <Input
                     placeholder="+965 1234 5678"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
                 </div>
-                {formData.type === 'individual' && (
+                {formData.clientType === 'individual' && (
                   <div className="space-y-2">
                     <Label>Company (Optional)</Label>
                     <Input
@@ -677,7 +732,7 @@ export default function Clients() {
               </div>
 
               <div className="space-y-2">
-                <Label>Address</Label>
+                <Label>Address *</Label>
                 <Textarea
                   placeholder="Block 1, Street 2, Building 3, Kuwait"
                   value={formData.address}
@@ -697,7 +752,13 @@ export default function Clients() {
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSubmit}>
+              <Button 
+                onClick={handleSubmit}
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {(createMutation.isPending || updateMutation.isPending) && (
+                  <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                )}
                 {editingClient ? 'Update Client' : 'Add Client'}
               </Button>
             </DialogFooter>
@@ -760,7 +821,7 @@ export default function Clients() {
 
                   {/* Financial Summary */}
                   {(() => {
-                    const stats = getClientStats(viewingClient.id);
+                    const stats = getClientStats(viewingClient._id);
                     return (
                       <>
                         <div className="grid grid-cols-2 gap-4">

@@ -2,24 +2,23 @@ import axios from '../axios';
 
 interface Client {
   _id: string;
-  type: 'individual' | 'company';
+  clientType: 'individual' | 'company';
   name: string;
   email: string;
-  phone?: string;
-  address?: string;
+  phone: string;
+  address: string;
   company?: string;
   notes?: string;
   createdAt: string;
-  totalBilled: number;
-  totalPaid: number;
+  updatedAt: string;
 }
 
 interface CreateClientDto {
-  type: 'individual' | 'company';
+  clientType: 'individual' | 'company';
   name: string;
   email: string;
-  phone?: string;
-  address?: string;
+  phone: string;
+  address: string;
   company?: string;
   notes?: string;
 }
@@ -47,13 +46,7 @@ export const ClientService = {
     return response.data;
   },
 
-  async delete(id: string): Promise<{ message: string }> {
-    const response = await axios.delete<{ message: string }>(`/clients/${id}`);
-    return response.data;
-  },
-
-  async bulkImport(data: CreateClientDto[]): Promise<{ imported: number; failed: number }> {
-    const response = await axios.post<{ imported: number; failed: number }>('/clients/bulk-import', { clients: data });
-    return response.data;
+  async delete(id: string): Promise<void> {
+    await axios.delete(`/clients/${id}`);
   },
 };

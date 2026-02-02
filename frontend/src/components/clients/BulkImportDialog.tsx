@@ -27,12 +27,12 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
 interface ImportedClient {
-  type: ClientType;
+  clientType: ClientType;
   name: string;
   email: string;
-  phone?: string;
+  phone: string;
   company?: string;
-  address?: string;
+  address: string;
   notes?: string;
 }
 
@@ -81,7 +81,7 @@ export function BulkImportDialog({ open, onOpenChange, onImport }: BulkImportDia
     // Extract and normalize values
     const name = String(row.name || row.Name || row.NAME || '').trim();
     const email = String(row.email || row.Email || row.EMAIL || '').trim();
-    const typeRaw = String(row.type || row.Type || row.TYPE || 'individual').trim().toLowerCase();
+    const typeRaw = String(row.type || row.Type || row.TYPE || row.clientType || row.ClientType || 'individual').trim().toLowerCase();
     const phone = String(row.phone || row.Phone || row.PHONE || row.mobile || row.Mobile || '').trim();
     const company = String(row.company || row.Company || row.COMPANY || row.organization || row.Organization || '').trim();
     const address = String(row.address || row.Address || row.ADDRESS || '').trim();
@@ -91,18 +91,20 @@ export function BulkImportDialog({ open, onOpenChange, onImport }: BulkImportDia
     if (!name) errors.push('Name is required');
     if (!email) errors.push('Email is required');
     else if (!validateEmail(email)) errors.push('Invalid email format');
+    if (!phone) errors.push('Phone is required');
+    if (!address) errors.push('Address is required');
 
     // Normalize type
-    const type: ClientType = typeRaw === 'company' ? 'company' : 'individual';
+    const clientType: ClientType = typeRaw === 'company' ? 'company' : 'individual';
 
     return {
       data: {
-        type,
+        clientType,
         name,
         email,
-        phone: phone || undefined,
+        phone: phone || '',
         company: company || undefined,
-        address: address || undefined,
+        address: address || '',
         notes: notes || undefined,
       },
       isValid: errors.length === 0,
@@ -374,8 +376,8 @@ export function BulkImportDialog({ open, onOpenChange, onImport }: BulkImportDia
                         <td className="p-3 font-medium">{row.data.name || '-'}</td>
                         <td className="p-3">{row.data.email || '-'}</td>
                         <td className="p-3">
-                          <Badge variant={row.data.type === 'company' ? 'default' : 'secondary'} className="text-xs">
-                            {row.data.type}
+                          <Badge variant={row.data.clientType === 'company' ? 'default' : 'secondary'} className="text-xs">
+                            {row.data.clientType}
                           </Badge>
                         </td>
                         <td className="p-3">{row.data.phone || '-'}</td>

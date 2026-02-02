@@ -43,17 +43,21 @@ export interface User {
 export type ClientType = 'individual' | 'company';
 
 export interface Client {
-  id: string;
-  type: ClientType;
+  _id: string;
+  clientType: ClientType;
   name: string;
   email: string;
-  phone?: string;
-  address?: string;
+  phone: string;
+  address: string;
   company?: string;
   notes?: string;
   createdAt: string;
-  totalBilled: number;
-  totalPaid: number;
+  updatedAt: string;
+  // Computed fields (not from API, calculated in frontend)
+  id?: string; // For backwards compatibility
+  type?: ClientType; // For backwards compatibility
+  totalBilled?: number;
+  totalPaid?: number;
 }
 
 export interface Invoice {
