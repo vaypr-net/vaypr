@@ -1,0 +1,711 @@
+import { useState } from 'react';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { useInvoices, useClients, usePayments, useReminders } from '@/hooks/useData';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { Plus, Search, MoreHorizontal, Eye, DollarSign, Trash2, Send, FileText, Printer, Download, Mail, Pencil } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { format, addDays } from 'date-fns';
+import { Invoice, InvoiceItem } from '@/types/app';
+import { InvoicePreview } from '@/components/invoice/InvoicePreview';
+import { InvoiceData } from '@/types/invoice';
+import { useDocumentActions } from '@/hooks/useDocumentActions';
+import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+
+export default function Invoices() {
+  const { invoices, addInvoice, updateInvoice, deleteInvoice, markAsPaid } = useInvoices();
+  const { clients } = useClients();
+  const { addPayment } = usePayments();
+  const { addReminder } = useReminders();
+  const { toast } = useToast();
+  const { downloadPDF, sendEmail, openInGenerator } = useDocumentActions();
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [clientEmail, setClientEmail] = useState('');
+
+  // Form state
+  const [formData, setFormData] = useState({
+    clientId: '',
+    dueDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+    notes: '',
+    paymentMethod: '',
+    discount: 0,
+    items: [{ id: crypto.randomUUID(), description: '', quantity: 1, rate: 0, amount: 0 }] as InvoiceItem[],
+  });
+
+  const [paymentMethod, setPaymentMethod] = useState<string>('bank_transfer');
+
+  const filteredInvoices = invoices.filter(invoice => {
+    const matchesSearch = 
+      invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      invoice.clientName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const formatCurrency = (amount: number, currency = 'KWD') => {
+    if (currency === 'KWD') {
+      return `KD ${amount.toFixed(3)}`;
+    }
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+    }).format(amount);
+  };
+
+  const generateInvoiceNumber = () => {
+    const prefix = 'INV';
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `${prefix}-${timestamp}-${random}`;
+  };
+
+  const calculateItemAmount = (quantity: number, rate: number) => quantity * rate;
+
+  const calculateSubtotal = () => {
+    return formData.items.reduce((sum, item) => sum + item.amount, 0);
+  };
+
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const discountAmount = formData.discount;
+    return subtotal - discountAmount;
+  };
+
+  const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
+    const newItems = [...formData.items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    if (field === 'quantity' || field === 'rate') {
+      newItems[index].amount = calculateItemAmount(
+        field === 'quantity' ? Number(value) : newItems[index].quantity,
+        field === 'rate' ? Number(value) : newItems[index].rate
+      );
+    }
+    setFormData({ ...formData, items: newItems });
+  };
+
+  const addItem = () => {
+    setFormData({
+      ...formData,
+      items: [...formData.items, { id: crypto.randomUUID(), description: '', quantity: 1, rate: 0, amount: 0 }],
+    });
+  };
+
+  const removeItem = (index: number) => {
+    if (formData.items.length > 1) {
+      const newItems = formData.items.filter((_, i) => i !== index);
+      setFormData({ ...formData, items: newItems });
+    }
+  };
+
+  const handleCreate = () => {
+    const client = clients.find(c => c.id === formData.clientId);
+    if (!client) {
+      toast({
+        title: 'Please select a client',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const subtotal = calculateSubtotal();
+    const total = calculateTotal();
+
+    const newInvoice = addInvoice({
+      invoiceNumber: generateInvoiceNumber(),
+      clientId: client.id,
+      clientName: client.name,
+      status: 'draft',
+      issueDate: format(new Date(), 'yyyy-MM-dd'),
+      dueDate: formData.dueDate,
+      items: formData.items,
+      subtotal,
+      tax: 0,
+      discount: formData.discount,
+      total,
+      currency: 'USD',
+      notes: formData.notes,
+      paymentMethod: formData.paymentMethod,
+    });
+
+    // Create reminder for due date
+    addReminder({
+      type: 'payment_due',
+      title: `Invoice ${newInvoice.invoiceNumber} due`,
+      message: `Payment of ${formatCurrency(total)} from ${client.name} is due`,
+      relatedId: newInvoice.id,
+      dueDate: formData.dueDate,
+    });
+
+    toast({
+      title: 'Invoice created',
+      description: `Invoice ${newInvoice.invoiceNumber} has been created.`,
+    });
+
+    setIsCreateOpen(false);
+    resetForm();
+  };
+
+  const handleSendInvoice = (invoice: Invoice) => {
+    updateInvoice(invoice.id, { status: 'sent' });
+    toast({
+      title: 'Invoice sent',
+      description: `Invoice ${invoice.invoiceNumber} has been marked as sent.`,
+    });
+  };
+
+  const handleRecordPayment = () => {
+    if (!selectedInvoice) return;
+
+    addPayment({
+      invoiceId: selectedInvoice.id,
+      invoiceNumber: selectedInvoice.invoiceNumber,
+      clientId: selectedInvoice.clientId,
+      clientName: selectedInvoice.clientName,
+      amount: selectedInvoice.total,
+      currency: selectedInvoice.currency,
+      method: paymentMethod as any,
+      status: 'completed',
+      paidAt: new Date().toISOString(),
+    });
+
+    markAsPaid(selectedInvoice.id);
+
+    toast({
+      title: 'Payment recorded',
+      description: `Payment for invoice ${selectedInvoice.invoiceNumber} has been recorded.`,
+    });
+
+    setIsPaymentOpen(false);
+    setSelectedInvoice(null);
+  };
+
+  const handleDelete = (invoice: Invoice) => {
+    deleteInvoice(invoice.id);
+    toast({
+      title: 'Invoice deleted',
+      description: `Invoice ${invoice.invoiceNumber} has been deleted.`,
+    });
+  };
+
+  const resetForm = () => {
+    setFormData({
+      clientId: '',
+      dueDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+      notes: '',
+      paymentMethod: '',
+      discount: 0,
+      items: [{ id: crypto.randomUUID(), description: '', quantity: 1, rate: 0, amount: 0 }],
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
+      draft: { variant: 'secondary', label: 'Draft' },
+      sent: { variant: 'outline', label: 'Sent' },
+      paid: { variant: 'default', label: 'Paid' },
+      overdue: { variant: 'destructive', label: 'Overdue' },
+      cancelled: { variant: 'secondary', label: 'Cancelled' },
+    };
+    const { variant, label } = variants[status] || { variant: 'secondary', label: status };
+    return <Badge variant={variant}>{label}</Badge>;
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Invoices</h1>
+            <p className="text-muted-foreground">Manage and track your invoices</p>
+          </div>
+          <Button asChild>
+            <Link to="/generator?tab=invoice">
+              <Plus className="h-4 w-4 mr-2" />
+              New Invoice
+            </Link>
+          </Button>
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search invoices..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="sent">Sent</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Invoices Table */}
+        <Card>
+          <CardContent className="p-0">
+            {filteredInvoices.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium">No invoices found</p>
+                <p className="text-sm">Create your first invoice to get started</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredInvoices.map((invoice) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                      <TableCell>{invoice.clientName}</TableCell>
+                      <TableCell>{formatCurrency(invoice.total, invoice.currency)}</TableCell>
+                      <TableCell>{format(new Date(invoice.dueDate), 'MMM d, yyyy')}</TableCell>
+                      <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedInvoice(invoice);
+                              setIsViewOpen(true);
+                            }}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedInvoice(invoice);
+                              setClientEmail('');
+                              setIsEmailDialogOpen(true);
+                            }}>
+                              <Mail className="h-4 w-4 mr-2" />
+                              Send to Email
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedInvoice(invoice);
+                              setIsViewOpen(true);
+                              setTimeout(() => {
+                                downloadPDF('invoice-preview', `Invoice-${invoice.invoiceNumber}`);
+                              }, 300);
+                            }}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              openInGenerator('invoice', invoice);
+                            }}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit in Generator
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {invoice.status === 'draft' && (
+                              <DropdownMenuItem onClick={() => handleSendInvoice(invoice)}>
+                                <Send className="h-4 w-4 mr-2" />
+                                Mark as Sent
+                              </DropdownMenuItem>
+                            )}
+                            {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedInvoice(invoice);
+                                setIsPaymentOpen(true);
+                              }}>
+                                <DollarSign className="h-4 w-4 mr-2" />
+                                Record Payment
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleDelete(invoice)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Create Invoice Dialog */}
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create Invoice</DialogTitle>
+              <DialogDescription>Create a new invoice for your client</DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Client</Label>
+                  <Select value={formData.clientId} onValueChange={(v) => setFormData({ ...formData, clientId: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {clients.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No clients yet. Add a client first.</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Due Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Items */}
+              <div className="space-y-4">
+                <Label>Items</Label>
+                {formData.items.map((item, index) => (
+                  <div key={item.id} className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-5">
+                      <Input
+                        placeholder="Description"
+                        value={item.description}
+                        onChange={(e) => updateItem(index, 'description', e.target.value)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        placeholder="Qty"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        placeholder="Rate"
+                        value={item.rate}
+                        onChange={(e) => updateItem(index, 'rate', Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input value={formatCurrency(item.amount)} disabled />
+                    </div>
+                    <div className="col-span-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => removeItem(index)}
+                        disabled={formData.items.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <Button variant="outline" onClick={addItem}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              </div>
+
+              {/* Payment Method & Discount */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Payment Method</Label>
+                  <Textarea
+                    placeholder="Enter payment details (e.g., Bank: ABC Bank, Account: 1234567890)"
+                    value={formData.paymentMethod}
+                    onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                    rows={2}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Discount ($)</Label>
+                  <Input
+                    type="number"
+                    value={formData.discount}
+                    onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea
+                  placeholder="Additional notes..."
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                />
+              </div>
+
+              {/* Totals */}
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(calculateSubtotal())}</span>
+                </div>
+                {formData.discount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Discount</span>
+                    <span>-{formatCurrency(formData.discount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-lg border-t pt-2">
+                  <span>Total</span>
+                  <span>{formatCurrency(calculateTotal())}</span>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+              <Button onClick={handleCreate}>Create Invoice</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Invoice Dialog */}
+        <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto print:max-w-full print:h-full print:m-0 print:p-0">
+            <DialogHeader className="print:hidden">
+              <DialogTitle className="flex items-center justify-between">
+                <span>Invoice {selectedInvoice?.invoiceNumber}</span>
+                {selectedInvoice && getStatusBadge(selectedInvoice.status)}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedInvoice && (
+              <div id="invoice-preview">
+                <InvoicePreview
+                  data={{
+                    logo: selectedInvoice.logo || null,
+                    logoScale: selectedInvoice.logoScale || 1.0,
+                    currency: selectedInvoice.currency,
+                    currencySymbol: selectedInvoice.currencySymbol || selectedInvoice.currency,
+                    billTo: {
+                      name: selectedInvoice.clientName,
+                      phone: selectedInvoice.clientPhone || '',
+                      area: selectedInvoice.clientArea || '',
+                      block: selectedInvoice.clientBlock || '',
+                      street: selectedInvoice.clientStreet || '',
+                      house: selectedInvoice.clientHouse || '',
+                      other: selectedInvoice.clientOther || '',
+                    },
+                    invoiceNumber: selectedInvoice.invoiceNumber,
+                    invoiceDate: selectedInvoice.issueDate,
+                    paymentDate: selectedInvoice.dueDate,
+                    items: selectedInvoice.items.map((item) => ({
+                      id: item.id,
+                      description: item.description,
+                      quantity: item.quantity,
+                      unitPrice: item.rate,
+                    })),
+                    discount: selectedInvoice.discount,
+                    deliveryFee: selectedInvoice.deliveryFee || 0,
+                    companyFooter: {
+                      companyName: selectedInvoice.companyName || '',
+                      officePhone: selectedInvoice.companyPhone || '',
+                      address: selectedInvoice.companyAddress || '',
+                      websiteEmail: selectedInvoice.companyEmail || '',
+                    },
+                    paymentDetails: selectedInvoice.paymentMethod || '',
+                    showPaymentMethod: selectedInvoice.showPaymentMethod || false,
+                    paymentMethodType: selectedInvoice.paymentMethod === 'Cash' ? 'cash' :
+                                       selectedInvoice.paymentMethod === 'Bank Transfer' ? 'bank_transfer' :
+                                       selectedInvoice.paymentMethod === 'Cheque' ? 'cheque' :
+                                       selectedInvoice.paymentMethod === 'Online Payment' ? 'online_payment' : 'cash',
+                    showBankAccount: selectedInvoice.showBankAccount || false,
+                    bankAccount: {
+                      bankName: selectedInvoice.bankName || '',
+                      accountName: selectedInvoice.bankAccountName || '',
+                      iban: selectedInvoice.bankIban || '',
+                    },
+                    showPaymentTerms: selectedInvoice.showPaymentTerms || false,
+                    paymentTerms: selectedInvoice.paymentTerms || '',
+                    hideQuantity: selectedInvoice.hideQuantity || false,
+                    hideUnitPrice: selectedInvoice.hideUnitPrice || false,
+                    hideTotalCost: selectedInvoice.hideTotalCost || false,
+                    hideSubTotal: selectedInvoice.hideSubTotal || false,
+                    useManualGrandTotal: selectedInvoice.useManualGrandTotal || false,
+                    manualGrandTotal: selectedInvoice.manualGrandTotal || 0,
+                    tableHeaderColor: selectedInvoice.tableHeaderColor || '#000000',
+                  } as InvoiceData}
+                />
+              </div>
+            )}
+            <DialogFooter className="print:hidden">
+              <Button variant="outline" onClick={() => setIsViewOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={() => window.print()} className="gap-2">
+                <Printer className="h-4 w-4" />
+                Print
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Record Payment Dialog */}
+        <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Record Payment</DialogTitle>
+              <DialogDescription>
+                Record payment for invoice {selectedInvoice?.invoiceNumber}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">Amount</p>
+                <p className="text-2xl font-bold">
+                  {selectedInvoice && formatCurrency(selectedInvoice.total)}
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="credit_card">Credit Card</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="check">Check</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPaymentOpen(false)}>Cancel</Button>
+              <Button onClick={handleRecordPayment}>Record Payment</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Email Invoice Dialog */}
+        <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Send Invoice via Email</DialogTitle>
+              <DialogDescription>
+                Enter the client's email address to send invoice {selectedInvoice?.invoiceNumber}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="clientEmail">Client Email</Label>
+                <Input
+                  id="clientEmail"
+                  type="email"
+                  placeholder="client@example.com"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEmailDialogOpen(false)}>Cancel</Button>
+              <Button onClick={() => {
+                if (selectedInvoice) {
+                  sendEmail({
+                    to: clientEmail,
+                    subject: `Invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.companyName || 'Our Company'}`,
+                    body: `Dear ${selectedInvoice.clientName},\n\nPlease find attached Invoice ${selectedInvoice.invoiceNumber}.\n\nAmount Due: ${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}\nDue Date: ${format(new Date(selectedInvoice.dueDate), 'MMM d, yyyy')}\n\nThank you for your business.\n\nBest regards,\n${selectedInvoice.companyName || 'Our Company'}`,
+                  });
+                  setIsEmailDialogOpen(false);
+                }
+              }} className="gap-2">
+                <Mail className="h-4 w-4" />
+                Open Email Client
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </DashboardLayout>
+  );
+}

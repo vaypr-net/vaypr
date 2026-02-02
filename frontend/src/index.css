@@ -1,0 +1,215 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* VAYPR Super Admin Design System */
+
+@layer base {
+  :root {
+    --background: 220 14% 96%;
+    --foreground: 224 71% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 224 71% 4%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 262 83% 58%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 9% 46%;
+    --sidebar-primary: 262 83% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 262 83% 97%;
+    --sidebar-accent-foreground: 262 83% 58%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 262 83% 58%;
+
+    /* Custom VAYPR tokens */
+    --vaypr-purple: 262 83% 58%;
+    --vaypr-purple-light: 262 83% 97%;
+    --vaypr-purple-dark: 262 83% 48%;
+    --vaypr-gray-50: 220 14% 98%;
+    --vaypr-gray-100: 220 14% 96%;
+    --vaypr-gray-200: 220 13% 91%;
+    --vaypr-gray-500: 220 9% 46%;
+    --vaypr-gray-900: 224 71% 4%;
+
+    /* Chart colors */
+    --chart-1: 262 83% 58%;
+    --chart-2: 199 89% 48%;
+    --chart-3: 142 76% 36%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 0 84% 60%;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 220 14% 96%;
+
+    --card: 224 71% 8%;
+    --card-foreground: 220 14% 96%;
+
+    --popover: 224 71% 8%;
+    --popover-foreground: 220 14% 96%;
+
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 224 71% 12%;
+    --secondary-foreground: 220 14% 96%;
+
+    --muted: 224 71% 12%;
+    --muted-foreground: 220 9% 60%;
+
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 224 71% 15%;
+    --input: 224 71% 15%;
+    --ring: 262 83% 58%;
+
+    --sidebar-background: 224 71% 6%;
+    --sidebar-foreground: 220 9% 60%;
+    --sidebar-primary: 262 83% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 262 83% 20%;
+    --sidebar-accent-foreground: 262 83% 70%;
+    --sidebar-border: 224 71% 15%;
+    --sidebar-ring: 262 83% 58%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  .card-admin {
+    @apply bg-card rounded-xl shadow-sm border border-border p-6;
+  }
+
+  .kpi-card {
+    @apply bg-card rounded-xl shadow-sm border border-border p-5 transition-all duration-200 hover:shadow-md;
+  }
+
+  .table-admin {
+    @apply w-full text-sm;
+  }
+
+  .table-admin th {
+    @apply text-left text-muted-foreground font-medium py-3 px-4 border-b border-border;
+  }
+
+  .table-admin td {
+    @apply py-3 px-4 border-b border-border;
+  }
+
+  .table-admin tr:hover {
+    @apply bg-muted/50;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .status-active {
+    @apply bg-green-100 text-green-700;
+  }
+
+  .status-inactive {
+    @apply bg-gray-100 text-gray-600;
+  }
+
+  .status-pending {
+    @apply bg-yellow-100 text-yellow-700;
+  }
+
+  .status-canceled {
+    @apply bg-red-100 text-red-700;
+  }
+
+  .status-trial {
+    @apply bg-blue-100 text-blue-700;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground;
+  }
+
+  .sidebar-link-active {
+    @apply bg-sidebar-accent text-sidebar-accent-foreground font-medium;
+  }
+
+  .page-header {
+    @apply mb-6;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold text-foreground;
+  }
+
+  .page-subtitle {
+    @apply text-muted-foreground mt-1;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
