@@ -8,6 +8,8 @@ import { LoginModule } from './login/login.module';
 import { UserprofileModule } from './userprofile/userprofile.module';
 import { SuperadminSettingsModule } from './superadmin-settings/superadmin-settings.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { ClientsModule } from './clients/clients.module';
+import { InvoiceModule } from './invoice/invoice.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     LoginModule,
     UserprofileModule,
     SuperadminSettingsModule,
+    ClientsModule,
+    InvoiceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
