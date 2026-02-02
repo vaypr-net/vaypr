@@ -5,6 +5,7 @@ import { InvoiceService } from './invoice.service';
 import { InvoiceController } from './invoice.controller';
 import { Invoice, InvoiceSchema } from './entities/invoice.entity';
 import { Client, ClientSchema } from '../clients/entities/client.entity';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { Client, ClientSchema } from '../clients/entities/client.entity';
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'your-secret-key',
     }),
+    CloudinaryModule,
   ],
   controllers: [InvoiceController],
   providers: [InvoiceService],

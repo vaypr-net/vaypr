@@ -8,25 +8,24 @@ import {
   Delete,
   UseGuards,
   Request,
-  Query,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { QuotesService } from './quotes.service';
-import { CreateQuoteDto } from './dto/create-quote.dto';
-import { UpdateQuoteDto } from './dto/update-quote.dto';
+import { RecurringService } from './recurring.service';
+import { CreateRecurringDto } from './dto/create-recurring.dto';
+import { UpdateRecurringDto } from './dto/update-recurring.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
-@ApiTags('quotes')
+@ApiTags('recurring')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('quotes')
-export class QuotesController {
+@Controller('recurring')
+export class RecurringController {
   constructor(
-    private readonly quotesService: QuotesService,
+    private readonly recurringService: RecurringService,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
@@ -34,33 +33,40 @@ export class QuotesController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('logo'))
   async create(
-    @Body() createQuoteDto: CreateQuoteDto,
+    @Body() createRecurringDto: CreateRecurringDto,
     @UploadedFile() logo: Express.Multer.File,
     @Request() req,
   ) {
     if (logo) {
       const result = await this.cloudinaryService.uploadImage(logo);
-      createQuoteDto.logo = result.secure_url;
+      createRecurringDto.logo = result.secure_url;
     }
-    return this.quotesService.create(createQuoteDto, req.user.sub);
+    return this.recurringService.create(createRecurringDto, req.user.sub);
   }
 
   @Get()
-  findAll(@Request() req, @Query('status') status?: string) {
-    if (status) {
-      return this.quotesService.findByStatus(status, req.user.sub);
-    }
-    return this.quotesService.findAll(req.user.sub);
+  findAll(@Request() req) {
+    return this.recurringService.findAll(req.user.sub);
+  }
+
+  @Get('active')
+  findActive(@Request() req) {
+    return this.recurringService.findActive(req.user.sub);
   }
 
   @Get('client/:clientId')
   findByClient(@Param('clientId') clientId: string, @Request() req) {
-    return this.quotesService.findByClient(clientId, req.user.sub);
+    return this.recurringService.findByClient(clientId, req.user.sub);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
-    return this.quotesService.findOne(id, req.user.sub);
+    return this.recurringService.findOne(id, req.user.sub);
+  }
+
+  @Post(':id/generate-invoice')
+  generateInvoice(@Param('id') id: string, @Request() req) {
+    return this.recurringService.generateInvoice(id, req.user.sub);
   }
 
   @Patch(':id')
@@ -68,19 +74,24 @@ export class QuotesController {
   @UseInterceptors(FileInterceptor('logo'))
   async update(
     @Param('id') id: string,
-    @Body() updateQuoteDto: UpdateQuoteDto,
+    @Body() updateRecurringDto: UpdateRecurringDto,
     @UploadedFile() logo: Express.Multer.File,
     @Request() req,
   ) {
     if (logo) {
       const result = await this.cloudinaryService.uploadImage(logo);
-      updateQuoteDto.logo = result.secure_url;
+      updateRecurringDto.logo = result.secure_url;
     }
-    return this.quotesService.update(id, updateQuoteDto, req.user.sub);
+    return this.recurringService.update(id, updateRecurringDto, req.user.sub);
+  }
+
+  @Patch(':id/toggle')
+  toggleActive(@Param('id') id: string, @Request() req) {
+    return this.recurringService.toggleActive(id, req.user.sub);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
-    return this.quotesService.remove(id, req.user.sub);
+    return this.recurringService.remove(id, req.user.sub);
   }
 }

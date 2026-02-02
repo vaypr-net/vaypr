@@ -11,6 +11,8 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { ClientsModule } from './clients/clients.module';
 import { InvoiceModule } from './invoice/invoice.module';
 import { QuotesModule } from './quotes/quotes.module';
+import { RecieptModule } from './reciept/reciept.module';
+import { RecurringModule } from './recurring/recurring.module';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { QuotesModule } from './quotes/quotes.module';
     ClientsModule,
     InvoiceModule,
     QuotesModule,
+    RecieptModule,
+    RecurringModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -14,19 +14,19 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { QuotesService } from './quotes.service';
-import { CreateQuoteDto } from './dto/create-quote.dto';
-import { UpdateQuoteDto } from './dto/update-quote.dto';
+import { RecieptService } from './reciept.service';
+import { CreateReceiptDto } from './dto/create-reciept.dto';
+import { UpdateReceiptDto } from './dto/update-reciept.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
-@ApiTags('quotes')
+@ApiTags('receipts')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('quotes')
-export class QuotesController {
+@Controller('receipts')
+export class RecieptController {
   constructor(
-    private readonly quotesService: QuotesService,
+    private readonly recieptService: RecieptService,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
@@ -34,33 +34,38 @@ export class QuotesController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('logo'))
   async create(
-    @Body() createQuoteDto: CreateQuoteDto,
+    @Body() createReceiptDto: CreateReceiptDto,
     @UploadedFile() logo: Express.Multer.File,
     @Request() req,
   ) {
     if (logo) {
       const result = await this.cloudinaryService.uploadImage(logo);
-      createQuoteDto.logo = result.secure_url;
+      createReceiptDto.logo = result.secure_url;
     }
-    return this.quotesService.create(createQuoteDto, req.user.sub);
+    return this.recieptService.create(createReceiptDto, req.user.sub);
   }
 
   @Get()
   findAll(@Request() req, @Query('status') status?: string) {
     if (status) {
-      return this.quotesService.findByStatus(status, req.user.sub);
+      return this.recieptService.findByStatus(status, req.user.sub);
     }
-    return this.quotesService.findAll(req.user.sub);
+    return this.recieptService.findAll(req.user.sub);
   }
 
   @Get('client/:clientId')
   findByClient(@Param('clientId') clientId: string, @Request() req) {
-    return this.quotesService.findByClient(clientId, req.user.sub);
+    return this.recieptService.findByClient(clientId, req.user.sub);
+  }
+
+  @Get('invoice/:invoiceId')
+  findByInvoice(@Param('invoiceId') invoiceId: string, @Request() req) {
+    return this.recieptService.findByInvoice(invoiceId, req.user.sub);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
-    return this.quotesService.findOne(id, req.user.sub);
+    return this.recieptService.findOne(id, req.user.sub);
   }
 
   @Patch(':id')
@@ -68,19 +73,19 @@ export class QuotesController {
   @UseInterceptors(FileInterceptor('logo'))
   async update(
     @Param('id') id: string,
-    @Body() updateQuoteDto: UpdateQuoteDto,
+    @Body() updateReceiptDto: UpdateReceiptDto,
     @UploadedFile() logo: Express.Multer.File,
     @Request() req,
   ) {
     if (logo) {
       const result = await this.cloudinaryService.uploadImage(logo);
-      updateQuoteDto.logo = result.secure_url;
+      updateReceiptDto.logo = result.secure_url;
     }
-    return this.quotesService.update(id, updateQuoteDto, req.user.sub);
+    return this.recieptService.update(id, updateReceiptDto, req.user.sub);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
-    return this.quotesService.remove(id, req.user.sub);
+    return this.recieptService.remove(id, req.user.sub);
   }
 }
