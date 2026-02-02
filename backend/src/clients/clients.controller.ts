@@ -14,26 +14,26 @@ export class ClientsController {
 
   @Post()
   async create(@Request() req, @Body() createClientDto: CreateClientDto) {
-    return this.clientsService.create(req.user.sub, createClientDto);
+    return this.clientsService.create(req.user.userId, createClientDto);
   }
 
   @Get()
   async findAll(@Request() req) {
-    return this.clientsService.findAll(req.user.sub);
+    return this.clientsService.findAll(req.user.userId);
   }
 
   @Get(':id')
   async findOne(@Request() req, @Param('id') id: string) {
-    return this.clientsService.findOne(req.user.sub, id);
+    return this.clientsService.findOne(req.user.userId, id);
   }
 
   @Patch(':id')
   async update(@Request() req, @Param('id') id: string, @Body() updateClientDto: UpdateClientDto) {
-    return this.clientsService.update(req.user.sub, id, updateClientDto);
+    return this.clientsService.update(req.user.userId, id, updateClientDto);
   }
 
   @Delete(':id')
   async remove(@Request() req, @Param('id') id: string) {
-    return this.clientsService.remove(req.user.sub, id);
+    return this.clientsService.remove(req.user.userId, id);
   }
 }
