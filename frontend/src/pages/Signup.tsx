@@ -1,91 +1,118 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useSignup } from '@/hooks/api/useAuth';
 
 export default function Signup() {
-  const [name, setName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { signup } = useAuth();
-  const navigate = useNavigate();
+  const [errors, setErrors] = useState<{
+    fullName?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
   const { toast } = useToast();
+  const signupMutation = useSignup();
+
+  // Validation helpers
+  const validateFullName = (name: string): string | undefined => {
+    if (!name.trim()) return 'Full name is required';
+    if (name.trim().length < 2) return 'Full name must be at least 2 characters';
+    if (name.trim().length > 50) return 'Full name must not exceed 50 characters';
+    if (!/^[a-zA-Z\s'-]+$/.test(name)) return 'Full name can only contain letters, spaces, hyphens, and apostrophes';
+    return undefined;
+  };
+
+  const validateEmail = (email: string): string | undefined => {
+    if (!email.trim()) return 'Email is required';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return 'Please enter a valid email address';
+    return undefined;
+  };
+
+  const validatePassword = (pwd: string): string | undefined => {
+    if (!pwd) return 'Password is required';
+    if (pwd.length < 6) return 'Password must be at least 6 characters';
+    if (pwd.length > 100) return 'Password must not exceed 100 characters';
+    return undefined;
+  };
+
+  const validateConfirmPassword = (pwd: string, confirm: string): string | undefined => {
+    if (!confirm) return 'Please confirm your password';
+    if (pwd !== confirm) return 'Passwords do not match';
+    return undefined;
+  };
+
+  // Real-time validation on blur
+  const handleFullNameBlur = () => {
+    setErrors(prev => ({ ...prev, fullName: validateFullName(fullName) }));
+  };
+
+  const handleEmailBlur = () => {
+    setErrors(prev => ({ ...prev, email: validateEmail(email) }));
+  };
+
+  const handlePasswordBlur = () => {
+    const error = validatePassword(password);
+    setErrors(prev => ({ ...prev, password: error }));
+    // Re-validate confirm password if it has a value
+    if (confirmPassword) {
+      setErrors(prev => ({ ...prev, confirmPassword: validateConfirmPassword(password, confirmPassword) }));
+    }
+  };
+
+  const handleConfirmPasswordBlur = () => {
+    setErrors(prev => ({ ...prev, confirmPassword: validateConfirmPassword(password, confirmPassword) }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (password !== confirmPassword) {
+    // Validate all fields
+    const fullNameError = validateFullName(fullName);
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+    const confirmPasswordError = validateConfirmPassword(password, confirmPassword);
+
+    setErrors({
+      fullName: fullNameError,
+      email: emailError,
+      password: passwordError,
+      confirmPassword: confirmPasswordError,
+    });
+
+    // If any validation fails, stop submission
+    if (fullNameError || emailError || passwordError || confirmPasswordError) {
       toast({
-        title: 'Passwords do not match',
-        description: 'Please make sure your passwords match.',
+        title: 'Validation Error',
+        description: 'Please fix the errors in the form before submitting.',
         variant: 'destructive',
       });
       return;
     }
 
-    if (password.length < 6) {
-      toast({
-        title: 'Password too short',
-        description: 'Password must be at least 6 characters.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    const success = await signup(email, password, name);
-    
-    if (success) {
-      toast({
-        title: 'Account created!',
-        description: 'Welcome to VAYPR. Your account has been created.',
-      });
-      navigate('/dashboard');
-    } else {
-      toast({
-        title: 'Signup failed',
-        description: 'An account with this email already exists.',
-        variant: 'destructive',
-      });
-    }
-    
-    setIsLoading(false);
+    // Submit to backend
+    signupMutation.mutate({
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+    });
   };
 
-  const handleGoogleSignup = async () => {
-    setIsLoading(true);
-    
-    // Simulate Google OAuth flow with demo user
-    const googleEmail = `demo.user.${Date.now()}@gmail.com`;
-    const googleName = 'Google User';
-    const demoPassword = 'google-oauth-demo';
-    
-    const success = await signup(googleEmail, demoPassword, googleName);
-    
-    if (success) {
-      toast({
-        title: 'Welcome to VAYPR!',
-        description: 'Signed up with Google successfully.',
-      });
-      navigate('/dashboard');
-    } else {
-      toast({
-        title: 'Google sign-up failed',
-        description: 'Please try again.',
-        variant: 'destructive',
-      });
-    }
-    
-    setIsLoading(false);
+  const handleGoogleSignup = () => {
+    toast({
+      title: 'Coming soon',
+      description: 'Google sign-up will be available soon.',
+    });
   };
 
   return (
@@ -154,7 +181,7 @@ export default function Signup() {
                 variant="outline" 
                 className="w-full h-11 gap-3 font-medium"
                 onClick={handleGoogleSignup}
-                disabled={isLoading}
+                disabled={signupMutation.isPending}
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -176,55 +203,140 @@ export default function Signup() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="h-11"
-                  />
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <div className="relative">
+                    <Input
+                      id="fullName"
+                      type="text"
+                      placeholder="John Doe"
+                      value={fullName}
+                      onChange={(e) => {
+                        setFullName(e.target.value);
+                        if (errors.fullName) setErrors(prev => ({ ...prev, fullName: undefined }));
+                      }}
+                      onBlur={handleFullNameBlur}
+                      required
+                      className={`h-11 pr-10 ${errors.fullName ? 'border-destructive' : fullName && !errors.fullName ? 'border-green-500' : ''}`}
+                    />
+                    {fullName && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {errors.fullName ? (
+                          <XCircle className="h-5 w-5 text-destructive" />
+                        ) : (
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {errors.fullName && (
+                    <p className="text-xs text-destructive">{errors.fullName}</p>
+                  )}
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="h-11"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (errors.email) setErrors(prev => ({ ...prev, email: undefined }));
+                      }}
+                      onBlur={handleEmailBlur}
+                      required
+                      className={`h-11 pr-10 ${errors.email ? 'border-destructive' : email && !errors.email ? 'border-green-500' : ''}`}
+                    />
+                    {email && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {errors.email ? (
+                          <XCircle className="h-5 w-5 text-destructive" />
+                        ) : (
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {errors.email && (
+                    <p className="text-xs text-destructive">{errors.email}</p>
+                  )}
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="h-11"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (errors.password) setErrors(prev => ({ ...prev, password: undefined }));
+                        if (confirmPassword && errors.confirmPassword) {
+                          setErrors(prev => ({ ...prev, confirmPassword: undefined }));
+                        }
+                      }}
+                      onBlur={handlePasswordBlur}
+                      required
+                      className={`h-11 pr-10 ${errors.password ? 'border-destructive' : password && !errors.password ? 'border-green-500' : ''}`}
+                    />
+                    {password && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {errors.password ? (
+                          <XCircle className="h-5 w-5 text-destructive" />
+                        ) : (
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {errors.password && (
+                    <p className="text-xs text-destructive">{errors.password}</p>
+                  )}
+                  {password && !errors.password && (
+                    <p className="text-xs text-green-600">Strong password ✓</p>
+                  )}
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    className="h-11"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        if (errors.confirmPassword) setErrors(prev => ({ ...prev, confirmPassword: undefined }));
+                      }}
+                      onBlur={handleConfirmPasswordBlur}
+                      required
+                      className={`h-11 pr-10 ${errors.confirmPassword ? 'border-destructive' : confirmPassword && !errors.confirmPassword && password === confirmPassword ? 'border-green-500' : ''}`}
+                    />
+                    {confirmPassword && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {errors.confirmPassword ? (
+                          <XCircle className="h-5 w-5 text-destructive" />
+                        ) : password === confirmPassword ? (
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                  {errors.confirmPassword && (
+                    <p className="text-xs text-destructive">{errors.confirmPassword}</p>
+                  )}
+                  {confirmPassword && !errors.confirmPassword && password === confirmPassword && (
+                    <p className="text-xs text-green-600">Passwords match ✓</p>
+                  )}
                 </div>
-                <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 shadow-glow" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+
+                <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 shadow-glow" disabled={signupMutation.isPending}>
+                  {signupMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create Account
                 </Button>
               </form>

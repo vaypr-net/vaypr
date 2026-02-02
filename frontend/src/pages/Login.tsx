@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,67 +7,28 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useLogin } from '@/hooks/api/useAuth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login, signup } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
+  const loginMutation = useLogin();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
 
-    const success = await login(email, password);
-    
-    if (success) {
-      toast({
-        title: 'Welcome back!',
-        description: 'You have successfully logged in.',
-      });
-      navigate('/dashboard');
-    } else {
-      toast({
-        title: 'Login failed',
-        description: 'Invalid email or password. Please try again.',
-        variant: 'destructive',
-      });
-    }
-    
-    setIsLoading(false);
+    loginMutation.mutate({
+      email,
+      password,
+    });
   };
 
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    
-    // Simulate Google OAuth flow with demo user
-    const googleEmail = `demo.user.${Date.now()}@gmail.com`;
-    const googleName = 'Google User';
-    const demoPassword = 'google-oauth-demo';
-    
-    // Try to login first, if fails, signup
-    let success = await login(googleEmail, demoPassword);
-    if (!success) {
-      success = await signup(googleEmail, demoPassword, googleName);
-    }
-    
-    if (success) {
-      toast({
-        title: 'Welcome!',
-        description: 'Signed in with Google successfully.',
-      });
-      navigate('/dashboard');
-    } else {
-      toast({
-        title: 'Google sign-in failed',
-        description: 'Please try again.',
-        variant: 'destructive',
-      });
-    }
-    
-    setIsLoading(false);
+  const handleGoogleLogin = () => {
+    toast({
+      title: 'Coming soon',
+      description: 'Google sign-in will be available soon.',
+    });
   };
 
   return (
@@ -137,7 +97,7 @@ export default function Login() {
                 variant="outline" 
                 className="w-full h-11 gap-3 font-medium"
                 onClick={handleGoogleLogin}
-                disabled={isLoading}
+                disabled={loginMutation.isPending}
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -182,8 +142,8 @@ export default function Login() {
                     className="h-11"
                   />
                 </div>
-                <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 shadow-glow" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 shadow-glow" disabled={loginMutation.isPending}>
+                  {loginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign In
                 </Button>
               </form>

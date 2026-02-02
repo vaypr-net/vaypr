@@ -4,78 +4,56 @@ import { User } from '@/types/app';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  signup: (email: string, password: string, name: string) => Promise<boolean>;
   logout: () => void;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const USERS_KEY = 'fintrack_users';
-const CURRENT_USER_KEY = 'fintrack_current_user';
+function cleanupOldLocalStorage() {
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('fintrack_')) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(key => localStorage.removeItem(key));
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem(CURRENT_USER_KEY);
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    const storedUser = localStorage.getItem('user');
+    const token = localStorage.getItem('accessToken');
+    if (storedUser && token) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch {
+        localStorage.removeItem('user');
+        localStorage.removeItem('accessToken');
+      }
     }
     setIsLoading(false);
   }, []);
 
-  const getUsers = (): Record<string, { user: User; password: string }> => {
-    const users = localStorage.getItem(USERS_KEY);
-    return users ? JSON.parse(users) : {};
-  };
-
-  const saveUsers = (users: Record<string, { user: User; password: string }>) => {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  };
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    const users = getUsers();
-    const userEntry = users[email.toLowerCase()];
-    
-    if (userEntry && userEntry.password === password) {
-      setUser(userEntry.user);
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userEntry.user));
-      return true;
-    }
-    return false;
-  };
-
-  const signup = async (email: string, password: string, name: string): Promise<boolean> => {
-    const users = getUsers();
-    const emailLower = email.toLowerCase();
-    
-    if (users[emailLower]) {
-      return false; // User already exists
-    }
-
-    const newUser: User = {
-      id: crypto.randomUUID(),
-      email: emailLower,
-      name,
-      createdAt: new Date().toISOString(),
-    };
-
-    users[emailLower] = { user: newUser, password };
-    saveUsers(users);
-    setUser(newUser);
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(newUser));
-    return true;
-  };
-
   const logout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
+    cleanupOldLocalStorage();
     setUser(null);
-    localStorage.removeItem(CURRENT_USER_KEY);
+    window.location.href = '/login';
+  };
+
+  const updateUser = (userData: User) => {
+    setUser(userData);
+    localStorage.setItem('user', JSON.stringify(userData));
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

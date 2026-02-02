@@ -29,7 +29,8 @@ export interface Subscription {
 export interface User {
   id: string;
   email: string;
-  name: string;
+  fullName: string;
+  name?: string; // Deprecated, kept for backwards compatibility
   company?: string;
   phone?: string;
   address?: string;

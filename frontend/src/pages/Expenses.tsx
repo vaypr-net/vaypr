@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { useExpenses } from '@/hooks/useData';
+import { 
+  useExpenses, 
+  useExpenseStats, 
+  useCreateExpense, 
+  useUpdateExpense, 
+  useDeleteExpense 
+} from '@/hooks/api/useExpenses';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +36,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, MoreHorizontal, Edit, Trash2, Receipt, TrendingDown, PlusCircle } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Edit, Trash2, Receipt, TrendingDown, PlusCircle, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,22 +44,29 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
-import { Expense, EXPENSE_CATEGORIES, ExpenseCategory } from '@/types/app';
+import { EXPENSE_CATEGORIES, ExpenseCategory } from '@/types/app';
 import { Badge } from '@/components/ui/badge';
 
 const CUSTOM_CATEGORIES_KEY = 'expense_custom_categories';
 
 export default function Expenses() {
-  const { expenses, addExpense, updateExpense, deleteExpense } = useExpenses();
   const { toast } = useToast();
   
+  // API hooks
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
+  const { data: expenses = [], isLoading, refetch } = useExpenses({ category: categoryFilter });
+  const { data: stats } = useExpenseStats();
+  const createMutation = useCreateExpense();
+  const updateMutation = useUpdateExpense();
+  const deleteMutation = useDeleteExpense();
+  
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<any | null>(null);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [customCategories, setCustomCategories] = useState<{ value: string; label: string }[]>([]);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   // Load custom categories from localStorage
   useEffect(() => {
@@ -74,6 +87,7 @@ export default function Expenses() {
     category: 'other' as string,
     description: '',
     amount: 0,
+    currency: 'KWD',
     date: format(new Date(), 'yyyy-MM-dd'),
     vendor: '',
     notes: '',
@@ -83,8 +97,7 @@ export default function Expenses() {
     const matchesSearch = 
       expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       expense.vendor?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || expense.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    return matchesSearch;
   });
 
   const formatCurrency = (amount: number) => {
@@ -133,7 +146,6 @@ export default function Expenses() {
     });
   };
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const thisMonthExpenses = expenses
     .filter(e => {
       const expenseDate = new Date(e.date);
@@ -142,32 +154,22 @@ export default function Expenses() {
     })
     .reduce((sum, e) => sum + e.amount, 0);
 
-  const handleOpenDialog = (expense?: Expense) => {
-    if (expense) {
-      setEditingExpense(expense);
-      setFormData({
-        category: expense.category as ExpenseCategory,
-        description: expense.description,
-        amount: expense.amount,
-        date: expense.date,
-        vendor: expense.vendor || '',
-        notes: expense.notes || '',
-      });
-    } else {
-      setEditingExpense(null);
-      setFormData({
-        category: 'other',
-        description: '',
-        amount: 0,
-        date: format(new Date(), 'yyyy-MM-dd'),
-        vendor: '',
-        notes: '',
-      });
-    }
+  const handleOpenDialog = () => {
+    setEditingExpense(null);
+    setReceiptFile(null);
+    setFormData({
+      category: 'other',
+      description: '',
+      amount: 0,
+      currency: 'KWD',
+      date: format(new Date(), 'yyyy-MM-dd'),
+      vendor: '',
+      notes: '',
+    });
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.description || formData.amount <= 0) {
       toast({
         title: 'Missing required fields',
@@ -177,36 +179,65 @@ export default function Expenses() {
       return;
     }
 
-    if (editingExpense) {
-      updateExpense(editingExpense.id, {
-        ...formData,
+    try {
+      if (editingExpense) {
+        await updateMutation.mutateAsync({
+          id: editingExpense._id,
+          data: formData,
+          receipt: receiptFile || undefined,
+        });
+      } else {
+        await createMutation.mutateAsync({
+          data: formData,
+          receipt: receiptFile || undefined,
+        });
+      }
+
+      setIsDialogOpen(false);
+      setEditingExpense(null);
+      setReceiptFile(null);
+      setFormData({
+        category: 'other',
+        description: '',
+        amount: 0,
         currency: 'KWD',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        vendor: '',
+        notes: '',
       });
-      toast({
-        title: 'Expense updated',
-        description: 'The expense has been updated.',
-      });
-    } else {
-      addExpense({
-        ...formData,
-        currency: 'KWD',
-      });
-      toast({
-        title: 'Expense added',
-        description: 'The expense has been recorded.',
-      });
+    } catch (error) {
+      // Error handling is done in the mutation hooks
     }
-
-    setIsDialogOpen(false);
   };
 
-  const handleDelete = (expense: Expense) => {
-    deleteExpense(expense.id);
-    toast({
-      title: 'Expense deleted',
-      description: 'The expense has been removed.',
+  const handleDelete = async (expense: any) => {
+    if (deleteMutation.isPending) return; // Prevent multiple deletes
+    
+    if (confirm('Are you sure you want to delete this expense?')) {
+      try {
+        await deleteMutation.mutateAsync(expense._id);
+      } catch (error) {
+        // Error is handled by the mutation hook
+      }
+    }
+  };
+
+  const handleEdit = (expense: any) => {
+    setEditingExpense(expense);
+    setReceiptFile(null); // Reset file input when editing
+    setFormData({
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount,
+      currency: expense.currency || 'KWD',
+      date: format(new Date(expense.date), 'yyyy-MM-dd'),
+      vendor: expense.vendor || '',
+      notes: expense.notes || '',
     });
+    setIsDialogOpen(true);
   };
+
+  const totalExpenses = stats?.totalAmount || 0;
 
   return (
     <DashboardLayout>
@@ -262,7 +293,10 @@ export default function Expenses() {
                   className="pl-9"
                 />
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <Select 
+                value={categoryFilter || 'all'} 
+                onValueChange={(val) => setCategoryFilter(val === 'all' ? undefined : val)}
+              >
                 <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
@@ -280,7 +314,7 @@ export default function Expenses() {
         {/* Expenses Table */}
         <Card>
           <CardContent className="p-0">
-            {filteredExpenses.length === 0 ? (
+            {filteredExpenses.length === 0 && !isLoading ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium">No expenses found</p>
@@ -299,41 +333,67 @@ export default function Expenses() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredExpenses.map((expense) => (
-                    <TableRow key={expense.id}>
-                      <TableCell className="font-medium">{expense.description}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{getCategoryLabel(expense.category)}</Badge>
-                      </TableCell>
-                      <TableCell>{expense.vendor || '-'}</TableCell>
-                      <TableCell className="font-medium text-destructive">
-                        -{formatCurrency(expense.amount)}
-                      </TableCell>
-                      <TableCell>{format(new Date(expense.date), 'MMM d, yyyy')}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenDialog(expense)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(expense)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                        <p className="text-muted-foreground">Loading expenses...</p>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : filteredExpenses.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        No expenses found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredExpenses.map((expense) => (
+                      <TableRow 
+                        key={expense._id}
+                        className={deleteMutation.isPending ? 'opacity-50' : ''}
+                      >
+                        <TableCell className="font-medium">{expense.description}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{getCategoryLabel(expense.category)}</Badge>
+                        </TableCell>
+                        <TableCell>{expense.vendor || '-'}</TableCell>
+                        <TableCell className="font-medium text-destructive">
+                          -{formatCurrency(expense.amount)}
+                        </TableCell>
+                        <TableCell>{format(new Date(expense.date), 'MMM d, yyyy')}</TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                disabled={deleteMutation.isPending || updateMutation.isPending}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                onClick={() => handleEdit(expense)}
+                                disabled={deleteMutation.isPending}
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleDelete(expense)}
+                                className="text-destructive"
+                                disabled={deleteMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             )}
@@ -427,11 +487,44 @@ export default function Expenses() {
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>Receipt (Optional)</Label>
+                {editingExpense?.receipt && !receiptFile && (
+                  <div className="mb-2 p-2 border rounded-md bg-muted/50">
+                    <p className="text-sm text-muted-foreground mb-1">Current receipt:</p>
+                    <a 
+                      href={editingExpense.receipt} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Receipt className="h-3 w-3" />
+                      View receipt
+                    </a>
+                    <p className="text-xs text-muted-foreground mt-1">Upload a new file to replace it</p>
+                  </div>
+                )}
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                />
+                {receiptFile && (
+                  <p className="text-sm text-muted-foreground">Selected: {receiptFile.name}</p>
+                )}
+              </div>
             </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSubmit}>
+              <Button 
+                onClick={handleSubmit}
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {(createMutation.isPending || updateMutation.isPending) && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
                 {editingExpense ? 'Update Expense' : 'Add Expense'}
               </Button>
             </DialogFooter>
