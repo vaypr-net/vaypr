@@ -10,6 +10,7 @@ import { SuperadminSettingsModule } from './superadmin-settings/superadmin-setti
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { ClientsModule } from './clients/clients.module';
 import { InvoiceModule } from './invoice/invoice.module';
+import { QuotesModule } from './quotes/quotes.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { InvoiceModule } from './invoice/invoice.module';
     SuperadminSettingsModule,
     ClientsModule,
     InvoiceModule,
+    QuotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
