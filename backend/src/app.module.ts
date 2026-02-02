@@ -13,6 +13,7 @@ import { InvoiceModule } from './invoice/invoice.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { RecieptModule } from './reciept/reciept.module';
 import { RecurringModule } from './recurring/recurring.module';
+import { ExpenseModule } from './expense/expense.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { RecurringModule } from './recurring/recurring.module';
     QuotesModule,
     RecieptModule,
     RecurringModule,
+    ExpenseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
