@@ -1,4 +1,5 @@
 import { IsNotEmpty, IsString, IsNumber, IsOptional, IsDateString, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateExpenseDto {
@@ -23,6 +24,7 @@ export class CreateExpenseDto {
     example: 150.500,
   })
   @IsNotEmpty()
+  @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(0.001, { message: 'Amount must be greater than 0' })
   amount: number;

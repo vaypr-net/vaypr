@@ -15,7 +15,11 @@ export class JwtAuthGuard {
 
     try {
       const payload = await this.jwtService.verifyAsync(token);
-      request.user = payload;
+      // Map 'sub' to 'userId' for consistency across the application
+      request.user = {
+        ...payload,
+        userId: payload.sub,
+      };
     } catch {
       throw new UnauthorizedException('Invalid token');
     }
