@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type, Transform, plainToInstance } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -31,22 +31,31 @@ export class CreateRecurringDto {
   @IsNotEmpty()
   nextBillingDate: Date;
 
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return plainToInstance(RecurringItemDto, JSON.parse(value));
+    }
+    return value;
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => RecurringItemDto)
   @IsOptional()
   items?: RecurringItemDto[];
 
+  @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(0)
   @IsOptional()
   subtotal?: number;
 
+  @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(0)
   @IsOptional()
   tax?: number;
 
+  @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(0)
   @IsNotEmpty()
@@ -56,6 +65,7 @@ export class CreateRecurringDto {
   @IsNotEmpty()
   currency: string;
 
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
@@ -64,11 +74,13 @@ export class CreateRecurringDto {
   @IsOptional()
   logo?: string;
 
+  @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(0.1)
   @IsOptional()
   logoScale?: number;
 
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   @IsOptional()
   showPaymentTerms?: boolean;
@@ -77,6 +89,12 @@ export class CreateRecurringDto {
   @IsOptional()
   paymentTerms?: string;
 
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return plainToInstance(CompanyFooterDto, JSON.parse(value));
+    }
+    return value;
+  })
   @ValidateNested()
   @Type(() => CompanyFooterDto)
   @IsOptional()
@@ -90,10 +108,17 @@ export class CreateRecurringDto {
   @IsOptional()
   paymentType?: PaymentMethodType;
 
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   @IsOptional()
   showBankDetails?: boolean;
 
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return plainToInstance(BankAccountDto, JSON.parse(value));
+    }
+    return value;
+  })
   @ValidateNested()
   @Type(() => BankAccountDto)
   @IsOptional()

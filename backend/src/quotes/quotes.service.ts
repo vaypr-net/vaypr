@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -11,11 +12,26 @@ import { Quote } from './entities/quote.entity';
 import { Client } from '../clients/entities/client.entity';
 
 @Injectable()
-export class QuotesService {
+export class QuotesService implements OnModuleInit {
   constructor(
     @InjectModel(Quote.name) private quoteModel: Model<Quote>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
   ) {}
+
+  async onModuleInit() {
+    try {
+      // Drop the old unique index if it exists
+      await this.quoteModel.collection.dropIndex('quoteNumber_1');
+      console.log('Dropped old quoteNumber unique index');
+    } catch (error) {
+      // Index might not exist, that's fine
+      console.log('Old quoteNumber index not found or already dropped');
+    }
+    
+    // Ensure indexes are created (including the new partial unique index)
+    await this.quoteModel.syncIndexes();
+    console.log('Quote indexes synchronized');
+  }
 
   async create(createQuoteDto: CreateQuoteDto, userId: string): Promise<Quote> {
     if (createQuoteDto.clientId) {

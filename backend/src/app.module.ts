@@ -14,6 +14,7 @@ import { QuotesModule } from './quotes/quotes.module';
 import { RecieptModule } from './reciept/reciept.module';
 import { RecurringModule } from './recurring/recurring.module';
 import { ExpenseModule } from './expense/expense.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ExpenseModule } from './expense/expense.module';
     RecieptModule,
     RecurringModule,
     ExpenseModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -18,7 +18,10 @@ export class ClientsController {
   }
 
   @Get()
-  async findAll(@Request() req) {
+  async findAll(@Request() req, @Query('includeStats') includeStats?: string) {
+    if (includeStats === 'true') {
+      return this.clientsService.findAllWithStats(req.user.userId);
+    }
     return this.clientsService.findAll(req.user.userId);
   }
 

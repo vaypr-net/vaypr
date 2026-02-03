@@ -167,13 +167,29 @@ export class RecurringService {
   }
 
   async generateInvoice(id: string, userId: string): Promise<Invoice> {
-    const recurring = await this.findOne(id, userId);
+    const recurring = await this.recurringModel
+      .findById(id)
+      .populate('clientId')
+      .exec();
+
+    if (!recurring) {
+      throw new NotFoundException(`Recurring billing with ID ${id} not found`);
+    }
+
+    if (recurring.userId.toString() !== userId) {
+      throw new ForbiddenException(
+        'You do not have permission to access this recurring billing',
+      );
+    }
 
     if (!recurring.isActive) {
       throw new ForbiddenException(
         'Cannot generate invoice from inactive recurring billing',
       );
     }
+
+    // Get client details
+    const client = recurring.clientId as any;
 
     // Generate invoice number
     const invoiceNumber = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
@@ -204,6 +220,14 @@ export class RecurringService {
         nextDate.setMonth(currentDate.getMonth() + 1);
     }
 
+    // Map recurring items to invoice items (rate -> unitPrice)
+    const invoiceItems = recurring.items.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.rate, // Map rate to unitPrice
+      amount: item.amount,
+    }));
+
     // Create invoice from recurring template
     const invoice = new this.invoiceModel({
       userId: recurring.userId,
@@ -213,7 +237,7 @@ export class RecurringService {
       status: InvoiceStatus.SENT,
       issueDate: new Date(),
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-      items: recurring.items,
+      items: invoiceItems,
       currency: recurring.currency,
       currencySymbol: recurring.currency,
       subtotal: recurring.subtotal,
@@ -237,13 +261,13 @@ export class RecurringService {
       useManualGrandTotal: true,
       manualGrandTotal: recurring.total,
       billTo: {
-        name: '', // Will be populated from client if needed
-        phone: '',
-        area: '',
-        block: '',
-        street: '',
-        house: '',
-        other: '',
+        name: client?.name || 'N/A',
+        phone: client?.phone || '',
+        area: client?.area || '',
+        block: client?.block || '',
+        street: client?.street || '',
+        house: client?.house || '',
+        other: client?.other || '',
       },
     });
 

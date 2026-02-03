@@ -18,7 +18,7 @@ export class Quote extends BaseEntity {
   @Prop({ type: Types.ObjectId, ref: 'Client' })
   clientId: Types.ObjectId;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   quoteNumber: string;
 
   @Prop({ type: String, enum: QuoteStatus, default: QuoteStatus.DRAFT })
@@ -125,3 +125,13 @@ export class Quote extends BaseEntity {
 }
 
 export const QuoteSchema = SchemaFactory.createForClass(Quote);
+
+// Create a partial unique index on quoteNumber where isDeleted is false
+// This allows duplicate quote numbers for deleted quotes
+QuoteSchema.index(
+  { quoteNumber: 1 },
+  { 
+    unique: true,
+    partialFilterExpression: { isDeleted: false }
+  }
+);

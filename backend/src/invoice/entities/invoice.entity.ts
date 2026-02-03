@@ -16,7 +16,7 @@ export class Invoice extends BaseEntity {
   @Prop({ type: Types.ObjectId, ref: 'Client' })
   clientId: Types.ObjectId;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   invoiceNumber: string;
 
   @Prop({ type: String, enum: InvoiceStatus, default: InvoiceStatus.DRAFT })
@@ -114,3 +114,13 @@ export class Invoice extends BaseEntity {
 }
 
 export const InvoiceSchema = SchemaFactory.createForClass(Invoice);
+
+// Create a partial unique index on invoiceNumber where isDeleted is false
+// This allows duplicate invoice numbers for deleted invoices
+InvoiceSchema.index(
+  { invoiceNumber: 1 },
+  { 
+    unique: true,
+    partialFilterExpression: { isDeleted: false }
+  }
+);

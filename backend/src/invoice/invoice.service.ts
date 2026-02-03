@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -11,11 +12,26 @@ import { Invoice } from './entities/invoice.entity';
 import { Client } from '../clients/entities/client.entity';
 
 @Injectable()
-export class InvoiceService {
+export class InvoiceService implements OnModuleInit {
   constructor(
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
   ) {}
+
+  async onModuleInit() {
+    try {
+      // Drop the old unique index if it exists
+      await this.invoiceModel.collection.dropIndex('invoiceNumber_1');
+      console.log('Dropped old invoiceNumber unique index');
+    } catch (error) {
+      // Index might not exist, that's fine
+      console.log('Old invoiceNumber index not found or already dropped');
+    }
+    
+    // Ensure indexes are created (including the new partial unique index)
+    await this.invoiceModel.syncIndexes();
+    console.log('Invoice indexes synchronized');
+  }
 
   async create(
     createInvoiceDto: CreateInvoiceDto,

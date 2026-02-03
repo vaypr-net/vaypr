@@ -41,32 +41,32 @@ export class RecurringController {
       const result = await this.cloudinaryService.uploadImage(logo);
       createRecurringDto.logo = result.secure_url;
     }
-    return this.recurringService.create(createRecurringDto, req.user.sub);
+    return this.recurringService.create(createRecurringDto, req.user.userId);
   }
 
   @Get()
   findAll(@Request() req) {
-    return this.recurringService.findAll(req.user.sub);
+    return this.recurringService.findAll(req.user.userId);
   }
 
   @Get('active')
   findActive(@Request() req) {
-    return this.recurringService.findActive(req.user.sub);
+    return this.recurringService.findActive(req.user.userId);
   }
 
   @Get('client/:clientId')
   findByClient(@Param('clientId') clientId: string, @Request() req) {
-    return this.recurringService.findByClient(clientId, req.user.sub);
+    return this.recurringService.findByClient(clientId, req.user.userId);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
-    return this.recurringService.findOne(id, req.user.sub);
+    return this.recurringService.findOne(id, req.user.userId);
   }
 
   @Post(':id/generate-invoice')
   generateInvoice(@Param('id') id: string, @Request() req) {
-    return this.recurringService.generateInvoice(id, req.user.sub);
+    return this.recurringService.generateInvoice(id, req.user.userId);
   }
 
   @Patch(':id')
@@ -82,16 +82,16 @@ export class RecurringController {
       const result = await this.cloudinaryService.uploadImage(logo);
       updateRecurringDto.logo = result.secure_url;
     }
-    return this.recurringService.update(id, updateRecurringDto, req.user.sub);
+    return this.recurringService.update(id, updateRecurringDto, req.user.userId);
   }
 
   @Patch(':id/toggle')
   toggleActive(@Param('id') id: string, @Request() req) {
-    return this.recurringService.toggleActive(id, req.user.sub);
+    return this.recurringService.toggleActive(id, req.user.userId);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
-    return this.recurringService.remove(id, req.user.sub);
+    return this.recurringService.remove(id, req.user.userId);
   }
 }
