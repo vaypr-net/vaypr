@@ -42,30 +42,30 @@ export class RecieptController {
       const result = await this.cloudinaryService.uploadImage(logo);
       createReceiptDto.logo = result.secure_url;
     }
-    return this.recieptService.create(createReceiptDto, req.user.sub);
+    return this.recieptService.create(createReceiptDto, req.user.userId);
   }
 
   @Get()
   findAll(@Request() req, @Query('status') status?: string) {
     if (status) {
-      return this.recieptService.findByStatus(status, req.user.sub);
+      return this.recieptService.findByStatus(status, req.user.userId);
     }
-    return this.recieptService.findAll(req.user.sub);
+    return this.recieptService.findAll(req.user.userId);
   }
 
   @Get('client/:clientId')
   findByClient(@Param('clientId') clientId: string, @Request() req) {
-    return this.recieptService.findByClient(clientId, req.user.sub);
+    return this.recieptService.findByClient(clientId, req.user.userId);
   }
 
   @Get('invoice/:invoiceId')
   findByInvoice(@Param('invoiceId') invoiceId: string, @Request() req) {
-    return this.recieptService.findByInvoice(invoiceId, req.user.sub);
+    return this.recieptService.findByInvoice(invoiceId, req.user.userId);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
-    return this.recieptService.findOne(id, req.user.sub);
+    return this.recieptService.findOne(id, req.user.userId);
   }
 
   @Patch(':id')
@@ -81,11 +81,11 @@ export class RecieptController {
       const result = await this.cloudinaryService.uploadImage(logo);
       updateReceiptDto.logo = result.secure_url;
     }
-    return this.recieptService.update(id, updateReceiptDto, req.user.sub);
+    return this.recieptService.update(id, updateReceiptDto, req.user.userId);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
-    return this.recieptService.remove(id, req.user.sub);
+    return this.recieptService.remove(id, req.user.userId);
   }
 }

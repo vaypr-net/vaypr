@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type, Transform, plainToInstance } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -40,11 +40,37 @@ export class CreateQuoteDto {
   @IsNotEmpty()
   validUntil: Date;
 
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return plainToInstance(BillToDto, parsed);
+      } catch {
+        return value;
+      }
+    }
+    return plainToInstance(BillToDto, value);
+  })
   @ValidateNested()
   @Type(() => BillToDto)
   @IsNotEmpty()
   billTo: BillToDto;
 
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) 
+          ? parsed.map(item => plainToInstance(QuoteItemDto, item))
+          : parsed;
+      } catch {
+        return value;
+      }
+    }
+    return Array.isArray(value) 
+      ? value.map(item => plainToInstance(QuoteItemDto, item))
+      : value;
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => QuoteItemDto)
@@ -61,24 +87,39 @@ export class CreateQuoteDto {
 
   @IsNumber()
   @Min(0)
+  @Transform(({ value }) => parseFloat(value))
   @IsOptional()
   subtotal?: number;
 
   @IsNumber()
   @Min(0)
+  @Transform(({ value }) => parseFloat(value))
   @IsOptional()
   discount?: number;
 
   @IsNumber()
   @Min(0)
+  @Transform(({ value }) => parseFloat(value))
   @IsOptional()
   deliveryFee?: number;
 
   @IsNumber()
   @Min(0)
+  @Transform(({ value }) => parseFloat(value))
   @IsNotEmpty()
   total: number;
 
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return plainToInstance(CompanyFooterDto, parsed);
+      } catch {
+        return value;
+      }
+    }
+    return plainToInstance(CompanyFooterDto, value);
+  })
   @ValidateNested()
   @Type(() => CompanyFooterDto)
   @IsOptional()
@@ -90,6 +131,7 @@ export class CreateQuoteDto {
 
   @IsNumber()
   @Min(0.1)
+  @Transform(({ value }) => parseFloat(value))
   @IsOptional()
   logoScale?: number;
 
@@ -98,6 +140,7 @@ export class CreateQuoteDto {
   tableHeaderColor?: string;
 
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsOptional()
   showPaymentMethod?: boolean;
 
@@ -106,15 +149,28 @@ export class CreateQuoteDto {
   paymentMethodType?: PaymentMethodType;
 
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsOptional()
   showBankAccount?: boolean;
 
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return plainToInstance(BankAccountDto, parsed);
+      } catch {
+        return value;
+      }
+    }
+    return plainToInstance(BankAccountDto, value);
+  })
   @ValidateNested()
   @Type(() => BankAccountDto)
   @IsOptional()
   bankAccount?: BankAccountDto;
 
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsOptional()
   showPaymentTerms?: boolean;
 
@@ -123,27 +179,33 @@ export class CreateQuoteDto {
   paymentTerms?: string;
 
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsOptional()
   hideQuantity?: boolean;
 
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsOptional()
   hideUnitPrice?: boolean;
 
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsOptional()
   hideTotalCost?: boolean;
 
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsOptional()
   hideSubTotal?: boolean;
 
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsOptional()
   useManualGrandTotal?: boolean;
 
   @IsNumber()
   @Min(0)
+  @Transform(({ value }) => parseFloat(value))
   @IsOptional()
   manualGrandTotal?: number;
 

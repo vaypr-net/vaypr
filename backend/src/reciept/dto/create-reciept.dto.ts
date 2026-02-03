@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
@@ -37,6 +38,7 @@ export class CreateReceiptDto {
 
   @IsNumber()
   @Min(0)
+  @Transform(({ value }) => parseFloat(value))
   @IsNotEmpty()
   amount: number;
 
@@ -78,6 +80,7 @@ export class CreateReceiptDto {
 
   @IsNumber()
   @Min(0.1)
+  @Transform(({ value }) => parseFloat(value))
   @IsOptional()
   logoScale?: number;
 

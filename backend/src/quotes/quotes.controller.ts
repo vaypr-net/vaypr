@@ -42,25 +42,25 @@ export class QuotesController {
       const result = await this.cloudinaryService.uploadImage(logo);
       createQuoteDto.logo = result.secure_url;
     }
-    return this.quotesService.create(createQuoteDto, req.user.sub);
+    return this.quotesService.create(createQuoteDto, req.user.userId);
   }
 
   @Get()
   findAll(@Request() req, @Query('status') status?: string) {
     if (status) {
-      return this.quotesService.findByStatus(status, req.user.sub);
+      return this.quotesService.findByStatus(status, req.user.userId);
     }
-    return this.quotesService.findAll(req.user.sub);
+    return this.quotesService.findAll(req.user.userId);
   }
 
   @Get('client/:clientId')
   findByClient(@Param('clientId') clientId: string, @Request() req) {
-    return this.quotesService.findByClient(clientId, req.user.sub);
+    return this.quotesService.findByClient(clientId, req.user.userId);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
-    return this.quotesService.findOne(id, req.user.sub);
+    return this.quotesService.findOne(id, req.user.userId);
   }
 
   @Patch(':id')
@@ -76,11 +76,11 @@ export class QuotesController {
       const result = await this.cloudinaryService.uploadImage(logo);
       updateQuoteDto.logo = result.secure_url;
     }
-    return this.quotesService.update(id, updateQuoteDto, req.user.sub);
+    return this.quotesService.update(id, updateQuoteDto, req.user.userId);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
-    return this.quotesService.remove(id, req.user.sub);
+    return this.quotesService.remove(id, req.user.userId);
   }
 }

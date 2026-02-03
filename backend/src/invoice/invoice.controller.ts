@@ -42,25 +42,25 @@ export class InvoiceController {
       const result = await this.cloudinaryService.uploadImage(logo);
       createInvoiceDto.logo = result.secure_url;
     }
-    return this.invoiceService.create(createInvoiceDto, req.user.sub);
+    return this.invoiceService.create(createInvoiceDto, req.user.userId);
   }
 
   @Get()
   findAll(@Request() req, @Query('status') status?: string) {
     if (status) {
-      return this.invoiceService.findByStatus(status, req.user.sub);
+      return this.invoiceService.findByStatus(status, req.user.userId);
     }
-    return this.invoiceService.findAll(req.user.sub);
+    return this.invoiceService.findAll(req.user.userId);
   }
 
   @Get('client/:clientId')
   findByClient(@Param('clientId') clientId: string, @Request() req) {
-    return this.invoiceService.findByClient(clientId, req.user.sub);
+    return this.invoiceService.findByClient(clientId, req.user.userId);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
-    return this.invoiceService.findOne(id, req.user.sub);
+    return this.invoiceService.findOne(id, req.user.userId);
   }
 
   @Patch(':id')
@@ -76,11 +76,11 @@ export class InvoiceController {
       const result = await this.cloudinaryService.uploadImage(logo);
       updateInvoiceDto.logo = result.secure_url;
     }
-    return this.invoiceService.update(id, updateInvoiceDto, req.user.sub);
+    return this.invoiceService.update(id, updateInvoiceDto, req.user.userId);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
-    return this.invoiceService.remove(id, req.user.sub);
+    return this.invoiceService.remove(id, req.user.userId);
   }
 }
