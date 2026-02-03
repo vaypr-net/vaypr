@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { useRecurringBilling, useClients, useInvoices, useReminders } from '@/hooks/useData';
+import { useRecurringAPI, useCreateRecurring, useUpdateRecurring, useDeleteRecurring, useToggleRecurring, useGenerateInvoice } from '@/hooks/api/useRecurring';
+import { useClients } from '@/hooks/api/useClients';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, RefreshCw, Trash2, Play, Pause, MoreHorizontal, Building2, Mail, Upload, X, Palette, Pencil, FileText, Eye } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Play, Pause, MoreHorizontal, Building2, Mail, Upload, X, Palette, Pencil, FileText, Eye, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
@@ -46,10 +47,45 @@ import { LogoSizeControl } from '@/components/invoice/LogoSizeControl';
 import { RecurringPreview } from '@/components/recurring/RecurringPreview';
 
 export default function Recurring() {
-  const { recurringBillings, addRecurring, updateRecurring, deleteRecurring, toggleActive } = useRecurringBilling();
-  const { clients } = useClients();
-  const { addInvoice } = useInvoices();
-  const { addReminder } = useReminders();
+  // State declarations
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  
+  // API Hooks
+  const { data: apiRecurring = [], isLoading: loadingRecurring } = useRecurringAPI(statusFilter !== 'all' ? statusFilter : undefined);
+  const createRecurringMutation = useCreateRecurring();
+  const updateRecurringMutation = useUpdateRecurring();
+  const deleteRecurringMutation = useDeleteRecurring();
+  const toggleRecurringMutation = useToggleRecurring();
+  const generateInvoiceMutation = useGenerateInvoice();
+  const { data: clients = [], isLoading: loadingClients } = useClients();
+  
+  // Map API data to local type
+  const recurringBillings: RecurringBilling[] = apiRecurring.map((r: any) => ({
+    id: r._id,
+    clientId: (typeof r.clientId === 'object' && r.clientId) ? r.clientId._id : r.clientId,
+    clientName: (typeof r.clientId === 'object' && r.clientId) ? r.clientId.name : 'Unknown Client',
+    frequency: r.frequency,
+    nextBillingDate: r.nextBillingDate,
+    items: r.items || [],
+    subtotal: r.subtotal || 0,
+    tax: r.tax || 0,
+    total: r.total,
+    currency: r.currency || 'KWD',
+    isActive: r.isActive,
+    createdAt: r.createdAt,
+    lastGeneratedAt: r.lastGeneratedAt,
+    logo: r.logo,
+    logoScale: r.logoScale || 1,
+    showPaymentTerms: r.showPaymentTerms || false,
+    paymentTerms: r.paymentTerms || '',
+    companyFooter: r.companyFooter,
+    itemHeaderColor: r.itemHeaderColor,
+    paymentType: r.paymentType,
+    showBankDetails: r.showBankDetails || false,
+    bankDetails: r.bankDetails,
+  }));
+
   const { toast } = useToast();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -114,8 +150,8 @@ export default function Recurring() {
     return formData.grandTotal;
   };
 
-  const handleCreate = () => {
-    const client = clients.find(c => c.id === formData.clientId);
+  const handleCreate = async () => {
+    const client = clients.find(c => c._id === formData.clientId);
     if (!client) {
       toast({
         title: 'Please select a client',
@@ -124,17 +160,15 @@ export default function Recurring() {
       return;
     }
 
-    const items: InvoiceItem[] = [{
-      id: crypto.randomUUID(),
+    const items = [{
       description: formData.description,
       quantity: 1,
       rate: formData.grandTotal,
       amount: formData.grandTotal,
     }];
 
-    const newRecurring = addRecurring({
-      clientId: client.id,
-      clientName: client.name,
+    const recurringData = {
+      clientId: formData.clientId,
       frequency: formData.frequency,
       nextBillingDate: formData.nextBillingDate,
       items: items,
@@ -143,8 +177,7 @@ export default function Recurring() {
       total: formData.grandTotal,
       currency: 'KWD',
       isActive: true,
-      // Extended fields
-      logo: formData.logo,
+      logoScale: formData.logoScale,
       showPaymentTerms: formData.showPaymentTerms,
       paymentTerms: formData.paymentTerms,
       companyFooter: formData.companyFooter,
@@ -152,102 +185,59 @@ export default function Recurring() {
       paymentType: formData.paymentType,
       showBankDetails: formData.showBankDetails,
       bankDetails: formData.bankDetails,
-    });
+    };
 
-    // Create reminder for next billing if auto send is enabled
-    if (formData.autoSendReminder) {
-      addReminder({
-        type: 'recurring_billing',
-        title: `Recurring billing reminder for ${client.name}`,
-        message: `${getFrequencyLabel(formData.frequency)} billing of ${formatCurrency(calculateTotal())} is due. Auto-send email reminder is enabled.`,
-        relatedId: newRecurring.id,
-        dueDate: formData.nextBillingDate,
-      });
+    try {
+      // Convert base64 logo to File if exists
+      let logoFile: File | undefined = undefined;
+      if (formData.logo && formData.logo.startsWith('data:')) {
+        const response = await fetch(formData.logo);
+        const blob = await response.blob();
+        logoFile = new File([blob], 'logo.png', { type: blob.type });
+      }
+
+      await createRecurringMutation.mutateAsync({ data: recurringData, logo: logoFile });
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Failed to create recurring:', error);
     }
-
-    toast({
-      title: 'Recurring billing created',
-      description: `Recurring billing for ${client.name} has been set up.`,
-    });
-
-    setIsDialogOpen(false);
-    resetForm();
   };
 
-  const handleGenerateInvoice = (recurring: RecurringBilling) => {
-    const invoiceNumber = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-    
-    addInvoice({
-      invoiceNumber,
-      clientId: recurring.clientId,
-      clientName: recurring.clientName,
-      status: 'sent',
-      issueDate: format(new Date(), 'yyyy-MM-dd'),
-      dueDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
-      items: recurring.items,
-      subtotal: recurring.subtotal,
-      tax: recurring.tax,
-      discount: 0,
-      total: recurring.total,
-      currency: recurring.currency,
-      recurringId: recurring.id,
-      // Extended fields from recurring billing
-      logo: recurring.logo,
-      showPaymentTerms: recurring.showPaymentTerms,
-      paymentTerms: recurring.paymentTerms,
-      companyName: recurring.companyFooter?.companyName,
-      companyAddress: recurring.companyFooter?.address,
-      companyPhone: recurring.companyFooter?.officePhone,
-      companyEmail: recurring.companyFooter?.websiteEmail,
-      tableHeaderColor: recurring.itemHeaderColor,
-      paymentMethod: recurring.paymentType,
-      showPaymentMethod: !!recurring.paymentType,
-      showBankAccount: recurring.showBankDetails,
-      bankName: recurring.bankDetails?.bankName,
-      bankAccountName: recurring.bankDetails?.accountName,
-      bankIban: recurring.bankDetails?.iban,
-      // Hide item details columns - only show Grand Total
-      hideQuantity: true,
-      hideUnitPrice: true,
-      hideTotalCost: true,
-      hideSubTotal: true,
-      useManualGrandTotal: true,
-      manualGrandTotal: recurring.total,
-    });
-
-    // Update next billing date
-    const nextDate = getNextBillingDate(recurring.nextBillingDate, recurring.frequency);
-    updateRecurring(recurring.id, {
-      nextBillingDate: format(nextDate, 'yyyy-MM-dd'),
-      lastGeneratedAt: new Date().toISOString(),
-    });
-
-    // Create reminder for next billing
-    addReminder({
-      type: 'recurring_billing',
-      title: `Recurring billing for ${recurring.clientName}`,
-      message: `${getFrequencyLabel(recurring.frequency)} billing of ${formatCurrency(recurring.total)} is due`,
-      relatedId: recurring.id,
-      dueDate: format(nextDate, 'yyyy-MM-dd'),
-    });
-
-    toast({
-      title: 'Invoice generated',
-      description: `Invoice ${invoiceNumber} has been created for ${recurring.clientName}.`,
-    });
+  const handleGenerateInvoice = async (recurring: RecurringBilling) => {
+    try {
+      await generateInvoiceMutation.mutateAsync(recurring.id);
+    } catch (error) {
+      console.error('Failed to generate invoice:', error);
+    }
   };
 
-  const handleDelete = (recurring: RecurringBilling) => {
-    deleteRecurring(recurring.id);
-    toast({
-      title: 'Recurring billing deleted',
-      description: 'The recurring billing has been removed.',
-    });
+  const handleDelete = async (recurring: RecurringBilling) => {
+    try {
+      await deleteRecurringMutation.mutateAsync(recurring.id);
+    } catch (error) {
+      console.error('Failed to delete recurring:', error);
+    }
   };
 
   const handleEdit = (recurring: RecurringBilling) => {
-    setEditingRecurring(recurring);
-    const client = clients.find(c => c.id === recurring.clientId);
+    toast({
+      title: 'Feature Coming Soon',
+      description: 'Editing recurring billings will be available soon.',
+      variant: 'default',
+    });
+  };
+
+  const handleToggle = async (recurring: RecurringBilling) => {
+    try {
+      await toggleRecurringMutation.mutateAsync(recurring.id);
+    } catch (error) {
+      console.error('Failed to toggle recurring:', error);
+    }
+  };
+
+  const handleEditRecurring = (recurring: RecurringBilling) => {
+    const client = clients.find(c => c._id === recurring.clientId);
     setFormData({
       clientId: recurring.clientId,
       clientEmail: client?.email || '',
@@ -278,10 +268,10 @@ export default function Recurring() {
     setIsDialogOpen(true);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingRecurring) return;
     
-    const client = clients.find(c => c.id === formData.clientId);
+    const client = clients.find(c => c._id === formData.clientId);
     if (!client) {
       toast({
         title: 'Please select a client',
@@ -290,24 +280,24 @@ export default function Recurring() {
       return;
     }
 
-    const items: InvoiceItem[] = [{
-      id: crypto.randomUUID(),
+    const items = [{
       description: formData.description,
       quantity: 1,
       rate: formData.grandTotal,
       amount: formData.grandTotal,
     }];
 
-    updateRecurring(editingRecurring.id, {
-      clientId: client.id,
-      clientName: client.name,
+    const recurringData = {
+      clientId: formData.clientId,
       frequency: formData.frequency,
       nextBillingDate: formData.nextBillingDate,
       items: items,
       subtotal: formData.grandTotal,
       tax: 0,
       total: formData.grandTotal,
-      logo: formData.logo,
+      currency: 'KWD',
+      isActive: true,
+      logoScale: formData.logoScale,
       showPaymentTerms: formData.showPaymentTerms,
       paymentTerms: formData.paymentTerms,
       companyFooter: formData.companyFooter,
@@ -315,16 +305,38 @@ export default function Recurring() {
       paymentType: formData.paymentType,
       showBankDetails: formData.showBankDetails,
       bankDetails: formData.bankDetails,
-    });
+    };
 
-    toast({
-      title: 'Recurring billing updated',
-      description: `Recurring billing for ${client.name} has been updated.`,
-    });
+    try {
+      // Convert base64 logo to File if exists and changed
+      let logoFile: File | undefined = undefined;
+      if (formData.logo && formData.logo.startsWith('data:')) {
+        const response = await fetch(formData.logo);
+        const blob = await response.blob();
+        logoFile = new File([blob], 'logo.png', { type: blob.type });
+      }
 
-    setIsDialogOpen(false);
-    setEditingRecurring(null);
-    resetForm();
+      await updateRecurringMutation.mutateAsync({ 
+        id: editingRecurring.id, 
+        data: recurringData, 
+        logo: logoFile 
+      });
+      
+      setIsDialogOpen(false);
+      setEditingRecurring(null);
+      resetForm();
+    } catch (error) {
+      console.error('Failed to update recurring:', error);
+    }
+  };
+
+  const handleClientChange = (clientId: string) => {
+    const selectedClient = clients.find(c => c._id === clientId);
+    setFormData({ 
+      ...formData, 
+      clientId,
+      clientEmail: selectedClient?.email || ''
+    });
   };
 
   const handleSave = () => {
@@ -383,15 +395,6 @@ export default function Recurring() {
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const handleClientChange = (clientId: string) => {
-    const selectedClient = clients.find(c => c.id === clientId);
-    setFormData({ 
-      ...formData, 
-      clientId,
-      clientEmail: selectedClient?.email || ''
-    });
   };
 
   const activeCount = recurringBillings.filter(r => r.isActive).length;
@@ -459,7 +462,20 @@ export default function Recurring() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recurringBillings.map((recurring) => (
+                  {loadingRecurring ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                      </TableCell>
+                    </TableRow>
+                  ) : recurringBillings.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        No recurring billings found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    recurringBillings.map((recurring) => (
                     <TableRow key={recurring.id}>
                       <TableCell className="font-medium">{recurring.clientName}</TableCell>
                       <TableCell>{formatCurrency(recurring.total, recurring.currency)}</TableCell>
@@ -486,7 +502,7 @@ export default function Recurring() {
                               <RefreshCw className="h-4 w-4 mr-2" />
                               Generate Invoice
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toggleActive(recurring.id)}>
+                            <DropdownMenuItem onClick={() => handleToggle(recurring)}>
                               {recurring.isActive ? (
                                 <>
                                   <Pause className="h-4 w-4 mr-2" />
@@ -510,7 +526,8 @@ export default function Recurring() {
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             )}
@@ -596,7 +613,7 @@ export default function Recurring() {
                     </SelectTrigger>
                     <SelectContent>
                       {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                        <SelectItem key={client._id} value={client._id}>{client.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -879,7 +896,7 @@ export default function Recurring() {
                   data={{
                     logo: formData.logo,
                     logoScale: formData.logoScale,
-                    clientName: clients.find(c => c.id === formData.clientId)?.name || '',
+                    clientName: clients.find(c => c._id === formData.clientId)?.name || '',
                     frequency: formData.frequency,
                     nextBillingDate: formData.nextBillingDate,
                     description: formData.description,

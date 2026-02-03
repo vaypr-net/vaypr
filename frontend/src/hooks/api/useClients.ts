@@ -4,10 +4,10 @@ import { useToast } from '@/hooks/use-toast';
 
 const QUERY_KEY = 'clients';
 
-export function useClients() {
+export function useClients(includeStats: boolean = false) {
   return useQuery({
-    queryKey: [QUERY_KEY],
-    queryFn: () => ClientService.getAll(),
+    queryKey: [QUERY_KEY, includeStats ? 'withStats' : 'simple'],
+    queryFn: () => ClientService.getAll(includeStats),
   });
 }
 

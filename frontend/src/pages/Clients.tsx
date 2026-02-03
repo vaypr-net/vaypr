@@ -6,7 +6,9 @@ import {
   useUpdateClient, 
   useDeleteClient 
 } from '@/hooks/api/useClients';
-import { useInvoices, useQuotes, useRecurringBilling } from '@/hooks/useData';
+import { useInvoices as useInvoicesAPI } from '@/hooks/api/useInvoices';
+import { useQuotesAPI } from '@/hooks/api/useQuotes';
+import { useRecurringAPI } from '@/hooks/api/useRecurring';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,7 +59,9 @@ import {
   User,
   Upload,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Send,
+  MessageSquare
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
@@ -89,16 +93,13 @@ import { format } from 'date-fns';
 import { Client, ClientType } from '@/types/app';
 
 export default function Clients() {
-  // API hooks
-  const { data: clients = [], isLoading } = useClientsAPI();
+  // API hooks - fetch clients with stats included
+  const { data: clients = [], isLoading } = useClientsAPI(true); // Pass true to include stats
   const createMutation = useCreateClient();
   const updateMutation = useUpdateClient();
   const deleteMutation = useDeleteClient();
   
-  // Old localStorage hooks for invoices, quotes, recurring (will migrate later)
-  const { invoices } = useInvoices();
-  const { quotes } = useQuotes();
-  const { recurringBillings } = useRecurringBilling();
+  // No longer need to fetch these separately since we get stats from the API
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,45 +121,56 @@ export default function Clients() {
     notes: '',
   });
 
-  // Get client statistics
-  const getClientStats = (clientId: string) => {
-    const clientInvoices = invoices.filter(inv => inv.clientId === clientId);
-    const clientQuotes = quotes.filter(q => q.clientId === clientId);
-    const clientRecurring = recurringBillings.filter(r => r.clientId === clientId);
-
-    const paidInvoices = clientInvoices.filter(inv => inv.status === 'paid').length;
-    const overdueInvoices = clientInvoices.filter(inv => inv.status === 'overdue').length;
-    const pendingInvoices = clientInvoices.filter(inv => inv.status === 'sent' || inv.status === 'draft').length;
+  // Get client statistics from API response
+  const getClientStats = (client: any) => {
+    // If stats are included in the API response, use them
+    if (client.stats) {
+      return {
+        totalInvoices: client.stats.invoices.total,
+        paidInvoices: client.stats.invoices.paid,
+        sentInvoices: client.stats.invoices.sent,
+        overdueInvoices: client.stats.invoices.overdue,
+        draftInvoices: 0, // Not included in summary stats
+        cancelledInvoices: 0, // Not included in summary stats
+        totalQuotes: client.stats.quotes.total,
+        acceptedQuotes: client.stats.quotes.accepted,
+        sentQuotes: client.stats.quotes.sent,
+        viewedQuotes: client.stats.quotes.viewed,
+        convertedQuotes: client.stats.quotes.converted,
+        rejectedQuotes: client.stats.quotes.rejected,
+        expiredQuotes: 0, // Not included in summary stats
+        draftQuotes: 0, // Not included in summary stats
+        modificationRequestedQuotes: 0, // Not included in summary stats
+        activeRecurring: client.stats.recurring.active,
+        totalRecurring: client.stats.recurring.total,
+        totalRevenue: client.stats.revenue.total,
+        pendingAmount: client.stats.revenue.pending,
+        hasSubscription: client.stats.recurring.active > 0,
+      };
+    }
     
-    const acceptedQuotes = clientQuotes.filter(q => q.status === 'accepted' || q.status === 'converted').length;
-    const pendingQuotes = clientQuotes.filter(q => q.status === 'sent' || q.status === 'draft').length;
-    const rejectedQuotes = clientQuotes.filter(q => q.status === 'rejected').length;
-
-    const activeRecurring = clientRecurring.filter(r => r.isActive).length;
-    const totalRecurring = clientRecurring.length;
-
-    const totalRevenue = clientInvoices
-      .filter(inv => inv.status === 'paid')
-      .reduce((sum, inv) => sum + inv.total, 0);
-
-    const pendingAmount = clientInvoices
-      .filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled')
-      .reduce((sum, inv) => sum + inv.total, 0);
-
+    // Fallback to empty stats if not included
     return {
-      totalInvoices: clientInvoices.length,
-      paidInvoices,
-      overdueInvoices,
-      pendingInvoices,
-      totalQuotes: clientQuotes.length,
-      acceptedQuotes,
-      pendingQuotes,
-      rejectedQuotes,
-      activeRecurring,
-      totalRecurring,
-      totalRevenue,
-      pendingAmount,
-      hasSubscription: activeRecurring > 0,
+      totalInvoices: 0,
+      paidInvoices: 0,
+      sentInvoices: 0,
+      overdueInvoices: 0,
+      draftInvoices: 0,
+      cancelledInvoices: 0,
+      totalQuotes: 0,
+      acceptedQuotes: 0,
+      sentQuotes: 0,
+      viewedQuotes: 0,
+      convertedQuotes: 0,
+      rejectedQuotes: 0,
+      expiredQuotes: 0,
+      draftQuotes: 0,
+      modificationRequestedQuotes: 0,
+      activeRecurring: 0,
+      totalRecurring: 0,
+      totalRevenue: 0,
+      pendingAmount: 0,
+      hasSubscription: false,
     };
   };
 
@@ -296,7 +308,7 @@ export default function Clients() {
 
     // Prepare export data with stats
     const exportData = clients.map(client => {
-      const stats = getClientStats(client._id);
+      const stats = getClientStats(client);
       return {
         Name: client.name,
         Email: client.email,
@@ -349,10 +361,10 @@ export default function Clients() {
   // Summary stats
   const totalClients = clients.length;
   const activeClients = clients.filter(c => {
-    const stats = getClientStats(c._id);
-    return stats.pendingInvoices > 0 || stats.hasSubscription;
+    const stats = getClientStats(c);
+    return stats.sentInvoices > 0 || stats.hasSubscription;
   }).length;
-  const clientsWithOverdue = clients.filter(c => getClientStats(c._id).overdueInvoices > 0).length;
+  const clientsWithOverdue = clients.filter(c => getClientStats(c).overdueInvoices > 0).length;
 
   return (
     <DashboardLayout>
@@ -496,7 +508,7 @@ export default function Clients() {
                       </TableRow>
                     ) : (
                       filteredClients.map((client) => {
-                        const stats = getClientStats(client._id);
+                        const stats = getClientStats(client);
                         return (
                           <TableRow key={client._id}>
                             <TableCell>
@@ -526,21 +538,21 @@ export default function Clients() {
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
                               {stats.paidInvoices > 0 && (
-                                <Badge variant="default" className="text-xs">
+                                <Badge variant="default" className="text-xs bg-green-600">
                                   <CheckCircle2 className="h-3 w-3 mr-1" />
                                   {stats.paidInvoices} Paid
+                                </Badge>
+                              )}
+                              {stats.sentInvoices > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  {stats.sentInvoices} Sent
                                 </Badge>
                               )}
                               {stats.overdueInvoices > 0 && (
                                 <Badge variant="destructive" className="text-xs">
                                   <AlertTriangle className="h-3 w-3 mr-1" />
-                                  {stats.overdueInvoices} Late
-                                </Badge>
-                              )}
-                              {stats.pendingInvoices > 0 && (
-                                <Badge variant="outline" className="text-xs">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  {stats.pendingInvoices} Pending
+                                  {stats.overdueInvoices} Overdue
                                 </Badge>
                               )}
                               {stats.totalInvoices === 0 && (
@@ -551,21 +563,45 @@ export default function Clients() {
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
                               {stats.acceptedQuotes > 0 && (
-                                <Badge variant="default" className="text-xs">
+                                <Badge variant="default" className="text-xs bg-green-600">
                                   <CheckCircle2 className="h-3 w-3 mr-1" />
                                   {stats.acceptedQuotes} Accepted
                                 </Badge>
                               )}
-                              {stats.pendingQuotes > 0 && (
+                              {stats.convertedQuotes > 0 && (
+                                <Badge variant="default" className="text-xs bg-purple-600">
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  {stats.convertedQuotes} Converted
+                                </Badge>
+                              )}
+                              {stats.sentQuotes > 0 && (
                                 <Badge variant="outline" className="text-xs">
+                                  <Send className="h-3 w-3 mr-1" />
+                                  {stats.sentQuotes} Sent
+                                </Badge>
+                              )}
+                              {stats.viewedQuotes > 0 && (
+                                <Badge variant="secondary" className="text-xs bg-cyan-100 dark:bg-cyan-900/30">
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  {stats.viewedQuotes} Viewed
+                                </Badge>
+                              )}
+                              {stats.expiredQuotes > 0 && (
+                                <Badge variant="secondary" className="text-xs bg-orange-100 dark:bg-orange-900/30">
                                   <Clock className="h-3 w-3 mr-1" />
-                                  {stats.pendingQuotes} Pending
+                                  {stats.expiredQuotes} Expired
                                 </Badge>
                               )}
                               {stats.rejectedQuotes > 0 && (
-                                <Badge variant="secondary" className="text-xs">
+                                <Badge variant="destructive" className="text-xs">
                                   <XCircle className="h-3 w-3 mr-1" />
                                   {stats.rejectedQuotes} Rejected
+                                </Badge>
+                              )}
+                              {stats.modificationRequestedQuotes > 0 && (
+                                <Badge variant="outline" className="text-xs bg-yellow-100 dark:bg-yellow-900/30">
+                                  <MessageSquare className="h-3 w-3 mr-1" />
+                                  {stats.modificationRequestedQuotes} Mod. Req.
                                 </Badge>
                               )}
                               {stats.totalQuotes === 0 && (
@@ -821,7 +857,7 @@ export default function Clients() {
 
                   {/* Financial Summary */}
                   {(() => {
-                    const stats = getClientStats(viewingClient._id);
+                    const stats = getClientStats(viewingClient);
                     return (
                       <>
                         <div className="grid grid-cols-2 gap-4">
@@ -851,22 +887,30 @@ export default function Clients() {
                             <FileText className="h-4 w-4" />
                             Invoice Status
                           </h4>
-                          <div className="grid grid-cols-4 gap-3">
+                          <div className="grid grid-cols-3 gap-3">
                             <div className="text-center p-3 bg-muted/50 rounded-lg">
                               <p className="text-2xl font-bold">{stats.totalInvoices}</p>
                               <p className="text-xs text-muted-foreground">Total</p>
                             </div>
-                            <div className="text-center p-3 bg-primary/10 rounded-lg">
-                              <p className="text-2xl font-bold text-primary">{stats.paidInvoices}</p>
+                            <div className="text-center p-3 bg-green-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-green-600">{stats.paidInvoices}</p>
                               <p className="text-xs text-muted-foreground">Paid</p>
                             </div>
-                            <div className="text-center p-3 bg-warning/10 rounded-lg">
-                              <p className="text-2xl font-bold text-warning">{stats.pendingInvoices}</p>
-                              <p className="text-xs text-muted-foreground">Pending</p>
+                            <div className="text-center p-3 bg-blue-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-blue-600">{stats.sentInvoices}</p>
+                              <p className="text-xs text-muted-foreground">Sent</p>
                             </div>
                             <div className="text-center p-3 bg-destructive/10 rounded-lg">
                               <p className="text-2xl font-bold text-destructive">{stats.overdueInvoices}</p>
                               <p className="text-xs text-muted-foreground">Overdue</p>
+                            </div>
+                            <div className="text-center p-3 bg-gray-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-gray-600">{stats.draftInvoices}</p>
+                              <p className="text-xs text-muted-foreground">Draft</p>
+                            </div>
+                            <div className="text-center p-3 bg-orange-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-orange-600">{stats.cancelledInvoices}</p>
+                              <p className="text-xs text-muted-foreground">Cancelled</p>
                             </div>
                           </div>
                         </div>
@@ -879,22 +923,42 @@ export default function Clients() {
                             <FileCheck className="h-4 w-4" />
                             Quote Status
                           </h4>
-                          <div className="grid grid-cols-4 gap-3">
+                          <div className="grid grid-cols-3 gap-3">
                             <div className="text-center p-3 bg-muted/50 rounded-lg">
                               <p className="text-2xl font-bold">{stats.totalQuotes}</p>
                               <p className="text-xs text-muted-foreground">Total</p>
                             </div>
-                            <div className="text-center p-3 bg-primary/10 rounded-lg">
-                              <p className="text-2xl font-bold text-primary">{stats.acceptedQuotes}</p>
+                            <div className="text-center p-3 bg-green-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-green-600">{stats.acceptedQuotes}</p>
                               <p className="text-xs text-muted-foreground">Accepted</p>
                             </div>
-                            <div className="text-center p-3 bg-warning/10 rounded-lg">
-                              <p className="text-2xl font-bold text-warning">{stats.pendingQuotes}</p>
-                              <p className="text-xs text-muted-foreground">Pending</p>
+                            <div className="text-center p-3 bg-purple-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-purple-600">{stats.convertedQuotes}</p>
+                              <p className="text-xs text-muted-foreground">Converted</p>
+                            </div>
+                            <div className="text-center p-3 bg-blue-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-blue-600">{stats.sentQuotes}</p>
+                              <p className="text-xs text-muted-foreground">Sent</p>
+                            </div>
+                            <div className="text-center p-3 bg-cyan-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-cyan-600">{stats.viewedQuotes}</p>
+                              <p className="text-xs text-muted-foreground">Viewed</p>
+                            </div>
+                            <div className="text-center p-3 bg-orange-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-orange-600">{stats.expiredQuotes}</p>
+                              <p className="text-xs text-muted-foreground">Expired</p>
                             </div>
                             <div className="text-center p-3 bg-destructive/10 rounded-lg">
                               <p className="text-2xl font-bold text-destructive">{stats.rejectedQuotes}</p>
                               <p className="text-xs text-muted-foreground">Rejected</p>
+                            </div>
+                            <div className="text-center p-3 bg-yellow-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-yellow-600">{stats.modificationRequestedQuotes}</p>
+                              <p className="text-xs text-muted-foreground">Mod. Requested</p>
+                            </div>
+                            <div className="text-center p-3 bg-gray-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-gray-600">{stats.draftQuotes}</p>
+                              <p className="text-xs text-muted-foreground">Draft</p>
                             </div>
                           </div>
                         </div>

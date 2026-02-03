@@ -34,7 +34,7 @@ interface Quote {
   _id: string;
   quoteNumber: string;
   clientId?: string;
-  status: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired';
+  status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'converted' | 'modification_requested';
   quoteDate: string;
   validUntil: string;
   billTo: BillTo;

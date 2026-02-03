@@ -26,8 +26,9 @@ interface CreateClientDto {
 interface UpdateClientDto extends Partial<CreateClientDto> {}
 
 export const ClientService = {
-  async getAll(): Promise<Client[]> {
-    const response = await axios.get<Client[]>('/clients');
+  async getAll(includeStats: boolean = false): Promise<Client[]> {
+    const params = includeStats ? { includeStats: 'true' } : {};
+    const response = await axios.get<Client[]>('/clients', { params });
     return response.data;
   },
 

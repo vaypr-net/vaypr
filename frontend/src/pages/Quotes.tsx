@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useInvoices, useReminders } from '@/hooks/useData';
 import { useClients } from '@/hooks/api/useClients';
-import { useQuotesAPI, useDeleteQuote } from '@/hooks/api/useQuotes';
+import { useQuotesAPI, useDeleteQuote, useUpdateQuote } from '@/hooks/api/useQuotes';
 import { useAuth } from '@/contexts/AuthContext';
 import { Quote, QuoteItem } from '@/types/app';
 import { QuoteData } from '@/types/quote';
@@ -106,6 +106,7 @@ export default function Quotes() {
   // API Hooks - Fetch quotes from database
   const { data: apiQuotes = [], isLoading: loadingQuotes } = useQuotesAPI(statusFilter !== 'all' ? statusFilter : undefined);
   const deleteQuoteMutation = useDeleteQuote();
+  const updateQuoteMutation = useUpdateQuote();
   
   // Old localStorage hooks (keeping for now for other features like invoices, reminders)
   const { addInvoice } = useInvoices();
@@ -144,7 +145,6 @@ export default function Quotes() {
   
   // Stub functions for features not yet migrated to API
   const addQuote = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Create quotes from the Invoice Generator', variant: 'destructive' }); return null; };
-  const updateQuote = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Quote editing will be available via API soon', variant: 'destructive' }); };
   const markAsSent = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as sent will be available via API soon', variant: 'destructive' }); };
   const markAsAccepted = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as accepted will be available via API soon', variant: 'destructive' }); };
   const markAsRejected = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as rejected will be available via API soon', variant: 'destructive' }); };
