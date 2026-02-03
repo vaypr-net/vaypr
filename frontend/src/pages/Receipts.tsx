@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { useReceipts, useClients, useInvoices } from '@/hooks/useData';
+import { useInvoices as useInvoicesAPI } from '@/hooks/api/useInvoices';
+import { useClients } from '@/hooks/api/useClients';
+import { useReceiptsAPI, useDeleteReceipt } from '@/hooks/api/useReceipts';
 import { ReceiptVoucher } from '@/types/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -76,12 +79,10 @@ const PAYMENT_METHODS = [
 ];
 
 export default function Receipts() {
-  const { receipts, addReceipt, deleteReceipt, markAsIssued, markAsCancelled } = useReceipts();
-  const { clients } = useClients();
-  const { invoices } = useInvoices();
   const { toast } = useToast();
   const { downloadPDF, sendEmail, openInGenerator } = useDocumentActions();
-
+  
+  // State declarations
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -89,6 +90,37 @@ export default function Receipts() {
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptVoucher | null>(null);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [clientEmail, setClientEmail] = useState('');
+  
+  // API Hooks
+  const { data: apiReceipts = [], isLoading: loadingReceipts } = useReceiptsAPI(statusFilter !== 'all' ? statusFilter : undefined);
+  const deleteReceiptMutation = useDeleteReceipt();
+  const { data: clients = [], isLoading: loadingClients } = useClients();
+  const { data: invoices = [], isLoading: loadingInvoices } = useInvoicesAPI();
+  
+  // Map API receipts to local type
+  const receipts: ReceiptVoucher[] = apiReceipts.map((r: any) => ({
+    id: r._id,
+    receiptNumber: r.receiptNumber,
+    clientId: r.clientId || '',
+    receivedFrom: r.receivedFrom,
+    status: r.status,
+    receiptDate: r.receiptDate,
+    amount: r.amount,
+    currency: r.currency,
+    currencySymbol: r.currencySymbol || 'KD',
+    paymentMethod: r.paymentMethod,
+    reason: r.reason || '',
+    receivedBy: r.receivedBy || '',
+    companyName: r.companyName || '',
+    companyAddress: r.companyAddress || '',
+    companyPhone: r.companyPhone || '',
+    createdAt: r.createdAt || new Date().toISOString(),
+  }));
+  
+  // Stub functions for features not yet migrated to API
+  const addReceipt = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Create receipts from the Invoice Generator', variant: 'destructive' }); return null; };
+  const markAsIssued = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as issued will be available via API soon', variant: 'destructive' }); };
+  const markAsCancelled = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as cancelled will be available via API soon', variant: 'destructive' }); };
 
   const [formData, setFormData] = useState({
     receivedFrom: '',
@@ -201,9 +233,12 @@ export default function Receipts() {
     toast({ title: 'Receipt Cancelled', description: `Receipt ${receipt.receiptNumber} has been cancelled` });
   };
 
-  const handleDeleteReceipt = (receipt: ReceiptVoucher) => {
-    deleteReceipt(receipt.id);
-    toast({ title: 'Receipt Deleted', description: `Receipt ${receipt.receiptNumber} has been deleted` });
+  const handleDeleteReceipt = async (receipt: ReceiptVoucher) => {
+    try {
+      await deleteReceiptMutation.mutateAsync(receipt.id);
+    } catch (error) {
+      console.error('Failed to delete receipt:', error);
+    }
   };
 
   const handleDuplicateReceipt = (receipt: ReceiptVoucher) => {
@@ -225,23 +260,23 @@ export default function Receipts() {
   };
 
   const handleClientSelect = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
+    const client = clients.find(c => c._id === clientId);
     if (client) {
       setFormData(prev => ({
         ...prev,
-        clientId: client.id,
+        clientId: client._id,
         receivedFrom: client.name,
       }));
     }
   };
 
   const handleInvoiceSelect = (invoiceId: string) => {
-    const invoice = invoices.find(i => i.id === invoiceId);
+    const invoice = invoices.find(i => i._id === invoiceId);
     if (invoice) {
       setFormData(prev => ({
         ...prev,
-        invoiceId: invoice.id,
-        receivedFrom: invoice.clientName,
+        invoiceId: invoice._id,
+        receivedFrom: invoice.billTo.name,
         amount: invoice.total,
         reason: `Payment for Invoice ${invoice.invoiceNumber}`,
       }));
@@ -317,7 +352,13 @@ export default function Receipts() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredReceipts.length === 0 ? (
+              {loadingReceipts ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                  </TableCell>
+                </TableRow>
+              ) : filteredReceipts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No receipts found. Create your first receipt to get started.
@@ -432,8 +473,8 @@ export default function Receipts() {
                   </SelectTrigger>
                   <SelectContent>
                     {pendingInvoices.map((invoice) => (
-                      <SelectItem key={invoice.id} value={invoice.id}>
-                        {invoice.invoiceNumber} - {invoice.clientName} ({invoice.currency} {invoice.total.toFixed(2)})
+                      <SelectItem key={invoice._id} value={invoice._id}>
+                        {invoice.invoiceNumber} - {invoice.billTo.name} ({invoice.currency} {invoice.total.toFixed(2)})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -451,7 +492,7 @@ export default function Receipts() {
                   </SelectTrigger>
                   <SelectContent>
                     {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
+                      <SelectItem key={client._id} value={client._id}>
                         {client.name}
                       </SelectItem>
                     ))}

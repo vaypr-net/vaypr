@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { useInvoices, useClients, usePayments, useReminders } from '@/hooks/useData';
+import { useInvoices as useInvoicesAPI, useCreateInvoice, useUpdateInvoice, useDeleteInvoice } from '@/hooks/api/useInvoices';
+import { useClients as useClientsAPI } from '@/hooks/api/useClients';
+import { usePayments, useReminders } from '@/hooks/useData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,7 +33,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, MoreHorizontal, Eye, DollarSign, Trash2, Send, FileText, Printer, Download, Mail, Pencil } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Eye, DollarSign, Trash2, Send, FileText, Printer, Download, Mail, Pencil, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   DropdownMenu,
@@ -40,15 +42,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { format, addDays } from 'date-fns';
-import { Invoice, InvoiceItem } from '@/types/app';
+import { Invoice, InvoiceItem, BillTo } from '@/types/app';
 import { InvoicePreview } from '@/components/invoice/InvoicePreview';
 import { InvoiceData } from '@/types/invoice';
 import { useDocumentActions } from '@/hooks/useDocumentActions';
 import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 export default function Invoices() {
-  const { invoices, addInvoice, updateInvoice, deleteInvoice, markAsPaid } = useInvoices();
-  const { clients } = useClients();
+  const { data: invoices = [], isLoading, error } = useInvoicesAPI();
+  const { data: clients = [] } = useClientsAPI();
+  const createInvoice = useCreateInvoice();
+  const updateInvoice = useUpdateInvoice();
+  const deleteInvoice = useDeleteInvoice();
   const { addPayment } = usePayments();
   const { addReminder } = useReminders();
   const { toast } = useToast();
@@ -70,7 +75,7 @@ export default function Invoices() {
     notes: '',
     paymentMethod: '',
     discount: 0,
-    items: [{ id: crypto.randomUUID(), description: '', quantity: 1, rate: 0, amount: 0 }] as InvoiceItem[],
+    items: [{ id: crypto.randomUUID(), description: '', quantity: 1, unitPrice: 0, amount: 0 }] as InvoiceItem[],
   });
 
   const [paymentMethod, setPaymentMethod] = useState<string>('bank_transfer');
@@ -78,7 +83,7 @@ export default function Invoices() {
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch = 
       invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.clientName.toLowerCase().includes(searchQuery.toLowerCase());
+      invoice.billTo.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -100,7 +105,7 @@ export default function Invoices() {
     return `${prefix}-${timestamp}-${random}`;
   };
 
-  const calculateItemAmount = (quantity: number, rate: number) => quantity * rate;
+  const calculateItemAmount = (quantity: number, unitPrice: number) => quantity * unitPrice;
 
   const calculateSubtotal = () => {
     return formData.items.reduce((sum, item) => sum + item.amount, 0);
@@ -115,10 +120,10 @@ export default function Invoices() {
   const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
     const newItems = [...formData.items];
     newItems[index] = { ...newItems[index], [field]: value };
-    if (field === 'quantity' || field === 'rate') {
+    if (field === 'quantity' || field === 'unitPrice') {
       newItems[index].amount = calculateItemAmount(
         field === 'quantity' ? Number(value) : newItems[index].quantity,
-        field === 'rate' ? Number(value) : newItems[index].rate
+        field === 'unitPrice' ? Number(value) : newItems[index].unitPrice
       );
     }
     setFormData({ ...formData, items: newItems });
@@ -127,7 +132,7 @@ export default function Invoices() {
   const addItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { id: crypto.randomUUID(), description: '', quantity: 1, rate: 0, amount: 0 }],
+      items: [...formData.items, { id: crypto.randomUUID(), description: '', quantity: 1, unitPrice: 0, amount: 0 }],
     });
   };
 
@@ -138,8 +143,8 @@ export default function Invoices() {
     }
   };
 
-  const handleCreate = () => {
-    const client = clients.find(c => c.id === formData.clientId);
+  const handleCreate = async () => {
+    const client = clients.find(c => c._id === formData.clientId);
     if (!client) {
       toast({
         title: 'Please select a client',
@@ -151,57 +156,53 @@ export default function Invoices() {
     const subtotal = calculateSubtotal();
     const total = calculateTotal();
 
-    const newInvoice = addInvoice({
+    const billTo: BillTo = {
+      name: client.name,
+      phone: client.phone,
+      area: client.address,
+    };
+
+    const invoiceData = {
       invoiceNumber: generateInvoiceNumber(),
-      clientId: client.id,
-      clientName: client.name,
+      clientId: client._id,
+      billTo,
       status: 'draft',
       issueDate: format(new Date(), 'yyyy-MM-dd'),
       dueDate: formData.dueDate,
-      items: formData.items,
+      items: formData.items.map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        amount: item.amount,
+      })),
       subtotal,
       tax: 0,
       discount: formData.discount,
       total,
       currency: 'USD',
       notes: formData.notes,
-      paymentMethod: formData.paymentMethod,
-    });
+    };
 
-    // Create reminder for due date
-    addReminder({
-      type: 'payment_due',
-      title: `Invoice ${newInvoice.invoiceNumber} due`,
-      message: `Payment of ${formatCurrency(total)} from ${client.name} is due`,
-      relatedId: newInvoice.id,
-      dueDate: formData.dueDate,
-    });
-
-    toast({
-      title: 'Invoice created',
-      description: `Invoice ${newInvoice.invoiceNumber} has been created.`,
-    });
-
+    await createInvoice.mutateAsync({ data: invoiceData });
     setIsCreateOpen(false);
     resetForm();
   };
 
-  const handleSendInvoice = (invoice: Invoice) => {
-    updateInvoice(invoice.id, { status: 'sent' });
-    toast({
-      title: 'Invoice sent',
-      description: `Invoice ${invoice.invoiceNumber} has been marked as sent.`,
+  const handleSendInvoice = async (invoice: Invoice) => {
+    await updateInvoice.mutateAsync({ 
+      id: invoice._id, 
+      data: { status: 'sent' }
     });
   };
 
-  const handleRecordPayment = () => {
+  const handleRecordPayment = async () => {
     if (!selectedInvoice) return;
 
     addPayment({
-      invoiceId: selectedInvoice.id,
+      invoiceId: selectedInvoice._id,
       invoiceNumber: selectedInvoice.invoiceNumber,
-      clientId: selectedInvoice.clientId,
-      clientName: selectedInvoice.clientName,
+      clientId: selectedInvoice.clientId || '',
+      clientName: selectedInvoice.billTo.name,
       amount: selectedInvoice.total,
       currency: selectedInvoice.currency,
       method: paymentMethod as any,
@@ -209,23 +210,17 @@ export default function Invoices() {
       paidAt: new Date().toISOString(),
     });
 
-    markAsPaid(selectedInvoice.id);
-
-    toast({
-      title: 'Payment recorded',
-      description: `Payment for invoice ${selectedInvoice.invoiceNumber} has been recorded.`,
+    await updateInvoice.mutateAsync({
+      id: selectedInvoice._id,
+      data: { status: 'paid', paidAt: new Date().toISOString() }
     });
 
     setIsPaymentOpen(false);
     setSelectedInvoice(null);
   };
 
-  const handleDelete = (invoice: Invoice) => {
-    deleteInvoice(invoice.id);
-    toast({
-      title: 'Invoice deleted',
-      description: `Invoice ${invoice.invoiceNumber} has been deleted.`,
-    });
+  const handleDelete = async (invoice: Invoice) => {
+    await deleteInvoice.mutateAsync(invoice._id);
   };
 
   const resetForm = () => {
@@ -235,7 +230,7 @@ export default function Invoices() {
       notes: '',
       paymentMethod: '',
       discount: 0,
-      items: [{ id: crypto.randomUUID(), description: '', quantity: 1, rate: 0, amount: 0 }],
+      items: [{ id: crypto.randomUUID(), description: '', quantity: 1, unitPrice: 0, amount: 0 }],
     });
   };
 
@@ -300,7 +295,16 @@ export default function Invoices() {
         {/* Invoices Table */}
         <Card>
           <CardContent className="p-0">
-            {filteredInvoices.length === 0 ? (
+            {isLoading ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin" />
+                <p>Loading invoices...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12 text-destructive">
+                <p>Error loading invoices. Please try again.</p>
+              </div>
+            ) : filteredInvoices.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium">No invoices found</p>
@@ -320,9 +324,9 @@ export default function Invoices() {
                 </TableHeader>
                 <TableBody>
                   {filteredInvoices.map((invoice) => (
-                    <TableRow key={invoice.id}>
+                    <TableRow key={invoice._id}>
                       <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                      <TableCell>{invoice.clientName}</TableCell>
+                      <TableCell>{invoice.billTo.name}</TableCell>
                       <TableCell>{formatCurrency(invoice.total, invoice.currency)}</TableCell>
                       <TableCell>{format(new Date(invoice.dueDate), 'MMM d, yyyy')}</TableCell>
                       <TableCell>{getStatusBadge(invoice.status)}</TableCell>
@@ -418,7 +422,7 @@ export default function Invoices() {
                     </SelectTrigger>
                     <SelectContent>
                       {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                        <SelectItem key={client._id} value={client._id}>{client.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -460,8 +464,8 @@ export default function Invoices() {
                       <Input
                         type="number"
                         placeholder="Rate"
-                        value={item.rate}
-                        onChange={(e) => updateItem(index, 'rate', Number(e.target.value))}
+                        value={item.unitPrice}
+                        onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value))}
                       />
                     </div>
                     <div className="col-span-2">
@@ -536,8 +540,13 @@ export default function Invoices() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreate}>Create Invoice</Button>
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)} disabled={createInvoice.isPending}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreate} disabled={createInvoice.isPending}>
+                {createInvoice.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Create Invoice
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -559,43 +568,32 @@ export default function Invoices() {
                     logoScale: selectedInvoice.logoScale || 1.0,
                     currency: selectedInvoice.currency,
                     currencySymbol: selectedInvoice.currencySymbol || selectedInvoice.currency,
-                    billTo: {
-                      name: selectedInvoice.clientName,
-                      phone: selectedInvoice.clientPhone || '',
-                      area: selectedInvoice.clientArea || '',
-                      block: selectedInvoice.clientBlock || '',
-                      street: selectedInvoice.clientStreet || '',
-                      house: selectedInvoice.clientHouse || '',
-                      other: selectedInvoice.clientOther || '',
-                    },
+                    billTo: selectedInvoice.billTo,
                     invoiceNumber: selectedInvoice.invoiceNumber,
                     invoiceDate: selectedInvoice.issueDate,
                     paymentDate: selectedInvoice.dueDate,
                     items: selectedInvoice.items.map((item) => ({
-                      id: item.id,
+                      id: item.id || crypto.randomUUID(),
                       description: item.description,
                       quantity: item.quantity,
-                      unitPrice: item.rate,
+                      unitPrice: item.unitPrice,
                     })),
                     discount: selectedInvoice.discount,
                     deliveryFee: selectedInvoice.deliveryFee || 0,
-                    companyFooter: {
-                      companyName: selectedInvoice.companyName || '',
-                      officePhone: selectedInvoice.companyPhone || '',
-                      address: selectedInvoice.companyAddress || '',
-                      websiteEmail: selectedInvoice.companyEmail || '',
+                    companyFooter: selectedInvoice.companyFooter || {
+                      companyName: '',
+                      officePhone: '',
+                      address: '',
+                      websiteEmail: '',
                     },
-                    paymentDetails: selectedInvoice.paymentMethod || '',
+                    paymentDetails: selectedInvoice.paymentMethodType || '',
                     showPaymentMethod: selectedInvoice.showPaymentMethod || false,
-                    paymentMethodType: selectedInvoice.paymentMethod === 'Cash' ? 'cash' :
-                                       selectedInvoice.paymentMethod === 'Bank Transfer' ? 'bank_transfer' :
-                                       selectedInvoice.paymentMethod === 'Cheque' ? 'cheque' :
-                                       selectedInvoice.paymentMethod === 'Online Payment' ? 'online_payment' : 'cash',
+                    paymentMethodType: selectedInvoice.paymentMethodType || 'cash',
                     showBankAccount: selectedInvoice.showBankAccount || false,
-                    bankAccount: {
-                      bankName: selectedInvoice.bankName || '',
-                      accountName: selectedInvoice.bankAccountName || '',
-                      iban: selectedInvoice.bankIban || '',
+                    bankAccount: selectedInvoice.bankAccount || {
+                      bankName: '',
+                      accountName: '',
+                      iban: '',
                     },
                     showPaymentTerms: selectedInvoice.showPaymentTerms || false,
                     paymentTerms: selectedInvoice.paymentTerms || '',
@@ -693,8 +691,8 @@ export default function Invoices() {
                 if (selectedInvoice) {
                   sendEmail({
                     to: clientEmail,
-                    subject: `Invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.companyName || 'Our Company'}`,
-                    body: `Dear ${selectedInvoice.clientName},\n\nPlease find attached Invoice ${selectedInvoice.invoiceNumber}.\n\nAmount Due: ${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}\nDue Date: ${format(new Date(selectedInvoice.dueDate), 'MMM d, yyyy')}\n\nThank you for your business.\n\nBest regards,\n${selectedInvoice.companyName || 'Our Company'}`,
+                    subject: `Invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.companyFooter?.name || 'Our Company'}`,
+                    body: `Dear ${selectedInvoice.billTo.name},\n\nPlease find attached Invoice ${selectedInvoice.invoiceNumber}.\n\nAmount Due: ${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}\nDue Date: ${format(new Date(selectedInvoice.dueDate), 'MMM d, yyyy')}\n\nThank you for your business.\n\nBest regards,\n${selectedInvoice.companyFooter?.name || 'Our Company'}`,
                   });
                   setIsEmailDialogOpen(false);
                 }

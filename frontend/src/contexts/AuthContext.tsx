@@ -10,6 +10,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Clean up old localStorage keys from previous fake auth system
 function cleanupOldLocalStorage() {
   const keysToRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
@@ -28,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     const token = localStorage.getItem('accessToken');
+
     if (storedUser && token) {
       try {
         setUser(JSON.parse(storedUser));

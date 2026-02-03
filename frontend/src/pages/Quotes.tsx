@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { useQuotes, useInvoices, useClients, useReminders } from '@/hooks/useData';
+import { useInvoices, useReminders } from '@/hooks/useData';
+import { useClients } from '@/hooks/api/useClients';
+import { useQuotesAPI, useDeleteQuote } from '@/hooks/api/useQuotes';
 import { useAuth } from '@/contexts/AuthContext';
 import { Quote, QuoteItem } from '@/types/app';
 import { QuoteData } from '@/types/quote';
@@ -11,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -85,13 +88,10 @@ const CURRENCIES = [
 
 export default function Quotes() {
   const { user } = useAuth();
-  const { quotes, addQuote, updateQuote, deleteQuote, markAsSent, markAsAccepted, markAsRejected, markAsConverted, addTimelineEvent } = useQuotes();
-  const { addInvoice } = useInvoices();
-  const { clients } = useClients();
-  const { reminders, unreadCount } = useReminders();
   const { toast } = useToast();
   const { downloadPDF, sendEmail, openInGenerator } = useDocumentActions();
-
+  
+  // State declarations
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -102,6 +102,53 @@ export default function Quotes() {
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [clientEmail, setClientEmail] = useState('');
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+  
+  // API Hooks - Fetch quotes from database
+  const { data: apiQuotes = [], isLoading: loadingQuotes } = useQuotesAPI(statusFilter !== 'all' ? statusFilter : undefined);
+  const deleteQuoteMutation = useDeleteQuote();
+  
+  // Old localStorage hooks (keeping for now for other features like invoices, reminders)
+  const { addInvoice } = useInvoices();
+  const { data: clients = [], isLoading: loadingClients } = useClients();
+  const { reminders, unreadCount } = useReminders();
+  
+  // Map API quotes to local Quote type
+  const quotes: Quote[] = apiQuotes.map((q: any) => ({
+    id: q._id,
+    quoteNumber: q.quoteNumber,
+    clientId: q.clientId || '',
+    clientName: q.billTo?.name || '',
+    status: q.status,
+    quoteDate: q.quoteDate,
+    validUntil: q.validUntil,
+    items: q.items?.map((item: any) => ({
+      id: item._id || crypto.randomUUID(),
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+    })) || [],
+    subtotal: q.subtotal || 0,
+    discount: q.discount || 0,
+    total: q.total || 0,
+    currency: q.currency || 'KWD',
+    currencySymbol: q.currencySymbol || 'KD',
+    notes: q.notes || '',
+    createdAt: q.createdAt || new Date().toISOString(),
+    sentAt: q.sentAt,
+    acceptedAt: q.acceptedAt,
+    rejectedAt: q.rejectedAt,
+    convertedAt: q.convertedAt,
+    convertedToInvoiceId: q.convertedToInvoiceId,
+    timeline: q.timeline || [],
+  }));
+  
+  // Stub functions for features not yet migrated to API
+  const addQuote = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Create quotes from the Invoice Generator', variant: 'destructive' }); return null; };
+  const updateQuote = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Quote editing will be available via API soon', variant: 'destructive' }); };
+  const markAsSent = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as sent will be available via API soon', variant: 'destructive' }); };
+  const markAsAccepted = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as accepted will be available via API soon', variant: 'destructive' }); };
+  const markAsRejected = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as rejected will be available via API soon', variant: 'destructive' }); };
+  const markAsConverted = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Convert to invoice will be available via API soon', variant: 'destructive' }); };
 
   // QuoteData state for editing (matches Generator page structure)
   const [editQuoteData, setEditQuoteData] = useState<QuoteData>({
@@ -486,7 +533,7 @@ export default function Quotes() {
       id: crypto.randomUUID(),
       description: item.description,
       quantity: item.quantity,
-      rate: item.unitPrice,
+      unitPrice: item.unitPrice, // Changed from rate to unitPrice
       amount: item.quantity * item.unitPrice,
     }));
 
@@ -496,7 +543,6 @@ export default function Quotes() {
     const invoice = addInvoice({
       invoiceNumber: `INV-${String(Date.now()).slice(-6)}`,
       clientId: selectedQuote.clientId,
-      clientName: selectedQuote.clientName,
       status: 'draft',
       issueDate: format(new Date(), 'yyyy-MM-dd'),
       dueDate: format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
@@ -509,15 +555,18 @@ export default function Quotes() {
       notes: selectedQuote.notes,
     });
 
-    markAsConverted(selectedQuote.id, invoice.id);
+    markAsConverted(selectedQuote.id, invoice._id); // Changed invoice.id to invoice._id
     toast({ title: 'Quote Converted', description: `Quote converted to Invoice ${invoice.invoiceNumber}` });
     setIsConvertDialogOpen(false);
     setSelectedQuote(null);
   };
 
-  const handleDeleteQuote = (quote: Quote) => {
-    deleteQuote(quote.id);
-    toast({ title: 'Quote Deleted', description: `Quote ${quote.quoteNumber} has been deleted` });
+  const handleDeleteQuote = async (quote: Quote) => {
+    try {
+      await deleteQuoteMutation.mutateAsync(quote.id);
+    } catch (error) {
+      // Error toast is handled by the mutation hook
+    }
   };
 
   const handleDuplicateQuote = (quote: Quote) => {
@@ -557,11 +606,11 @@ export default function Quotes() {
   };
 
   const handleClientSelect = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
+    const client = clients.find(c => c._id === clientId);
     if (client) {
       setFormData(prev => ({
         ...prev,
-        clientId: client.id,
+        clientId: client._id,
         clientName: client.name,
         clientPhone: client.phone || '',
       }));
@@ -638,10 +687,22 @@ export default function Quotes() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredQuotes.length === 0 ? (
+              {loadingQuotes ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="text-muted-foreground">Loading quotes...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredQuotes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No quotes found. Create your first quote to get started.
+                    <div className="space-y-2">
+                      <p>No quotes found.</p>
+                      <p className="text-sm">Create quotes from the Invoice Generator.</p>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -786,7 +847,7 @@ export default function Quotes() {
                   </SelectTrigger>
                   <SelectContent>
                     {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
+                      <SelectItem key={client._id} value={client._id}>
                         {client.name}
                       </SelectItem>
                     ))}

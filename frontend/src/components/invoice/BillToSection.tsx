@@ -17,6 +17,19 @@ export function BillToSection({ billTo, onChange }: BillToSectionProps) {
     onChange({ ...billTo, [field]: value });
   };
 
+  const handleClientSelect = (client: any) => {
+    // Auto-populate client details when a client is selected
+    onChange({
+      name: client.name,
+      phone: client.phone || "",
+      area: client.address || "", // Map address to area
+      block: "",
+      street: "",
+      house: "",
+      other: "",
+    });
+  };
+
   return (
     <div className="space-y-3">
       <button
@@ -37,6 +50,7 @@ export function BillToSection({ billTo, onChange }: BillToSectionProps) {
           <ClientSelector
             value={billTo.name}
             onChange={(name) => handleChange("name", name)}
+            onClientSelect={handleClientSelect}
             label="Customer Name"
           />
           

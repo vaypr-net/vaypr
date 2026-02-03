@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileText, Receipt, FileCheck, ArrowRight, Building2, User, AlertCircle } from "lucide-react";
+import { FileText, Receipt, FileCheck, ArrowRight, Building2, User, AlertCircle, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,11 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useInvoices, useQuotes, useReceipts, useClients } from "@/hooks/useData";
+import { useCreateInvoice } from "@/hooks/api/useInvoices";
+import { useCreateQuote } from "@/hooks/api/useQuotes";
+import { useCreateReceipt } from "@/hooks/api/useReceipts";
+import { useClients } from "@/hooks/api/useClients";
 import { InvoiceData } from "@/types/invoice";
 import { ReceiptData } from "@/types/receipt";
 import { QuoteData } from "@/types/quote";
-import { Invoice, Quote, ReceiptVoucher } from "@/types/app";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -44,19 +46,19 @@ export function SaveToDashboardDialog({
   quoteData,
 }: SaveToDashboardDialogProps) {
   const navigate = useNavigate();
-  const { addInvoice } = useInvoices();
-  const { addQuote } = useQuotes();
-  const { addReceipt } = useReceipts();
-  const { clients } = useClients();
+  const createInvoice = useCreateInvoice();
+  const createQuote = useCreateQuote();
+  const createReceipt = useCreateReceipt();
+  const { data: clients = [], isLoading: loadingClients } = useClients();
   
   const [selectedClientId, setSelectedClientId] = useState("");
   const [goToDashboard, setGoToDashboard] = useState(false);
 
   // Separate clients into companies and individuals
-  const companies = clients.filter(c => c.type === 'company');
-  const individuals = clients.filter(c => c.type === 'individual' || !c.type);
+  const companies = clients.filter(c => c.clientType === 'company');
+  const individuals = clients.filter(c => c.clientType === 'individual' || !c.clientType);
 
-  const selectedClient = clients.find(c => c.id === selectedClientId);
+  const selectedClient = clients.find(c => c._id === selectedClientId);
 
   const getIcon = () => {
     switch (documentType) {
@@ -91,153 +93,221 @@ export function SaveToDashboardDialog({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedClientId) {
       toast.error("Please select a client or company");
       return;
     }
 
-    const clientName = selectedClient?.name || "Unknown Client";
+    try {
+      if (documentType === "invoice" && invoiceData) {
+        const subtotal = invoiceData.items.reduce(
+          (sum, item) => sum + item.quantity * item.unitPrice,
+          0
+        );
+        
+        // Calculate discount as percentage of subtotal
+        const discountAmount = (subtotal * invoiceData.discount) / 100;
+        const total = invoiceData.useManualGrandTotal
+          ? invoiceData.manualGrandTotal
+          : Math.max(0, subtotal - discountAmount + invoiceData.deliveryFee); // Ensure total is never negative
 
-    if (documentType === "invoice" && invoiceData) {
-      const subtotal = invoiceData.items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0
-      );
-      const discountAmount = (subtotal * invoiceData.discount) / 100;
-      const total = invoiceData.useManualGrandTotal
-        ? invoiceData.manualGrandTotal
-        : subtotal - discountAmount + invoiceData.deliveryFee;
+        // Prepare invoice data for API
+        const apiInvoiceData = {
+          invoiceNumber: invoiceData.invoiceNumber || `INV-${Date.now()}`,
+          clientId: selectedClientId,
+          billTo: {
+            name: invoiceData.billTo.name,
+            phone: invoiceData.billTo.phone || selectedClient?.phone || '',
+            area: invoiceData.billTo.area || '',
+            block: invoiceData.billTo.block || '',
+            street: invoiceData.billTo.street || '',
+            house: invoiceData.billTo.house || '',
+            other: invoiceData.billTo.other || '',
+          },
+          status: 'draft',
+          issueDate: invoiceData.invoiceDate || new Date().toISOString().split("T")[0],
+          dueDate: invoiceData.paymentDate || new Date().toISOString().split("T")[0],
+          items: invoiceData.items.map((item) => ({
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            amount: item.quantity * item.unitPrice,
+          })),
+          subtotal,
+          tax: 0,
+          discount: invoiceData.discount, // Store as percentage
+          deliveryFee: invoiceData.deliveryFee,
+          total,
+          currency: invoiceData.currency,
+          currencySymbol: invoiceData.currencySymbol,
+          companyFooter: {
+            companyName: invoiceData.companyFooter.companyName || '',
+            address: invoiceData.companyFooter.address || '',
+            officePhone: invoiceData.companyFooter.officePhone || '',
+            websiteEmail: invoiceData.companyFooter.websiteEmail || '',
+          },
+          showPaymentMethod: invoiceData.showPaymentMethod,
+          paymentMethodType: invoiceData.paymentMethodType || 'cash',
+          showBankAccount: invoiceData.showBankAccount,
+          bankAccount: {
+            bankName: invoiceData.bankAccount?.bankName || '',
+            accountName: invoiceData.bankAccount?.accountName || '',
+            iban: invoiceData.bankAccount?.iban || '',
+          },
+          showPaymentTerms: invoiceData.showPaymentTerms,
+          paymentTerms: invoiceData.paymentTerms || '',
+          logoScale: invoiceData.logoScale || 1.0,
+          tableHeaderColor: invoiceData.tableHeaderColor,
+          hideQuantity: invoiceData.hideQuantity,
+          hideUnitPrice: invoiceData.hideUnitPrice,
+          hideTotalCost: invoiceData.hideTotalCost,
+          hideSubTotal: invoiceData.hideSubTotal,
+          useManualGrandTotal: invoiceData.useManualGrandTotal,
+          manualGrandTotal: invoiceData.manualGrandTotal,
+        };
 
-      const invoice: Omit<Invoice, "id" | "createdAt"> = {
-        invoiceNumber: invoiceData.invoiceNumber || `INV-${Date.now()}`,
-        clientId: selectedClientId,
-        clientName: clientName,
-        clientPhone: selectedClient?.phone || invoiceData.billTo.phone || undefined,
-        clientArea: invoiceData.billTo.area || undefined,
-        clientBlock: invoiceData.billTo.block || undefined,
-        clientStreet: invoiceData.billTo.street || undefined,
-        clientHouse: invoiceData.billTo.house || undefined,
-        clientOther: invoiceData.billTo.other || undefined,
-        status: "draft",
-        issueDate: invoiceData.invoiceDate || new Date().toISOString().split("T")[0],
-        dueDate: invoiceData.paymentDate || new Date().toISOString().split("T")[0],
-        items: invoiceData.items.map((item) => ({
-          id: item.id,
-          description: item.description,
-          quantity: item.quantity,
-          rate: item.unitPrice,
-          amount: item.quantity * item.unitPrice,
-        })),
-        subtotal,
-        tax: 0,
-        discount: invoiceData.discount,
-        deliveryFee: invoiceData.deliveryFee,
-        total,
-        currency: invoiceData.currency,
-        currencySymbol: invoiceData.currencySymbol,
-        notes: invoiceData.paymentTerms || undefined,
-        paymentMethod: invoiceData.paymentMethodType === 'cash' ? 'Cash' : 
-                       invoiceData.paymentMethodType === 'bank_transfer' ? 'Bank Transfer' :
-                       invoiceData.paymentMethodType === 'cheque' ? 'Cheque' :
-                       invoiceData.paymentMethodType === 'online_payment' ? 'Online Payment' : undefined,
-        paymentTerms: invoiceData.paymentTerms || undefined,
-        showPaymentMethod: invoiceData.showPaymentMethod,
-        showPaymentTerms: invoiceData.showPaymentTerms,
-        showBankAccount: invoiceData.showBankAccount,
-        bankName: invoiceData.bankAccount.bankName || undefined,
-        bankAccountName: invoiceData.bankAccount.accountName || undefined,
-        bankIban: invoiceData.bankAccount.iban || undefined,
-        companyName: invoiceData.companyFooter.companyName || undefined,
-        companyAddress: invoiceData.companyFooter.address || undefined,
-        companyPhone: invoiceData.companyFooter.officePhone || undefined,
-        companyEmail: invoiceData.companyFooter.websiteEmail || undefined,
-        logo: invoiceData.logo,
-        tableHeaderColor: invoiceData.tableHeaderColor || undefined,
-        hideQuantity: invoiceData.hideQuantity,
-        hideUnitPrice: invoiceData.hideUnitPrice,
-        hideTotalCost: invoiceData.hideTotalCost,
-        hideSubTotal: invoiceData.hideSubTotal,
-        useManualGrandTotal: invoiceData.useManualGrandTotal,
-        manualGrandTotal: invoiceData.manualGrandTotal,
-      };
+        // Convert logo to File if it's a base64 string
+        let logoFile: File | undefined;
+        if (invoiceData.logo && typeof invoiceData.logo === 'string' && invoiceData.logo.startsWith('data:')) {
+          const response = await fetch(invoiceData.logo);
+          const blob = await response.blob();
+          logoFile = new File([blob], 'logo.png', { type: 'image/png' });
+        }
 
-      addInvoice(invoice);
-      toast.success("Invoice saved to dashboard!");
-    } else if (documentType === "quote" && quoteData) {
-      const subtotal = quoteData.items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0
-      );
-      const total = quoteData.useManualGrandTotal
-        ? quoteData.manualGrandTotal
-        : subtotal - quoteData.discount + quoteData.deliveryFee;
+        await createInvoice.mutateAsync({ 
+          data: apiInvoiceData, 
+          logo: logoFile 
+        });
 
-      const quote: Omit<Quote, "id" | "createdAt"> = {
-        quoteNumber: quoteData.quoteNumber || `QT-${Date.now()}`,
-        clientId: selectedClientId,
-        clientName: clientName,
-        clientPhone: selectedClient?.phone || quoteData.billTo.phone || undefined,
-        clientArea: quoteData.billTo.area || undefined,
-        clientBlock: quoteData.billTo.block || undefined,
-        clientStreet: quoteData.billTo.street || undefined,
-        clientHouse: quoteData.billTo.house || undefined,
-        status: "draft",
-        quoteDate: quoteData.quoteDate || new Date().toISOString().split("T")[0],
-        validUntil: quoteData.validUntil || new Date().toISOString().split("T")[0],
-        items: quoteData.items.map((item) => ({
-          id: item.id,
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        })),
-        subtotal,
-        discount: quoteData.discount,
-        total,
-        currency: quoteData.currency,
-        currencySymbol: quoteData.currencySymbol,
-        notes: quoteData.notes || undefined,
-        companyName: quoteData.companyFooter.companyName || undefined,
-        companyAddress: quoteData.companyFooter.address || undefined,
-        companyPhone: quoteData.companyFooter.officePhone || undefined,
-        companyEmail: quoteData.companyFooter.websiteEmail || undefined,
-        logo: quoteData.logo,
-        shareToken: crypto.randomUUID().replace(/-/g, '').substring(0, 16),
-      };
+      } else if (documentType === "quote" && quoteData) {
+        const subtotal = quoteData.items.reduce(
+          (sum, item) => sum + item.quantity * item.unitPrice,
+          0
+        );
+        
+        // Calculate discount as percentage of subtotal
+        const discountAmount = (subtotal * quoteData.discount) / 100;
+        const total = quoteData.useManualGrandTotal
+          ? quoteData.manualGrandTotal
+          : Math.max(0, subtotal - discountAmount + quoteData.deliveryFee); // Ensure total is never negative
 
-      addQuote(quote);
-      toast.success("Quote saved to dashboard!");
-    } else if (documentType === "receipt" && receiptData) {
-      const receipt: Omit<ReceiptVoucher, "id" | "createdAt"> = {
-        receiptNumber: receiptData.receiptNumber || `RCV-${Date.now()}`,
-        receivedFrom: clientName,
-        clientId: selectedClientId,
-        amount: receiptData.amount,
-        currency: receiptData.currency,
-        currencySymbol: receiptData.currencySymbol,
-        paymentMethod: receiptData.paymentMethod || "Cash",
-        reason: receiptData.reason || "",
-        receiptDate: receiptData.receiptDate || new Date().toISOString().split("T")[0],
-        status: "draft",
-        companyName: receiptData.companyName || undefined,
-        companyAddress: receiptData.companyAddress || undefined,
-        companyPhone: receiptData.companyPhone || undefined,
-        logo: receiptData.logo,
-        titleColor: receiptData.titleColor || undefined,
-        amountColor: receiptData.amountColor || undefined,
-      };
+        // Prepare quote data for API
+        const apiQuoteData = {
+          quoteNumber: quoteData.quoteNumber || `QUO-${Date.now()}`,
+          clientId: selectedClientId,
+          billTo: {
+            name: quoteData.billTo.name,
+            phone: quoteData.billTo.phone || selectedClient?.phone || '',
+            area: quoteData.billTo.area || '',
+            block: quoteData.billTo.block || '',
+            street: quoteData.billTo.street || '',
+            house: quoteData.billTo.house || '',
+            other: quoteData.billTo.other || '',
+          },
+          status: 'draft',
+          quoteDate: quoteData.quoteDate || new Date().toISOString().split("T")[0],
+          validUntil: quoteData.validUntil || new Date().toISOString().split("T")[0],
+          items: quoteData.items.map((item) => ({
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            amount: item.quantity * item.unitPrice,
+          })),
+          subtotal,
+          discount: quoteData.discount, // Store as percentage
+          deliveryFee: quoteData.deliveryFee,
+          total,
+          currency: quoteData.currency,
+          currencySymbol: quoteData.currencySymbol,
+          companyFooter: {
+            companyName: quoteData.companyFooter.companyName || '',
+            address: quoteData.companyFooter.address || '',
+            officePhone: quoteData.companyFooter.officePhone || '',
+            websiteEmail: quoteData.companyFooter.websiteEmail || '',
+          },
+          showPaymentMethod: quoteData.showPaymentMethod,
+          paymentMethodType: quoteData.paymentMethodType || 'cash',
+          showBankAccount: quoteData.showBankAccount,
+          bankAccount: {
+            bankName: quoteData.bankAccount?.bankName || '',
+            accountName: quoteData.bankAccount?.accountName || '',
+            iban: quoteData.bankAccount?.iban || '',
+          },
+          showPaymentTerms: quoteData.showPaymentTerms,
+          paymentTerms: quoteData.paymentTerms || '',
+          logoScale: quoteData.logoScale || 1.0,
+          tableHeaderColor: quoteData.tableHeaderColor,
+          hideQuantity: quoteData.hideQuantity,
+          hideUnitPrice: quoteData.hideUnitPrice,
+          hideTotalCost: quoteData.hideTotalCost,
+          hideSubTotal: quoteData.hideSubTotal,
+          useManualGrandTotal: quoteData.useManualGrandTotal,
+          manualGrandTotal: quoteData.manualGrandTotal,
+          notes: quoteData.notes || '',
+          paymentDetails: quoteData.paymentDetails || '',
+        };
 
-      addReceipt(receipt);
-      toast.success("Receipt saved to dashboard!");
+        // Convert logo to File if it's a base64 string
+        let logoFile: File | undefined;
+        if (quoteData.logo && typeof quoteData.logo === 'string' && quoteData.logo.startsWith('data:')) {
+          const response = await fetch(quoteData.logo);
+          const blob = await response.blob();
+          logoFile = new File([blob], 'logo.png', { type: 'image/png' });
+        }
+
+        await createQuote.mutateAsync({ 
+          data: apiQuoteData, 
+          logo: logoFile 
+        });
+
+      } else if (documentType === "receipt" && receiptData) {
+        // Prepare receipt data for API
+        const apiReceiptData = {
+          receiptNumber: receiptData.receiptNumber || `REC-${Date.now()}`,
+          clientId: selectedClientId,
+          receiptDate: receiptData.date || new Date().toISOString().split("T")[0],
+          receivedFrom: receiptData.receivedFrom || selectedClient?.name || '',
+          amount: receiptData.amount || 0,
+          currency: receiptData.currency || 'KWD',
+          currencySymbol: receiptData.currencySymbol || 'KD',
+          paymentMethod: receiptData.paymentMethod || 'cash',
+          reason: receiptData.reason || '',
+          receivedBy: receiptData.receivedBy || '',
+          companyName: receiptData.companyName || '',
+          companyAddress: receiptData.companyAddress || '',
+          companyPhone: receiptData.companyPhone || '',
+          logoScale: receiptData.logoScale || 1.0,
+          titleColor: receiptData.titleColor || '#000000',
+          amountColor: receiptData.amountColor || '#000000',
+          status: 'draft',
+        };
+
+        // Convert logo to File if it's a base64 string
+        let logoFile: File | undefined;
+        if (receiptData.logo && typeof receiptData.logo === 'string' && receiptData.logo.startsWith('data:')) {
+          const response = await fetch(receiptData.logo);
+          const blob = await response.blob();
+          logoFile = new File([blob], 'logo.png', { type: 'image/png' });
+        }
+
+        await createReceipt.mutateAsync({ 
+          data: apiReceiptData, 
+          logo: logoFile 
+        });
+      }
+
+      if (goToDashboard) {
+        navigate(getDashboardPath());
+      }
+      
+      onClose();
+      setSelectedClientId("");
+      setGoToDashboard(false);
+    } catch (error) {
+      console.error('Error saving document:', error);
+      // Error toast is already shown by the mutation hook
     }
-
-    if (goToDashboard) {
-      navigate(getDashboardPath());
-    }
-    
-    onClose();
-    setSelectedClientId("");
-    setGoToDashboard(false);
   };
 
   const hasClients = clients.length > 0;
@@ -274,7 +344,7 @@ export function SaveToDashboardDialog({
                         Companies
                       </div>
                       {companies.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
+                        <SelectItem key={client._id} value={client._id}>
                           <div className="flex items-center gap-2">
                             <Building2 className="h-4 w-4 text-primary" />
                             <span>{client.name}</span>
@@ -291,7 +361,7 @@ export function SaveToDashboardDialog({
                         Individual Clients
                       </div>
                       {individuals.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
+                        <SelectItem key={client._id} value={client._id}>
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-muted-foreground" />
                             <span>{client.name}</span>
@@ -342,12 +412,21 @@ export function SaveToDashboardDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={createInvoice.isPending || createQuote.isPending || createReceipt.isPending}>
             Cancel
           </Button>
-          <Button onClick={handleSave} className="gap-2" disabled={!selectedClientId}>
+          <Button 
+            onClick={handleSave} 
+            className="gap-2" 
+            disabled={!selectedClientId || createInvoice.isPending || createQuote.isPending || createReceipt.isPending}
+          >
+            {(createInvoice.isPending || createQuote.isPending || createReceipt.isPending) && (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
             Save to Dashboard
-            <ArrowRight className="h-4 w-4" />
+            {!(createInvoice.isPending || createQuote.isPending || createReceipt.isPending) && (
+              <ArrowRight className="h-4 w-4" />
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

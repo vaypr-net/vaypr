@@ -1,6 +1,6 @@
 import axios from '../axios';
 
-interface InvoiceItem {
+interface QuoteItem {
   description: string;
   quantity: number;
   unitPrice: number;
@@ -18,10 +18,10 @@ interface BillTo {
 }
 
 interface CompanyFooter {
-  name?: string;
+  companyName?: string;
   address?: string;
-  phone?: string;
-  email?: string;
+  officePhone?: string;
+  websiteEmail?: string;
 }
 
 interface BankAccount {
@@ -30,17 +30,16 @@ interface BankAccount {
   iban?: string;
 }
 
-interface Invoice {
+interface Quote {
   _id: string;
-  invoiceNumber: string;
+  quoteNumber: string;
   clientId?: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
-  issueDate: string;
-  dueDate: string;
+  status: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired';
+  quoteDate: string;
+  validUntil: string;
   billTo: BillTo;
-  items: InvoiceItem[];
+  items: QuoteItem[];
   subtotal: number;
-  tax: number;
   discount: number;
   deliveryFee?: number;
   total: number;
@@ -63,23 +62,22 @@ interface Invoice {
   useManualGrandTotal?: boolean;
   manualGrandTotal?: number;
   notes?: string;
-  paidAt?: string;
+  paymentDetails?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-interface CreateInvoiceDto {
+interface CreateQuoteDto {
   clientId?: string;
-  invoiceNumber: string;
+  quoteNumber: string;
   status?: string;
-  issueDate: string;
-  dueDate: string;
+  quoteDate: string;
+  validUntil: string;
   billTo: BillTo;
-  items?: InvoiceItem[];
+  items?: QuoteItem[];
   currency: string;
   currencySymbol?: string;
   subtotal?: number;
-  tax?: number;
   discount?: number;
   deliveryFee?: number;
   total: number;
@@ -99,32 +97,28 @@ interface CreateInvoiceDto {
   useManualGrandTotal?: boolean;
   manualGrandTotal?: number;
   notes?: string;
+  paymentDetails?: string;
 }
 
-interface UpdateInvoiceDto extends Partial<CreateInvoiceDto> {}
+interface UpdateQuoteDto extends Partial<CreateQuoteDto> {}
 
-export const InvoiceService = {
-  async getAll(status?: string): Promise<Invoice[]> {
-    const response = await axios.get<Invoice[]>('/invoice', { params: { status } });
+export const QuoteService = {
+  async getAll(status?: string): Promise<Quote[]> {
+    const response = await axios.get<Quote[]>('/quotes', { params: { status } });
     return response.data;
   },
 
-  async getById(id: string): Promise<Invoice> {
-    const response = await axios.get<Invoice>(`/invoice/${id}`);
+  async getById(id: string): Promise<Quote> {
+    const response = await axios.get<Quote>(`/quotes/${id}`);
     return response.data;
   },
 
-  async getByClient(clientId: string): Promise<Invoice[]> {
-    const response = await axios.get<Invoice[]>(`/invoice/client/${clientId}`);
+  async getByClient(clientId: string): Promise<Quote[]> {
+    const response = await axios.get<Quote[]>(`/quotes/client/${clientId}`);
     return response.data;
   },
 
-  async getByStatus(status: string): Promise<Invoice[]> {
-    const response = await axios.get<Invoice[]>(`/invoice/status/${status}`);
-    return response.data;
-  },
-
-  async create(data: CreateInvoiceDto, logo?: File): Promise<Invoice> {
+  async create(data: CreateQuoteDto, logo?: File): Promise<Quote> {
     const formData = new FormData();
     
     // Append all fields with proper handling of nested objects
@@ -144,7 +138,7 @@ export const InvoiceService = {
       formData.append('logo', logo);
     }
 
-    const response = await axios.post<Invoice>('/invoice', formData, {
+    const response = await axios.post<Quote>('/quotes', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -152,7 +146,7 @@ export const InvoiceService = {
     return response.data;
   },
 
-  async update(id: string, data: UpdateInvoiceDto, logo?: File): Promise<Invoice> {
+  async update(id: string, data: UpdateQuoteDto, logo?: File): Promise<Quote> {
     const formData = new FormData();
     
     Object.entries(data).forEach(([key, value]) => {
@@ -171,7 +165,7 @@ export const InvoiceService = {
       formData.append('logo', logo);
     }
 
-    const response = await axios.patch<Invoice>(`/invoice/${id}`, formData, {
+    const response = await axios.patch<Quote>(`/quotes/${id}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -179,8 +173,7 @@ export const InvoiceService = {
     return response.data;
   },
 
-  async delete(id: string): Promise<{ message: string }> {
-    const response = await axios.delete<{ message: string }>(`/invoice/${id}`);
-    return response.data;
+  async delete(id: string): Promise<void> {
+    await axios.delete(`/quotes/${id}`);
   },
 };

@@ -1,35 +1,52 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { useClients } from "@/hooks/useData";
-import { Building2, User, Users } from "lucide-react";
+import { useClients } from "@/hooks/api/useClients";
+import { Building2, User, Users, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface ClientSelectorProps {
   value: string;
   onChange: (value: string) => void;
+  onClientSelect?: (client: any) => void;
   label?: string;
 }
 
-export function ClientSelector({ value, onChange, label = "Customer Name" }: ClientSelectorProps) {
-  const { clients } = useClients();
+export function ClientSelector({ value, onChange, onClientSelect, label = "Customer Name" }: ClientSelectorProps) {
+  const { data: clients = [], isLoading } = useClients();
 
-  const companies = clients.filter(c => c.type === 'company');
-  const individuals = clients.filter(c => c.type === 'individual');
+  const companies = clients.filter(c => c.clientType === 'company');
+  const individuals = clients.filter(c => c.clientType === 'individual');
 
   const handleClientSelect = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
+    const client = clients.find(c => c._id === clientId);
     if (client) {
       onChange(client.name);
+      // Also call onClientSelect if provided to populate other fields
+      if (onClientSelect) {
+        onClientSelect(client);
+      }
     }
   };
 
   // Find current selected client by name to show in the trigger
   const selectedClient = clients.find(c => c.name === value);
 
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        <Label>{label}</Label>
+        <div className="flex items-center justify-center p-4 border rounded-md">
+          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+          <span className="text-sm text-muted-foreground">Loading clients...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Select value={selectedClient?.id || ""} onValueChange={handleClientSelect}>
+      <Select value={selectedClient?._id || ""} onValueChange={handleClientSelect}>
         <SelectTrigger className="bg-background">
           <SelectValue placeholder="Select a client" />
         </SelectTrigger>
@@ -48,7 +65,7 @@ export function ClientSelector({ value, onChange, label = "Customer Name" }: Cli
                     Companies
                   </div>
                   {companies.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
+                    <SelectItem key={client._id} value={client._id}>
                       <span className="flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-primary" />
                         {client.name}
@@ -64,7 +81,7 @@ export function ClientSelector({ value, onChange, label = "Customer Name" }: Cli
                     Individuals
                   </div>
                   {individuals.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
+                    <SelectItem key={client._id} value={client._id}>
                       <span className="flex items-center gap-2">
                         <User className="w-4 h-4 text-secondary-foreground" />
                         {client.name}

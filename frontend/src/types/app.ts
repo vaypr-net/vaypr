@@ -60,20 +60,45 @@ export interface Client {
   totalPaid?: number;
 }
 
+export interface BillTo {
+  name: string;
+  phone?: string;
+  area?: string;
+  block?: string;
+  street?: string;
+  house?: string;
+  other?: string;
+}
+
+export interface CompanyFooter {
+  name?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface BankAccount {
+  bankName?: string;
+  accountName?: string;
+  iban?: string;
+}
+
+export interface InvoiceItem {
+  id?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
 export interface Invoice {
-  id: string;
+  _id: string;
   invoiceNumber: string;
-  clientId: string;
-  clientName: string;
-  clientPhone?: string;
-  clientArea?: string;
-  clientBlock?: string;
-  clientStreet?: string;
-  clientHouse?: string;
-  clientOther?: string;
+  clientId?: string;
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
   issueDate: string;
   dueDate: string;
+  billTo: BillTo;
   items: InvoiceItem[];
   subtotal: number;
   tax: number;
@@ -82,40 +107,28 @@ export interface Invoice {
   total: number;
   currency: string;
   currencySymbol?: string;
-  notes?: string;
-  paymentMethod?: string;
-  paymentTerms?: string;
-  showPaymentMethod?: boolean;
-  showPaymentTerms?: boolean;
-  showBankAccount?: boolean;
-  bankName?: string;
-  bankAccountName?: string;
-  bankIban?: string;
-  companyName?: string;
-  companyAddress?: string;
-  companyPhone?: string;
-  companyEmail?: string;
-  logo?: string | null;
+  companyFooter?: CompanyFooter;
+  logo?: string;
   logoScale?: number;
   tableHeaderColor?: string;
+  showPaymentMethod?: boolean;
+  paymentMethodType?: string;
+  showBankAccount?: boolean;
+  bankAccount?: BankAccount;
+  showPaymentTerms?: boolean;
+  paymentTerms?: string;
   hideQuantity?: boolean;
   hideUnitPrice?: boolean;
   hideTotalCost?: boolean;
   hideSubTotal?: boolean;
   useManualGrandTotal?: boolean;
   manualGrandTotal?: number;
-  createdAt: string;
+  notes?: string;
   paidAt?: string;
-  recurringId?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface InvoiceItem {
-  id: string;
-  description: string;
-  quantity: number;
-  rate: number;
-  amount: number;
-}
 
 export interface QuoteTimelineEvent {
   id: string;
