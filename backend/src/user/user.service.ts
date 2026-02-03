@@ -95,4 +95,62 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
   }
+
+  /**
+   * Create a new user from Google OAuth data
+   * 
+   * Called when a user signs up via Google for the first time
+   * Sets:
+   * - password = undefined (no password for OAuth users)
+   * - authProvider = 'google'
+   * - emailVerified = true (Google verifies emails)
+   */
+  async createGoogleUser(googleData: {
+    email: string;
+    fullName: string;
+    googleId: string;
+    profilePicture?: string;
+  }): Promise<User> {
+    const user = new this.userModel({
+      email: googleData.email,
+      fullName: googleData.fullName,
+      googleId: googleData.googleId,
+      profilePicture: googleData.profilePicture,
+      authProvider: 'google',
+      emailVerified: true,
+      // password is undefined/null - OAuth users don't have passwords
+    });
+
+    return user.save();
+  }
+
+  /**
+   * Link Google account to existing user
+   * 
+   * Called when a user who signed up manually later logs in with Google
+   * Updates their account to include Google OAuth info
+   */
+  async linkGoogleAccount(
+    userId: string,
+    googleId: string,
+    profilePicture?: string,
+  ): Promise<User> {
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          googleId,
+          profilePicture,
+          emailVerified: true, // Auto-verify email when linking Google
+        },
+        { new: true },
+      )
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
 }
