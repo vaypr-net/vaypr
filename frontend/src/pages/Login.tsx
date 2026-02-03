@@ -24,11 +24,20 @@ export default function Login() {
     });
   };
 
+  /**
+   * Google OAuth Login Handler
+   * 
+   * Redirects user to backend Google OAuth route
+   * Backend handles entire OAuth flow:
+   * 1. Redirects to Google
+   * 2. User authorizes
+   * 3. Google redirects back to backend
+   * 4. Backend creates/links user account
+   * 5. Backend redirects to frontend with JWT token
+   * 6. Frontend callback page handles token storage
+   */
   const handleGoogleLogin = () => {
-    toast({
-      title: 'Coming soon',
-      description: 'Google sign-in will be available soon.',
-    });
+    window.location.href = 'http://localhost:8081/auth/google';
   };
 
   return (

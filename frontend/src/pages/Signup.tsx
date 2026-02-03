@@ -108,11 +108,19 @@ export default function Signup() {
     });
   };
 
+  /**
+   * Google OAuth Signup Handler
+   * 
+   * Same flow as login - redirects to backend Google OAuth
+   * Backend handles:
+   * 1. Check if user exists
+   * 2. If exists: Link Google account
+   * 3. If not: Create new Google user
+   * 4. Issue JWT token
+   * 5. Redirect to frontend callback
+   */
   const handleGoogleSignup = () => {
-    toast({
-      title: 'Coming soon',
-      description: 'Google sign-up will be available soon.',
-    });
+    window.location.href = 'http://localhost:8081/auth/google';
   };
 
   return (
