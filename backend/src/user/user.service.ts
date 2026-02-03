@@ -6,11 +6,13 @@ import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
+import { UserProfile } from '../userprofile/entities/userprofile.entity';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(UserProfile.name) private userProfileModel: Model<UserProfile>,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -104,6 +106,9 @@ export class UserService {
    * - password = undefined (no password for OAuth users)
    * - authProvider = 'google'
    * - emailVerified = true (Google verifies emails)
+   * 
+   * Also creates a basic UserProfile with placeholder data
+   * User can complete their profile later
    */
   async createGoogleUser(googleData: {
     email: string;
@@ -111,6 +116,7 @@ export class UserService {
     googleId: string;
     profilePicture?: string;
   }): Promise<User> {
+    // Create user
     const user = new this.userModel({
       email: googleData.email,
       fullName: googleData.fullName,
@@ -121,7 +127,24 @@ export class UserService {
       // password is undefined/null - OAuth users don't have passwords
     });
 
-    return user.save();
+    const savedUser = await user.save();
+
+    // Create basic UserProfile with data from Google
+    // Required fields get placeholder values that user can update later
+    const userProfile = new this.userProfileModel({
+      userId: savedUser._id,
+      fullName: googleData.fullName,
+      email: googleData.email,
+      phoneNumber: '', // User will fill this later
+      companyName: '', // User will fill this later
+      businessAddress: '', // User will fill this later
+      timeZone: 'UTC',
+      profileImage: googleData.profilePicture || '',
+    });
+
+    await userProfile.save();
+
+    return savedUser;
   }
 
   /**

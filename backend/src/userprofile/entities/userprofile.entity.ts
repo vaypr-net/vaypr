@@ -13,13 +13,13 @@ export class UserProfile extends BaseEntity {
   @Prop({ required: true })
   email: string;
 
-  @Prop({ required: true })
+  @Prop({ default: '' })
   phoneNumber: string;
 
-  @Prop({ required: true })
+  @Prop({ default: '' })
   companyName: string;
 
-  @Prop({ required: true })
+  @Prop({ default: '' })
   businessAddress: string;
 
   @Prop({ required: true, default: 'UTC' })
