@@ -243,9 +243,51 @@ export default function Receipts() {
     setIsSendingEmail(true);
 
     try {
+      // Step 1: Generate PDF from receipt preview
+      const element = document.getElementById('receipt-preview');
+      if (!element) {
+        throw new Error('Receipt preview not found. Please open the receipt first.');
+      }
+
+      toast({
+        title: 'Generating PDF',
+        description: 'Please wait while we prepare your receipt...',
+      });
+
+      // Generate PDF using html2canvas + jsPDF
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 0;
+
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      
+      // Convert PDF to base64
+      const pdfBase64 = pdf.output('dataurlstring').split(',')[1];
+
+      // Step 2: Create HTML email body
       const companyName = selectedReceipt.companyName || 'Our Company';
       
-      // Create HTML email body
       const emailSubject = `Receipt ${selectedReceipt.receiptNumber} from ${companyName}`;
       
       const emailBody = `
@@ -269,7 +311,7 @@ export default function Receipts() {
               </div>
               <div class="content">
                 <p>Dear ${selectedReceipt.receivedFrom},</p>
-                <p>Thank you for your payment! This email confirms that we have received your payment.</p>
+                <p>Thank you for your payment! Please find the attached receipt.</p>
                 
                 <div class="receipt-details">
                   <p><strong>Receipt Number:</strong> ${selectedReceipt.receiptNumber}</p>
@@ -291,16 +333,18 @@ export default function Receipts() {
         </html>
       `;
 
-      // Send email via Gmail API
+      // Step 3: Send email via Gmail API with PDF attachment
       const result = await GmailService.sendEmail({
         to: clientEmail,
         subject: emailSubject,
         body: emailBody,
+        attachmentData: pdfBase64,
+        attachmentFilename: `Receipt_${selectedReceipt.receiptNumber}.pdf`,
       });
 
       toast({
         title: 'Email Sent Successfully!',
-        description: `Receipt sent to ${clientEmail} from your Gmail account`,
+        description: `Receipt sent to ${clientEmail} with PDF attachment`,
       });
 
       setIsEmailDialogOpen(false);
@@ -778,6 +822,33 @@ export default function Receipts() {
               />
             </div>
           </div>
+
+          {/* Hidden receipt preview for PDF generation */}
+          {selectedReceipt && (
+            <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+              <ReceiptPreview
+                data={{
+                  logo: selectedReceipt.logo || null,
+                  logoScale: selectedReceipt.logoScale || 1.0,
+                  currency: selectedReceipt.currency,
+                  currencySymbol: selectedReceipt.currencySymbol,
+                  receiptNumber: selectedReceipt.receiptNumber,
+                  receiptDate: selectedReceipt.receiptDate,
+                  receivedFrom: selectedReceipt.receivedFrom,
+                  amount: selectedReceipt.amount,
+                  paymentMethod: getPaymentMethodLabel(selectedReceipt.paymentMethod),
+                  receivedBy: '',
+                  reason: selectedReceipt.reason || '',
+                  companyName: selectedReceipt.companyName || '',
+                  companyAddress: selectedReceipt.companyAddress || '',
+                  companyPhone: selectedReceipt.companyPhone || '',
+                  titleColor: selectedReceipt.titleColor || '',
+                  amountColor: selectedReceipt.amountColor || '',
+                }}
+              />
+            </div>
+          )}
+
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button 
               variant="outline" 

@@ -77,6 +77,7 @@ import { useDocumentActions } from '@/hooks/useDocumentActions';
 import { QuoteTimeline } from '@/components/quote/QuoteTimeline';
 import { QuoteEmailTemplate } from '@/components/quote/QuoteEmailTemplate';
 import { QuoteEditForm } from '@/components/quote/QuoteEditForm';
+import { QuotePreview } from '@/components/quote/QuotePreview';
 
 const CURRENCIES = [
   { value: 'USD', symbol: '$', label: 'USD ($)' },
@@ -544,10 +545,52 @@ export default function Quotes() {
     setIsSendingEmail(true);
 
     try {
-      const client = clients.find(c => c._id === selectedQuote.clientId);
-      const companyName = selectedQuote.companyFooter?.name || 'Our Company';
+      // Step 1: Generate PDF from quote preview
+      const element = document.getElementById('quote-preview');
+      if (!element) {
+        throw new Error('Quote preview not found. Please open the quote first.');
+      }
+
+      toast({
+        title: 'Generating PDF',
+        description: 'Please wait while we prepare your quote...',
+      });
+
+      // Generate PDF using html2canvas + jsPDF
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 0;
+
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
       
-      // Create HTML email body
+      // Convert PDF to base64
+      const pdfBase64 = pdf.output('dataurlstring').split(',')[1];
+
+      // Step 2: Create HTML email body
+      const client = clients.find(c => c._id === selectedQuote.clientId);
+      const companyName = selectedQuote.companyName || 'Our Company';
+      
       const emailSubject = `Quote ${selectedQuote.quoteNumber} from ${companyName}`;
       
       const emailBody = `
@@ -561,7 +604,6 @@ export default function Quotes() {
               .quote-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
               .amount { font-size: 24px; font-weight: bold; color: #667eea; }
               .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
-              .btn { display: inline-block; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }
             </style>
           </head>
           <body>
@@ -571,7 +613,7 @@ export default function Quotes() {
               </div>
               <div class="content">
                 <p>Dear ${client?.name || 'Valued Client'},</p>
-                <p>Thank you for your interest! Please find our quotation below:</p>
+                <p>Thank you for your interest! Please find the attached quotation.</p>
                 
                 <div class="quote-details">
                   <p><strong>Quote Number:</strong> ${selectedQuote.quoteNumber}</p>
@@ -579,8 +621,6 @@ export default function Quotes() {
                   <p><strong>Valid Until:</strong> ${format(new Date(selectedQuote.validUntil), 'MMMM d, yyyy')}</p>
                   <p><strong>Total Amount:</strong> <span class="amount">${formatCurrency(selectedQuote.total, selectedQuote.currency)}</span></p>
                 </div>
-
-                ${selectedQuote.notes ? `<p><strong>Notes:</strong> ${selectedQuote.notes}</p>` : ''}
 
                 <p>If you have any questions or would like to accept this quote, please don't hesitate to contact us.</p>
                 
@@ -594,16 +634,18 @@ export default function Quotes() {
         </html>
       `;
 
-      // Send email via Gmail API
+      // Step 3: Send email via Gmail API with PDF attachment
       const result = await GmailService.sendEmail({
         to: clientEmail,
         subject: emailSubject,
         body: emailBody,
+        attachmentData: pdfBase64,
+        attachmentFilename: `Quote_${selectedQuote.quoteNumber}.pdf`,
       });
 
       toast({
         title: 'Email Sent Successfully!',
-        description: `Quote sent to ${clientEmail} from your Gmail account`,
+        description: `Quote sent to ${clientEmail} with PDF attachment`,
       });
 
       // Update quote status to 'sent'
@@ -1500,6 +1542,61 @@ export default function Quotes() {
             />
           </div>
         </div>
+
+        {/* Hidden quote preview for PDF generation */}
+        {selectedQuote && (
+          <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+            <QuotePreview 
+              data={{
+                logo: selectedQuote.logo || null,
+                logoScale: selectedQuote.logoScale || 1.0,
+                currency: selectedQuote.currency,
+                currencySymbol: selectedQuote.currencySymbol || selectedQuote.currency,
+                billTo: {
+                  name: selectedQuote.clientName,
+                  phone: selectedQuote.clientPhone || '',
+                  email: selectedQuote.clientEmail || '',
+                  area: selectedQuote.clientArea || '',
+                  block: selectedQuote.clientBlock || '',
+                  street: selectedQuote.clientStreet || '',
+                  house: selectedQuote.clientHouse || '',
+                },
+                quoteNumber: selectedQuote.quoteNumber,
+                quoteDate: selectedQuote.quoteDate,
+                validUntil: selectedQuote.validUntil,
+                items: selectedQuote.items,
+                discount: selectedQuote.discount,
+                deliveryFee: selectedQuote.deliveryFee || 0,
+                notes: selectedQuote.notes || '',
+                companyFooter: {
+                  name: selectedQuote.companyName || '',
+                  phone: selectedQuote.companyPhone || '',
+                  address: selectedQuote.companyAddress || '',
+                  email: selectedQuote.companyEmail || '',
+                },
+                paymentDetails: selectedQuote.paymentDetails || '',
+                showPaymentMethod: selectedQuote.showPaymentMethod || false,
+                paymentMethodType: selectedQuote.paymentMethodType || 'cash',
+                showBankAccount: selectedQuote.showBankAccount || false,
+                bankAccount: selectedQuote.bankAccount || {
+                  bankName: '',
+                  accountName: '',
+                  iban: '',
+                },
+                showPaymentTerms: selectedQuote.showPaymentTerms || false,
+                paymentTerms: selectedQuote.paymentTerms || '',
+                hideQuantity: selectedQuote.hideQuantity || false,
+                hideUnitPrice: selectedQuote.hideUnitPrice || false,
+                hideTotalCost: selectedQuote.hideTotalCost || false,
+                hideSubTotal: selectedQuote.hideSubTotal || false,
+                useManualGrandTotal: selectedQuote.useManualGrandTotal || false,
+                manualGrandTotal: selectedQuote.manualGrandTotal || 0,
+                tableHeaderColor: selectedQuote.tableHeaderColor || '#000000',
+              }}
+            />
+          </div>
+        )}
+
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button 
             variant="outline" 
