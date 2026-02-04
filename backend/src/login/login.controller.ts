@@ -63,5 +63,59 @@ export class LoginController {
     // Frontend should extract token from URL and store it
     res.redirect(`${frontendUrl}/auth/callback?token=${result.access_token}`);
   }
+
+  /**
+   * Revoke Google OAuth tokens
+   * Endpoint: GET /auth/google/revoke
+   * 
+   * TESTING HELPER: Forces Google to issue new refresh_token on next login
+   * 
+   * This endpoint:
+   * 1. Gets current user's googleAccessToken from DB
+   * 2. Calls Google's revoke endpoint to invalidate ALL tokens
+   * 3. This forces Google to return a NEW refresh_token on next consent
+   * 
+   * Usage: Visit http://localhost:8081/auth/google/revoke in browser
+   */
+  @Get('google/revoke')
+  async revokeGoogleAccess(@Res() res: Response) {
+    try {
+      // For testing: you can hardcode a user email or token here
+      // In production, this should be authenticated with JWT
+      const testEmail = 'saadtanoli445@gmail.com'; // Change this to your test email
+      
+      const result = await this.loginService.revokeGoogleTokens(testEmail);
+      
+      res.send(`
+        <html>
+          <head><title>Google Access Revoked</title></head>
+          <body style="font-family: Arial; padding: 40px; text-align: center;">
+            <h1>✅ Google Access Revoked</h1>
+            <p>${result.message}</p>
+            <p>Next steps:</p>
+            <ol style="text-align: left; max-width: 500px; margin: 20px auto;">
+              <li>Go to your app</li>
+              <li>Click "Continue with Google"</li>
+              <li>Grant all permissions (including Gmail)</li>
+              <li>Check database - googleRefreshToken should now exist!</li>
+            </ol>
+            <a href="${this.configService.get<string>('FRONTEND_URL')}" 
+               style="display: inline-block; margin-top: 20px; padding: 10px 20px; background: #4285f4; color: white; text-decoration: none; border-radius: 4px;">
+              Go to App
+            </a>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      res.status(500).send(`
+        <html>
+          <body style="font-family: Arial; padding: 40px; text-align: center;">
+            <h1>❌ Error</h1>
+            <p>${error.message}</p>
+          </body>
+        </html>
+      `);
+    }
+  }
 }
 

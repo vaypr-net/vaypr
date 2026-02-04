@@ -176,4 +176,88 @@ export class UserService {
 
     return user;
   }
+
+  /**
+   * Update Google OAuth tokens for a user
+   * 
+   * CRITICAL LOGIC:
+   * - Always update accessToken and tokenExpiry
+   * - ONLY update refreshToken if it's present (not null/undefined)
+   * - Google only returns refreshToken on first consent or when prompt=consent
+   * - Never overwrite existing refreshToken with null
+   * 
+   * This ensures we don't lose the refresh token on subsequent logins
+   */
+  async updateGoogleTokens(
+    userId: string,
+    accessToken: string,
+    tokenExpiry: Date,
+    refreshToken?: string,
+  ): Promise<User> {
+    const updateData: any = {
+      googleAccessToken: accessToken,
+      googleTokenExpiry: tokenExpiry,
+    };
+
+    // CRITICAL: Only update refresh token if present
+    // Never overwrite with null/undefined
+    if (refreshToken) {
+      updateData.googleRefreshToken = refreshToken;
+    }
+
+    const user = await this.userModel
+      .findByIdAndUpdate(userId, updateData, { new: true })
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
+  /**
+   * Get user's Google refresh token
+   * 
+   * Used by GmailService to refresh access tokens
+   * Returns null if user hasn't granted Gmail permission
+   */
+  async getGoogleRefreshToken(userId: string): Promise<string | null> {
+    const user = await this.userModel
+      .findById(userId)
+      .select('googleRefreshToken')
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user.googleRefreshToken || null;
+  }
+
+  /**
+   * Clear Google OAuth tokens from user account
+   * 
+   * Called after revoking tokens via Google's API
+   * This ensures the database reflects the revoked state
+   */
+  async clearGoogleTokens(userId: string): Promise<User> {
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          googleAccessToken: null,
+          googleRefreshToken: null,
+          googleTokenExpiry: null,
+        },
+        { new: true },
+      )
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
 }

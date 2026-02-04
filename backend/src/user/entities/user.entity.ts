@@ -23,6 +23,18 @@ export class User extends BaseEntity {
 
   @Prop({ default: false })
   emailVerified: boolean; // Auto-verified for Google OAuth
+
+  // Google OAuth tokens for Gmail API
+  // These are ONLY set when user grants Gmail permission (gmail.send scope)
+  // refresh_token is stored ONLY on first consent or re-consent
+  @Prop({ required: false })
+  googleAccessToken: string; // Short-lived access token (expires in 1 hour)
+
+  @Prop({ required: false })
+  googleRefreshToken: string; // Long-lived token for refreshing access (CRITICAL - never overwrite with null)
+
+  @Prop({ required: false })
+  googleTokenExpiry: Date; // When the access token expires
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

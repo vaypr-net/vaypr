@@ -1,16 +1,14 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { LoginService } from './login.service';
-import { LoginController } from './login.controller';
+import { JwtModule } from '@nestjs/jwt';
+import { GmailService } from './gmail.service';
+import { GmailController } from './gmail.controller';
 import { UserModule } from '../user/user.module';
-import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
   imports: [
+    ConfigModule,
     UserModule,
-    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -22,7 +20,8 @@ import { GoogleStrategy } from './strategies/google.strategy';
       }),
     }),
   ],
-  controllers: [LoginController],
-  providers: [LoginService, GoogleStrategy],
+  controllers: [GmailController],
+  providers: [GmailService],
+  exports: [GmailService],
 })
-export class LoginModule {}
+export class GmailModule {}
