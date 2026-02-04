@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { GmailService } from '@/api/services/gmail.service';
 import {
   Table,
   TableBody,
@@ -67,6 +68,7 @@ export default function Invoices() {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [clientEmail, setClientEmail] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -193,6 +195,140 @@ export default function Invoices() {
       id: invoice._id, 
       data: { status: 'sent' }
     });
+  };
+
+  /**
+   * Send invoice via Gmail API with PDF attachment
+   * Email is sent from user's Gmail account to client
+   */
+  const handleSendViaGmail = async () => {
+    if (!selectedInvoice || !clientEmail) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please enter the client email address',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+
+    try {
+      // Step 1: Generate PDF from invoice preview
+      const element = document.getElementById('invoice-preview');
+      if (!element) {
+        throw new Error('Invoice preview not found. Please open the invoice first.');
+      }
+
+      toast({
+        title: 'Generating PDF',
+        description: 'Please wait while we prepare your invoice...',
+      });
+
+      // Generate PDF using html2canvas + jsPDF
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 0;
+
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      
+      // Convert PDF to base64
+      const pdfBase64 = pdf.output('dataurlstring').split(',')[1]; // Remove "data:application/pdf;base64," prefix
+
+      // Step 2: Create HTML email body
+      const emailSubject = `Invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.companyFooter?.name || 'Our Company'}`;
+      
+      const emailBody = `
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+              .invoice-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+              .amount { font-size: 24px; font-weight: bold; color: #667eea; }
+              .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Invoice ${selectedInvoice.invoiceNumber}</h1>
+              </div>
+              <div class="content">
+                <p>Dear ${selectedInvoice.billTo.name},</p>
+                <p>Thank you for your business! Please find the attached invoice.</p>
+                
+                <div class="invoice-details">
+                  <p><strong>Invoice Number:</strong> ${selectedInvoice.invoiceNumber}</p>
+                  <p><strong>Issue Date:</strong> ${format(new Date(selectedInvoice.issueDate), 'MMMM d, yyyy')}</p>
+                  <p><strong>Due Date:</strong> ${format(new Date(selectedInvoice.dueDate), 'MMMM d, yyyy')}</p>
+                  <p><strong>Amount Due:</strong> <span class="amount">${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}</span></p>
+                </div>
+
+                <p>Please process the payment by the due date. If you have any questions, feel free to reach out.</p>
+                
+                <p>Best regards,<br>${selectedInvoice.companyFooter?.name || 'Our Company'}</p>
+              </div>
+              <div class="footer">
+                <p>This is an automated email. Please do not reply to this message.</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      // Step 3: Send email via Gmail API with PDF attachment
+      const result = await GmailService.sendEmail({
+        to: clientEmail,
+        subject: emailSubject,
+        body: emailBody,
+        attachmentData: pdfBase64,
+        attachmentFilename: `Invoice_${selectedInvoice.invoiceNumber}.pdf`,
+      });
+
+      toast({
+        title: 'Email Sent Successfully!',
+        description: `Invoice sent to ${clientEmail} with PDF attachment`,
+      });
+
+      // Update invoice status to 'sent'
+      await handleSendInvoice(selectedInvoice);
+
+      setIsEmailDialogOpen(false);
+      setClientEmail('');
+    } catch (error: any) {
+      console.error('Gmail send error:', error);
+      toast({
+        title: 'Failed to Send Email',
+        description: error.message || 'Could not send email. Please try again or use "Open Email Client" option.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleRecordPayment = async () => {
@@ -685,20 +821,102 @@ export default function Invoices() {
               </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEmailDialogOpen(false)}>Cancel</Button>
-              <Button onClick={() => {
-                if (selectedInvoice) {
-                  sendEmail({
-                    to: clientEmail,
-                    subject: `Invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.companyFooter?.name || 'Our Company'}`,
-                    body: `Dear ${selectedInvoice.billTo.name},\n\nPlease find attached Invoice ${selectedInvoice.invoiceNumber}.\n\nAmount Due: ${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}\nDue Date: ${format(new Date(selectedInvoice.dueDate), 'MMM d, yyyy')}\n\nThank you for your business.\n\nBest regards,\n${selectedInvoice.companyFooter?.name || 'Our Company'}`,
-                  });
-                  setIsEmailDialogOpen(false);
-                }
-              }} className="gap-2">
+            {/* Hidden invoice preview for PDF generation */}
+            {selectedInvoice && (
+              <div id="invoice-preview" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+                <InvoicePreview
+                  data={{
+                    logo: selectedInvoice.logo || null,
+                    logoScale: selectedInvoice.logoScale || 1.0,
+                    currency: selectedInvoice.currency,
+                    currencySymbol: selectedInvoice.currencySymbol || selectedInvoice.currency,
+                    billTo: selectedInvoice.billTo,
+                    invoiceNumber: selectedInvoice.invoiceNumber,
+                    invoiceDate: selectedInvoice.issueDate,
+                    paymentDate: selectedInvoice.dueDate,
+                    items: selectedInvoice.items.map((item) => ({
+                      id: item.id || crypto.randomUUID(),
+                      description: item.description,
+                      quantity: item.quantity,
+                      unitPrice: item.unitPrice,
+                    })),
+                    discount: selectedInvoice.discount,
+                    deliveryFee: selectedInvoice.deliveryFee || 0,
+                    companyFooter: selectedInvoice.companyFooter || {
+                      companyName: '',
+                      officePhone: '',
+                      address: '',
+                      websiteEmail: '',
+                    },
+                    paymentDetails: selectedInvoice.paymentMethodType || '',
+                    showPaymentMethod: selectedInvoice.showPaymentMethod || false,
+                    paymentMethodType: selectedInvoice.paymentMethodType || 'cash',
+                    showBankAccount: selectedInvoice.showBankAccount || false,
+                    bankAccount: selectedInvoice.bankAccount || {
+                      bankName: '',
+                      accountName: '',
+                      iban: '',
+                    },
+                    showPaymentTerms: selectedInvoice.showPaymentTerms || false,
+                    paymentTerms: selectedInvoice.paymentTerms || '',
+                    hideQuantity: selectedInvoice.hideQuantity || false,
+                    hideUnitPrice: selectedInvoice.hideUnitPrice || false,
+                    hideTotalCost: selectedInvoice.hideTotalCost || false,
+                    hideSubTotal: selectedInvoice.hideSubTotal || false,
+                    useManualGrandTotal: selectedInvoice.useManualGrandTotal || false,
+                    manualGrandTotal: selectedInvoice.manualGrandTotal || 0,
+                    tableHeaderColor: selectedInvoice.tableHeaderColor || '#000000',
+                  } as InvoiceData}
+                />
+              </div>
+            )}
+
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsEmailDialogOpen(false)}
+                disabled={isSendingEmail}
+              >
+                Cancel
+              </Button>
+              
+              {/* Fallback: Open local email client */}
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  if (selectedInvoice) {
+                    sendEmail({
+                      to: clientEmail,
+                      subject: `Invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.companyFooter?.name || 'Our Company'}`,
+                      body: `Dear ${selectedInvoice.billTo.name},\n\nPlease find attached Invoice ${selectedInvoice.invoiceNumber}.\n\nAmount Due: ${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}\nDue Date: ${format(new Date(selectedInvoice.dueDate), 'MMM d, yyyy')}\n\nThank you for your business.\n\nBest regards,\n${selectedInvoice.companyFooter?.name || 'Our Company'}`,
+                    });
+                    setIsEmailDialogOpen(false);
+                  }
+                }} 
+                className="gap-2"
+                disabled={isSendingEmail}
+              >
                 <Mail className="h-4 w-4" />
                 Open Email Client
+              </Button>
+
+              {/* Primary: Send via Gmail API */}
+              <Button 
+                onClick={handleSendViaGmail}
+                className="gap-2"
+                disabled={isSendingEmail || !clientEmail}
+              >
+                {isSendingEmail ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Send via Gmail
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

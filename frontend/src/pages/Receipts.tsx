@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { GmailService } from '@/api/services/gmail.service';
 import {
   Dialog,
   DialogContent,
@@ -55,6 +56,7 @@ import {
   Download,
   Mail,
   Pencil,
+  Send,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ReceiptPreview } from '@/components/receipt/ReceiptPreview';
@@ -90,6 +92,7 @@ export default function Receipts() {
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptVoucher | null>(null);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [clientEmail, setClientEmail] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   
   // API Hooks
   const { data: apiReceipts = [], isLoading: loadingReceipts } = useReceiptsAPI(statusFilter !== 'all' ? statusFilter : undefined);
@@ -221,6 +224,97 @@ export default function Receipts() {
     toast({ title: 'Receipt Created', description: 'Receipt voucher has been created successfully' });
     setIsCreateDialogOpen(false);
     resetForm();
+  };
+
+  /**
+   * Send receipt via Gmail API
+   * Email is sent from user's Gmail account to client
+   */
+  const handleSendViaGmail = async () => {
+    if (!selectedReceipt || !clientEmail) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please enter the client email address',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+
+    try {
+      const companyName = selectedReceipt.companyName || 'Our Company';
+      
+      // Create HTML email body
+      const emailSubject = `Receipt ${selectedReceipt.receiptNumber} from ${companyName}`;
+      
+      const emailBody = `
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+              .receipt-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+              .amount { font-size: 24px; font-weight: bold; color: #10b981; }
+              .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Payment Receipt</h1>
+                <p>Receipt #${selectedReceipt.receiptNumber}</p>
+              </div>
+              <div class="content">
+                <p>Dear ${selectedReceipt.receivedFrom},</p>
+                <p>Thank you for your payment! This email confirms that we have received your payment.</p>
+                
+                <div class="receipt-details">
+                  <p><strong>Receipt Number:</strong> ${selectedReceipt.receiptNumber}</p>
+                  <p><strong>Date:</strong> ${format(new Date(selectedReceipt.receiptDate), 'MMMM d, yyyy')}</p>
+                  <p><strong>Amount Received:</strong> <span class="amount">${selectedReceipt.currencySymbol}${selectedReceipt.amount.toFixed(2)}</span></p>
+                  <p><strong>Payment Method:</strong> ${PAYMENT_METHODS.find(pm => pm.value === selectedReceipt.paymentMethod)?.label || selectedReceipt.paymentMethod}</p>
+                  ${selectedReceipt.reason ? `<p><strong>Payment For:</strong> ${selectedReceipt.reason}</p>` : ''}
+                </div>
+
+                <p>This receipt serves as proof of payment. Please keep it for your records.</p>
+                
+                <p>Best regards,<br>${companyName}</p>
+              </div>
+              <div class="footer">
+                <p>This is an automated email. Please do not reply to this message.</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      // Send email via Gmail API
+      const result = await GmailService.sendEmail({
+        to: clientEmail,
+        subject: emailSubject,
+        body: emailBody,
+      });
+
+      toast({
+        title: 'Email Sent Successfully!',
+        description: `Receipt sent to ${clientEmail} from your Gmail account`,
+      });
+
+      setIsEmailDialogOpen(false);
+      setClientEmail('');
+    } catch (error: any) {
+      console.error('Gmail send error:', error);
+      toast({
+        title: 'Failed to Send Email',
+        description: error.message || 'Could not send email. Please try again or use "Open Email Client" option.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleIssueReceipt = (receipt: ReceiptVoucher) => {
@@ -684,20 +778,52 @@ export default function Receipts() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEmailDialogOpen(false)}>Cancel</Button>
-            <Button onClick={() => {
-              if (selectedReceipt) {
-                sendEmail({
-                  to: clientEmail,
-                  subject: `Receipt ${selectedReceipt.receiptNumber} from ${selectedReceipt.companyName || 'Our Company'}`,
-                  body: `Dear ${selectedReceipt.receivedFrom},\n\nPlease find attached Receipt ${selectedReceipt.receiptNumber}.\n\nAmount: ${selectedReceipt.currencySymbol}${selectedReceipt.amount.toFixed(2)}\nDate: ${format(new Date(selectedReceipt.receiptDate), 'MMM d, yyyy')}\n\nThank you for your payment.\n\nBest regards,\n${selectedReceipt.companyName || 'Our Company'}`,
-                });
-                setIsEmailDialogOpen(false);
-              }
-            }} className="gap-2">
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsEmailDialogOpen(false)}
+              disabled={isSendingEmail}
+            >
+              Cancel
+            </Button>
+            
+            {/* Fallback: Open local email client */}
+            <Button 
+              variant="outline"
+              onClick={() => {
+                if (selectedReceipt) {
+                  sendEmail({
+                    to: clientEmail,
+                    subject: `Receipt ${selectedReceipt.receiptNumber} from ${selectedReceipt.companyName || 'Our Company'}`,
+                    body: `Dear ${selectedReceipt.receivedFrom},\n\nPlease find attached Receipt ${selectedReceipt.receiptNumber}.\n\nAmount: ${selectedReceipt.currencySymbol}${selectedReceipt.amount.toFixed(2)}\nDate: ${format(new Date(selectedReceipt.receiptDate), 'MMM d, yyyy')}\n\nThank you for your payment.\n\nBest regards,\n${selectedReceipt.companyName || 'Our Company'}`,
+                  });
+                  setIsEmailDialogOpen(false);
+                }
+              }} 
+              className="gap-2"
+              disabled={isSendingEmail}
+            >
               <Mail className="h-4 w-4" />
               Open Email Client
+            </Button>
+
+            {/* Primary: Send via Gmail API */}
+            <Button 
+              onClick={handleSendViaGmail}
+              className="gap-2"
+              disabled={isSendingEmail || !clientEmail}
+            >
+              {isSendingEmail ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Send via Gmail
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
