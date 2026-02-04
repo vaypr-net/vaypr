@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('user');
     cleanupOldLocalStorage();
     setUser(null);
-    window.location.href = '/login';
+    // Don't redirect here - let the component handle navigation
   };
 
   const updateUser = (userData: User) => {
