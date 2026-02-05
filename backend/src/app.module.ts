@@ -16,6 +16,7 @@ import { RecurringModule } from './recurring/recurring.module';
 import { ExpenseModule } from './expense/expense.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { GmailModule } from './gmail/gmail.module';
+import { AffiliateModule } from './affiliate/affiliate.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { GmailModule } from './gmail/gmail.module';
     ExpenseModule,
     DashboardModule,
     GmailModule,
+    AffiliateModule,
   ],
   controllers: [AppController],
   providers: [AppService],
