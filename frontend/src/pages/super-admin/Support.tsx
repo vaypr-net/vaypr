@@ -4,7 +4,6 @@ import { MessageSquare, Plus, Clock, User, AlertTriangle, CheckCircle, Eye } fro
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
 import { DataTable } from "@/components/super-admin/DataTable";
 import { StatusBadge } from "@/components/super-admin/StatusBadge";
-import { mockTickets, Ticket } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,7 +22,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateTicketDialog } from "@/components/super-admin/support/CreateTicketDialog";
-import { useToast } from "@/hooks/use-toast";
+import { 
+  useGetTickets, 
+  useGetTicketStats, 
+  useCreateTicket,
+  useUpdateTicketStatus 
+} from "@/hooks/api/useTickets";
+import { Ticket } from "@/api/services/ticket.service";
 
 const priorityStyles: Record<string, string> = {
   low: "bg-gray-100 text-gray-600",
@@ -61,9 +66,24 @@ export default function Support() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const { toast } = useToast();
 
-  const handleCreateTicket = (ticketData: {
+  // API Hooks
+  const { data: ticketsData, isLoading: ticketsLoading } = useGetTickets(
+    searchValue || undefined,
+    statusFilter !== "all" ? statusFilter : undefined,
+    priorityFilter !== "all" ? priorityFilter : undefined,
+    undefined, // category
+    50, // limit
+    0 // offset
+  );
+  
+  const { data: stats } = useGetTicketStats();
+  const createTicketMutation = useCreateTicket();
+  const updateStatusMutation = useUpdateTicketStatus();
+
+  const displayTickets = ticketsData?.items || [];
+
+  const handleCreateTicket = async (ticketData: {
     customerName: string;
     customerEmail: string;
     customerPhone: string;
@@ -73,28 +93,18 @@ export default function Support() {
     description: string;
     assignedTo: string;
   }) => {
-    // In real app, this would make an API call
-    console.log("Creating ticket:", ticketData);
-    toast({
-      title: "Ticket Created",
-      description: `Ticket for ${ticketData.customerName} has been created successfully.`,
+    await createTicketMutation.mutateAsync({
+      ...ticketData,
+      customerId: "customer-" + Date.now(), // Temp ID for now
     });
+    setCreateDialogOpen(false);
   };
 
-  const filteredTickets = mockTickets.filter(ticket => {
-    const matchesSearch = 
-      ticket.id.toLowerCase().includes(searchValue.toLowerCase()) ||
-      ticket.subject.toLowerCase().includes(searchValue.toLowerCase()) ||
-      ticket.customerName.toLowerCase().includes(searchValue.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter;
-
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
-
   const columns = [
-    { header: "Ticket ID", accessor: "id" as keyof Ticket },
+    { 
+      header: "Ticket ID", 
+      accessor: (row: Ticket) => `TKT-${row._id.slice(-6).toUpperCase()}`
+    },
     {
       header: "Subject",
       accessor: (row: Ticket) => (
@@ -146,14 +156,6 @@ export default function Support() {
     },
   ];
 
-  // Stats
-  const stats = {
-    open: mockTickets.filter(t => t.status === "open").length,
-    pending: mockTickets.filter(t => t.status === "pending").length,
-    inProgress: mockTickets.filter(t => t.status === "in_progress").length,
-    resolved: mockTickets.filter(t => t.status === "resolved").length,
-  };
-
   return (
     <div className="space-y-6">
       <div className="page-header flex items-center justify-between">
@@ -176,10 +178,10 @@ export default function Support() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
-          { label: "Open", value: stats.open, icon: AlertTriangle, color: "bg-blue-100 text-blue-600" },
-          { label: "Pending", value: stats.pending, icon: Clock, color: "bg-yellow-100 text-yellow-600" },
-          { label: "In Progress", value: stats.inProgress, icon: User, color: "bg-purple-100 text-purple-600" },
-          { label: "Resolved Today", value: stats.resolved, icon: CheckCircle, color: "bg-green-100 text-green-600" },
+          { label: "Open", value: stats?.open || 0, icon: AlertTriangle, color: "bg-blue-100 text-blue-600" },
+          { label: "Pending", value: stats?.pending || 0, icon: Clock, color: "bg-yellow-100 text-yellow-600" },
+          { label: "In Progress", value: stats?.inProgress || 0, icon: User, color: "bg-purple-100 text-purple-600" },
+          { label: "Resolved", value: stats?.resolved || 0, icon: CheckCircle, color: "bg-green-100 text-green-600" },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -243,7 +245,8 @@ export default function Support() {
 
         <DataTable
           columns={columns}
-          data={filteredTickets}
+          data={displayTickets}
+          isLoading={ticketsLoading}
           emptyMessage="No tickets found"
           emptyIcon={<MessageSquare className="w-12 h-12" />}
         />
@@ -255,7 +258,7 @@ export default function Support() {
           {selectedTicket && (
             <>
               <SheetHeader>
-                <SheetTitle>{selectedTicket.id}: {selectedTicket.subject}</SheetTitle>
+                <SheetTitle>TKT-{selectedTicket._id.slice(-6).toUpperCase()}: {selectedTicket.subject}</SheetTitle>
               </SheetHeader>
 
               <div className="mt-6 space-y-6">
@@ -263,7 +266,15 @@ export default function Support() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
-                    <Select defaultValue={selectedTicket.status}>
+                    <Select 
+                      defaultValue={selectedTicket.status}
+                      onValueChange={(value) => {
+                        updateStatusMutation.mutate({
+                          id: selectedTicket._id,
+                          status: value as "open" | "pending" | "in_progress" | "resolved" | "closed",
+                        });
+                      }}
+                    >
                       <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
