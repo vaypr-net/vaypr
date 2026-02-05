@@ -4,36 +4,77 @@ import { Users2, DollarSign, TrendingUp, Gift, Eye, Plus, Pencil, Trash2, MoreHo
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
 import { DataTable } from "@/components/super-admin/DataTable";
 import { StatusBadge } from "@/components/super-admin/StatusBadge";
-import { mockAffiliates, mockReferrals, Affiliate } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/currency";
 import { AddAffiliateDialog } from "@/components/super-admin/affiliates/AddAffiliateDialog";
-import { CommissionPlanDialog, CommissionPlan } from "@/components/super-admin/affiliates/CommissionPlanDialog";
-import { CouponDialog, Coupon } from "@/components/super-admin/affiliates/CouponDialog";
+import { CommissionPlanDialog } from "@/components/super-admin/affiliates/CommissionPlanDialog";
+import { CouponDialog } from "@/components/super-admin/affiliates/CouponDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-
-// Initial mock data for commission plans
-const initialCommissionPlans: CommissionPlan[] = [
-  { id: "1", name: "Bronze Partner", subscriptionPlan: "Starter", commissionType: "percentage", commissionValue: 10, couponCode: "BRONZE10", couponDiscount: 10, cookieWindow: 30, minPayout: 50, isActive: true },
-  { id: "2", name: "Silver Partner", subscriptionPlan: "Professional", commissionType: "percentage", commissionValue: 15, couponCode: "SILVER15", couponDiscount: 15, cookieWindow: 45, minPayout: 100, isActive: true },
-  { id: "3", name: "Gold Partner", subscriptionPlan: "All Plans", commissionType: "percentage", commissionValue: 20, couponCode: "GOLD20", couponDiscount: 20, cookieWindow: 60, minPayout: 200, isActive: true },
-];
-
-// Initial mock data for coupons
-const initialCoupons: Coupon[] = [
-  { id: "1", code: "SUMMER25", discountType: "percentage", discountValue: 25, usageLimit: 100, usedCount: 45, validFrom: "2026-01-01", validUntil: "2026-03-31", linkedAffiliate: "", status: "active" },
-  { id: "2", code: "WELCOME10", discountType: "percentage", discountValue: 10, usageLimit: 500, usedCount: 234, validFrom: "2025-12-01", validUntil: "2026-12-31", linkedAffiliate: "", status: "active" },
-  { id: "3", code: "FLAT5KD", discountType: "fixed", discountValue: 5, usageLimit: 200, usedCount: 89, validFrom: "2026-01-01", validUntil: "2026-02-28", linkedAffiliate: "", status: "active" },
-];
+import {
+  useGetAffiliates,
+  useCreateAffiliate,
+  useUpdateAffiliate,
+  useDeleteAffiliate,
+  useUpdateAffiliateStatus,
+  useGetCommissionPlans,
+  useCreateCommissionPlan,
+  useUpdateCommissionPlan,
+  useDeleteCommissionPlan,
+  useGetCoupons,
+  useCreateCoupon,
+  useUpdateCoupon,
+  useDeleteCoupon,
+  useGetReferrals,
+  useApproveReferral,
+  useProcessPayouts,
+} from "@/hooks/api/useAffiliates";
+import {
+  Affiliate,
+  CommissionPlan,
+  Coupon,
+  Referral,
+} from "@/api/services/affiliate.service";
 
 export default function Affiliates() {
   const [searchValue, setSearchValue] = useState("");
-  const [affiliates, setAffiliates] = useState<Affiliate[]>(mockAffiliates);
-  const [commissionPlans, setCommissionPlans] = useState<CommissionPlan[]>(initialCommissionPlans);
-  const [coupons, setCoupons] = useState<Coupon[]>(initialCoupons);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [tierFilter, setTierFilter] = useState("");
+  const [pagination, setPagination] = useState({ limit: 10, offset: 0 });
+
+  // ==================== API HOOKS ====================
+
+  // Affiliates
+  const { data: affiliatesData, isLoading: affiliatesLoading } = useGetAffiliates(
+    searchValue || undefined,
+    statusFilter || undefined,
+    tierFilter || undefined,
+    pagination.limit,
+    pagination.offset,
+  );
+  const createAffiliateMutation = useCreateAffiliate();
+  const updateAffiliateMutation = useUpdateAffiliate();
+  const deleteAffiliateMutation = useDeleteAffiliate();
+  const statusMutation = useUpdateAffiliateStatus();
+
+  // Commission Plans
+  const { data: commissionPlansData, isLoading: commissionPlansLoading } = useGetCommissionPlans();
+  const createPlanMutation = useCreateCommissionPlan();
+  const updatePlanMutation = useUpdateCommissionPlan();
+  const deletePlanMutation = useDeleteCommissionPlan();
+
+  // Coupons
+  const { data: couponsData, isLoading: couponsLoading } = useGetCoupons(undefined, undefined, undefined, 100);
+  const createCouponMutation = useCreateCoupon();
+  const updateCouponMutation = useUpdateCoupon();
+  const deleteCouponMutation = useDeleteCoupon();
+
+  // Referrals
+  const { data: referralsData, isLoading: referralsLoading } = useGetReferrals(undefined, undefined, 100);
+  const approveReferralMutation = useApproveReferral();
+  const payoutMutation = useProcessPayouts();
 
   // Dialog states
   const [affiliateDialogOpen, setAffiliateDialogOpen] = useState(false);
@@ -50,28 +91,23 @@ export default function Affiliates() {
   const [deletePlanId, setDeletePlanId] = useState<string | null>(null);
   const [deleteCouponId, setDeleteCouponId] = useState<string | null>(null);
 
-  // Affiliate handlers
-  const handleSaveAffiliate = (data: Partial<Affiliate>) => {
-    if (editingAffiliate) {
-      setAffiliates(prev => prev.map(a => a.id === editingAffiliate.id ? { ...a, ...data } : a));
-      toast.success("Affiliate updated successfully");
-    } else {
-      const newAffiliate: Affiliate = {
-        id: crypto.randomUUID(),
-        name: data.name || "",
-        email: data.email || "",
-        phone: data.phone || "",
-        code: data.code || "",
-        tier: data.tier || "Bronze",
-        referrals: 0,
-        earnings: 0,
-        pending: 0,
-        status: data.status || "active",
-      };
-      setAffiliates(prev => [...prev, newAffiliate]);
-      toast.success("Affiliate added successfully");
+  // ==================== AFFILIATE HANDLERS ====================
+
+  const handleSaveAffiliate = async (data: any) => {
+    try {
+      if (editingAffiliate) {
+        await updateAffiliateMutation.mutateAsync({
+          id: editingAffiliate._id,
+          data,
+        });
+      } else {
+        await createAffiliateMutation.mutateAsync(data);
+      }
+      setAffiliateDialogOpen(false);
+      setEditingAffiliate(null);
+    } catch (error) {
+      console.error("Error saving affiliate:", error);
     }
-    setEditingAffiliate(null);
   };
 
   const handleEditAffiliate = (affiliate: Affiliate) => {
@@ -79,63 +115,110 @@ export default function Affiliates() {
     setAffiliateDialogOpen(true);
   };
 
-  const handleDeleteAffiliate = () => {
+  const handleDeleteAffiliate = async () => {
     if (deleteAffiliateId) {
-      setAffiliates(prev => prev.filter(a => a.id !== deleteAffiliateId));
-      toast.success("Affiliate deleted successfully");
-      setDeleteAffiliateId(null);
+      try {
+        await deleteAffiliateMutation.mutateAsync(deleteAffiliateId);
+        setDeleteAffiliateId(null);
+      } catch (error) {
+        console.error("Error deleting affiliate:", error);
+      }
     }
   };
 
-  // Commission plan handlers
-  const handleSavePlan = (data: CommissionPlan) => {
-    if (editingPlan) {
-      setCommissionPlans(prev => prev.map(p => p.id === editingPlan.id ? data : p));
-      toast.success("Commission plan updated successfully");
-    } else {
-      setCommissionPlans(prev => [...prev, data]);
-      toast.success("Commission plan created successfully");
+  const handleToggleStatus = async (affiliateId: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+      await statusMutation.mutateAsync({
+        id: affiliateId,
+        status: newStatus as 'active' | 'inactive',
+      });
+    } catch (error) {
+      console.error("Error updating status:", error);
     }
-    setEditingPlan(null);
   };
 
-  const handleEditPlan = (plan: CommissionPlan) => {
+  // ==================== COMMISSION PLAN HANDLERS ====================
+
+  const handleSavePlan = async (data: any) => {
+    try {
+      if (editingPlan) {
+        await updatePlanMutation.mutateAsync({
+          id: editingPlan._id,
+          data,
+        });
+      } else {
+        await createPlanMutation.mutateAsync(data);
+      }
+      setPlanDialogOpen(false);
+      setEditingPlan(null);
+    } catch (error) {
+      console.error("Error saving commission plan:", error);
+    }
+  };
+
+  const handleEditPlan = (plan: any) => {
     setEditingPlan(plan);
     setPlanDialogOpen(true);
   };
 
-  const handleDeletePlan = () => {
+  const handleDeletePlan = async () => {
     if (deletePlanId) {
-      setCommissionPlans(prev => prev.filter(p => p.id !== deletePlanId));
-      toast.success("Commission plan deleted successfully");
-      setDeletePlanId(null);
+      try {
+        await deletePlanMutation.mutateAsync(deletePlanId);
+        setDeletePlanId(null);
+      } catch (error) {
+        console.error("Error deleting commission plan:", error);
+      }
     }
   };
 
-  // Coupon handlers
-  const handleSaveCoupon = (data: Coupon) => {
-    if (editingCoupon) {
-      setCoupons(prev => prev.map(c => c.id === editingCoupon.id ? data : c));
-      toast.success("Coupon updated successfully");
-    } else {
-      setCoupons(prev => [...prev, data]);
-      toast.success("Coupon created successfully");
+  // ==================== COUPON HANDLERS ====================
+
+  const handleSaveCoupon = async (data: any) => {
+    try {
+      if (editingCoupon) {
+        await updateCouponMutation.mutateAsync({
+          id: editingCoupon._id,
+          data,
+        });
+      } else {
+        await createCouponMutation.mutateAsync(data);
+      }
+      setCouponDialogOpen(false);
+      setEditingCoupon(null);
+    } catch (error) {
+      console.error("Error saving coupon:", error);
     }
-    setEditingCoupon(null);
   };
 
-  const handleEditCoupon = (coupon: Coupon) => {
+  const handleEditCoupon = (coupon: any) => {
     setEditingCoupon(coupon);
     setCouponDialogOpen(true);
   };
 
-  const handleDeleteCoupon = () => {
+  const handleDeleteCoupon = async () => {
     if (deleteCouponId) {
-      setCoupons(prev => prev.filter(c => c.id !== deleteCouponId));
-      toast.success("Coupon deleted successfully");
-      setDeleteCouponId(null);
+      try {
+        await deleteCouponMutation.mutateAsync(deleteCouponId);
+        setDeleteCouponId(null);
+      } catch (error) {
+        console.error("Error deleting coupon:", error);
+      }
     }
   };
+
+  // ==================== PROCESS PAYOUT ====================
+
+  const handleProcessPayouts = async () => {
+    try {
+      await payoutMutation.mutateAsync({});
+    } catch (error) {
+      console.error("Error processing payouts:", error);
+    }
+  };
+
+  // ==================== TABLE COLUMNS ====================
 
   const affiliateColumns = [
     {
@@ -143,7 +226,7 @@ export default function Affiliates() {
       accessor: (row: Affiliate) => (
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-            <span className="text-sm font-medium text-primary">{row.name.split(" ").map(n => n[0]).join("")}</span>
+            <span className="text-sm font-medium text-primary">{row.name.split(" ").map((n: string) => n[0]).join("")}</span>
           </div>
           <div>
             <p className="font-medium">{row.name}</p>
@@ -157,7 +240,14 @@ export default function Affiliates() {
     { header: "Referrals", accessor: "referrals" as keyof Affiliate },
     { header: "Earnings", accessor: (row: Affiliate) => formatCurrency(row.earnings) },
     { header: "Pending", accessor: (row: Affiliate) => formatCurrency(row.pending) },
-    { header: "Status", accessor: (row: Affiliate) => <StatusBadge status={row.status} /> },
+    {
+      header: "Status",
+      accessor: (row: Affiliate) => (
+        <div onClick={() => handleToggleStatus(row._id, row.status)} className="cursor-pointer">
+          <StatusBadge status={row.status} />
+        </div>
+      ),
+    },
     {
       header: "Actions",
       accessor: (row: Affiliate) => (
@@ -171,7 +261,7 @@ export default function Affiliates() {
             <DropdownMenuItem onClick={() => handleEditAffiliate(row)}>
               <Pencil className="w-4 h-4 mr-2" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setDeleteAffiliateId(row.id)} className="text-destructive">
+            <DropdownMenuItem onClick={() => setDeleteAffiliateId(row._id)} className="text-destructive">
               <Trash2 className="w-4 h-4 mr-2" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -181,16 +271,16 @@ export default function Affiliates() {
   ];
 
   const planColumns = [
-    { header: "Plan Name", accessor: "name" as keyof CommissionPlan },
-    { header: "Subscription", accessor: "subscriptionPlan" as keyof CommissionPlan },
+    { header: "Plan Name", accessor: "name" as keyof any },
+    { header: "Subscription", accessor: "subscriptionPlan" as keyof any },
     {
       header: "Commission",
-      accessor: (row: CommissionPlan) => (
+      accessor: (row: any) => (
         <span className="font-medium">{row.commissionValue}{row.commissionType === "percentage" ? "%" : " KD"}</span>
       ),
     },
-    { header: "Coupon", accessor: (row: CommissionPlan) => row.couponCode ? <code className="px-2 py-1 bg-muted rounded text-sm">{row.couponCode}</code> : "-" },
-    { header: "Cookie Window", accessor: (row: CommissionPlan) => `${row.cookieWindow} days` },
+    { header: "Coupon", accessor: (row: any) => row.couponCode ? <code className="px-2 py-1 bg-muted rounded text-sm">{row.couponCode}</code> : "-" },
+    { header: "Cookie Window", accessor: (row: any) => `${row.cookieWindow} days` },
     { header: "Min Payout", accessor: (row: CommissionPlan) => formatCurrency(row.minPayout) },
     { header: "Status", accessor: (row: CommissionPlan) => <StatusBadge status={row.isActive ? "active" : "inactive"} /> },
     {
@@ -206,7 +296,7 @@ export default function Affiliates() {
             <DropdownMenuItem onClick={() => handleEditPlan(row)}>
               <Pencil className="w-4 h-4 mr-2" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setDeletePlanId(row.id)} className="text-destructive">
+            <DropdownMenuItem onClick={() => setDeletePlanId(row._id)} className="text-destructive">
               <Trash2 className="w-4 h-4 mr-2" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -240,7 +330,7 @@ export default function Affiliates() {
             <DropdownMenuItem onClick={() => handleEditCoupon(row)}>
               <Pencil className="w-4 h-4 mr-2" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setDeleteCouponId(row.id)} className="text-destructive">
+            <DropdownMenuItem onClick={() => setDeleteCouponId(row._id)} className="text-destructive">
               <Trash2 className="w-4 h-4 mr-2" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -249,9 +339,9 @@ export default function Affiliates() {
     },
   ];
 
-  const totalEarnings = affiliates.reduce((sum, a) => sum + a.earnings, 0);
-  const totalPending = affiliates.reduce((sum, a) => sum + a.pending, 0);
-  const totalReferrals = affiliates.reduce((sum, a) => sum + a.referrals, 0);
+  const totalEarnings = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.earnings, 0) || 0;
+  const totalPending = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.pending, 0) || 0;
+  const totalReferrals = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.referrals, 0) || 0;
 
   return (
     <div className="space-y-6">
@@ -262,7 +352,7 @@ export default function Affiliates() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Affiliates", value: affiliates.length.toString(), icon: Users2, color: "bg-purple-100 text-purple-600" },
+          { label: "Total Affiliates", value: (affiliatesData?.items?.length || 0).toString(), icon: Users2, color: "bg-purple-100 text-purple-600" },
           { label: "Total Referrals", value: totalReferrals.toString(), icon: TrendingUp, color: "bg-blue-100 text-blue-600" },
           { label: "Total Commissions", value: formatCurrency(totalEarnings), icon: DollarSign, color: "bg-green-100 text-green-600" },
           { label: "Pending Payouts", value: formatCurrency(totalPending), icon: Gift, color: "bg-orange-100 text-orange-600" },
@@ -297,25 +387,42 @@ export default function Affiliates() {
                 <Plus className="w-4 h-4" /> Add Affiliate
               </Button>
             </div>
-            <DataTable columns={affiliateColumns} data={affiliates.filter(a => a.name.toLowerCase().includes(searchValue.toLowerCase()) || a.email.toLowerCase().includes(searchValue.toLowerCase()))} emptyMessage="No affiliates found" emptyIcon={<Users2 className="w-12 h-12" />} />
+            <DataTable 
+              columns={affiliateColumns} 
+              data={
+                (affiliatesData?.items || []).filter(a => 
+                  a.name.toLowerCase().includes(searchValue.toLowerCase()) || 
+                  a.email.toLowerCase().includes(searchValue.toLowerCase())
+                )
+              } 
+              emptyMessage="No affiliates found" 
+              emptyIcon={<Users2 className="w-12 h-12" />}
+              isLoading={affiliatesLoading}
+            />
           </motion.div>
         </TabsContent>
 
         <TabsContent value="referrals" className="mt-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card-admin">
             <div className="space-y-3">
-              {mockReferrals.map((ref) => (
-                <div key={ref.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
-                  <div>
-                    <p className="font-medium">{ref.subscriberName} → {ref.plan}</p>
-                    <p className="text-sm text-muted-foreground">Referred by {ref.affiliateName}</p>
+              {referralsLoading ? (
+                <div className="text-center py-8">Loading referrals...</div>
+              ) : (referralsData?.items || []).length > 0 ? (
+                (referralsData?.items || []).map((ref: any) => (
+                  <div key={ref._id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                    <div>
+                      <p className="font-medium">{ref.subscriberName} → {ref.plan}</p>
+                      <p className="text-sm text-muted-foreground">Referred by {ref.affiliateName}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{formatCurrency(ref.commission)}</p>
+                      <StatusBadge status={ref.status === "approved" ? "active" : ref.status === "paid" ? "succeeded" : "pending"} />
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium">{formatCurrency(ref.commission)}</p>
-                    <StatusBadge status={ref.status === "approved" ? "active" : ref.status === "paid" ? "succeeded" : "pending"} />
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">No referrals found</div>
+              )}
             </div>
           </motion.div>
         </TabsContent>
@@ -328,7 +435,13 @@ export default function Affiliates() {
                 <Plus className="w-4 h-4" /> Create Plan
               </Button>
             </div>
-            <DataTable columns={planColumns} data={commissionPlans} emptyMessage="No commission plans found" emptyIcon={<DollarSign className="w-12 h-12" />} />
+            <DataTable 
+              columns={planColumns} 
+              data={commissionPlansData?.items || []} 
+              emptyMessage="No commission plans found" 
+              emptyIcon={<DollarSign className="w-12 h-12" />}
+              isLoading={commissionPlansLoading}
+            />
           </motion.div>
         </TabsContent>
 
@@ -340,7 +453,13 @@ export default function Affiliates() {
                 <Plus className="w-4 h-4" /> Create Coupon
               </Button>
             </div>
-            <DataTable columns={couponColumns} data={coupons} emptyMessage="No coupons found" emptyIcon={<Gift className="w-12 h-12" />} />
+            <DataTable 
+              columns={couponColumns} 
+              data={couponsData?.items || []} 
+              emptyMessage="No coupons found" 
+              emptyIcon={<Gift className="w-12 h-12" />}
+              isLoading={couponsLoading}
+            />
           </motion.div>
         </TabsContent>
       </Tabs>
@@ -364,7 +483,7 @@ export default function Affiliates() {
         open={couponDialogOpen}
         onOpenChange={setCouponDialogOpen}
         coupon={editingCoupon}
-        affiliates={affiliates.map(a => ({ id: a.id, name: a.name }))}
+        affiliates={(affiliatesData?.items || []).map(a => ({ id: a._id, name: a.name }))}
         onSave={handleSaveCoupon}
       />
 

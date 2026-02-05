@@ -42,6 +42,7 @@ export function useLogin() {
         id: data.user.id,
         email: data.user.email,
         fullName: data.user.fullName,
+        name: data.user.fullName, // For backwards compatibility with UI components
         createdAt: new Date().toISOString(),
         isSuperAdmin: data.user.isSuperAdmin || false,
       };
@@ -108,6 +109,7 @@ export function useSignup() {
         id: data.user.id,
         email: data.user.email,
         fullName: data.user.fullName,
+        name: data.user.fullName, // For backwards compatibility with UI components
         createdAt: new Date().toISOString(),
         isSuperAdmin: data.user.isSuperAdmin || false,
       };

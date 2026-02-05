@@ -7,19 +7,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Sparkles, Percent, Tag, Gift } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Coupon as ApiCoupon } from "@/api/services/affiliate.service";
 
-export interface Coupon {
-  id: string;
+// Extend API type with optional id for compatibility
+export interface Coupon extends ApiCoupon {
+  id?: string;
+}
+
+// Form data type - only editable fields
+type CouponFormData = {
   code: string;
-  discountType: "percentage" | "fixed";
+  discountType: 'percentage' | 'fixed';
   discountValue: number;
   usageLimit: number;
-  usedCount: number;
   validFrom: string;
   validUntil: string;
-  linkedAffiliate: string;
-  status: "active" | "expired" | "disabled";
-}
+  linkedAffiliate?: string;
+};
 
 interface CouponDialogProps {
   open: boolean;
@@ -43,16 +47,14 @@ const formatDateForInput = (dateStr: string) => {
 };
 
 export function CouponDialog({ open, onOpenChange, coupon, affiliates, onSave }: CouponDialogProps) {
-  const [formData, setFormData] = useState<Omit<Coupon, "id">>({
+  const [formData, setFormData] = useState<CouponFormData>({
     code: "",
     discountType: "percentage",
     discountValue: 20,
     usageLimit: 100,
-    usedCount: 0,
     validFrom: new Date().toISOString().split("T")[0],
     validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     linkedAffiliate: "",
-    status: "active",
   });
 
   useEffect(() => {
@@ -62,11 +64,9 @@ export function CouponDialog({ open, onOpenChange, coupon, affiliates, onSave }:
         discountType: coupon.discountType,
         discountValue: coupon.discountValue,
         usageLimit: coupon.usageLimit,
-        usedCount: coupon.usedCount,
         validFrom: formatDateForInput(coupon.validFrom),
         validUntil: formatDateForInput(coupon.validUntil),
         linkedAffiliate: coupon.linkedAffiliate,
-        status: coupon.status,
       });
     } else {
       setFormData({
@@ -74,21 +74,17 @@ export function CouponDialog({ open, onOpenChange, coupon, affiliates, onSave }:
         discountType: "percentage",
         discountValue: 20,
         usageLimit: 100,
-        usedCount: 0,
         validFrom: new Date().toISOString().split("T")[0],
         validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         linkedAffiliate: "",
-        status: "active",
       });
     }
   }, [coupon, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      id: coupon?.id || crypto.randomUUID(),
-      ...formData,
-    });
+    // Don't send id field - backend manages it
+    onSave(formData as any);
     onOpenChange(false);
   };
 
@@ -236,18 +232,6 @@ export function CouponDialog({ open, onOpenChange, coupon, affiliates, onSave }:
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-            <div>
-              <Label htmlFor="status">Active Status</Label>
-              <p className="text-sm text-muted-foreground">Enable this coupon for use</p>
-            </div>
-            <Switch
-              id="status"
-              checked={formData.status === "active"}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, status: checked ? "active" : "disabled" }))}
-            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4">

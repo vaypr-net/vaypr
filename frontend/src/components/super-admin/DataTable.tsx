@@ -20,7 +20,7 @@ interface DataTableProps<T> {
   onPageChange?: (page: number) => void;
 }
 
-export function DataTable<T extends { id: string | number }>({
+export function DataTable<T extends { id?: string | number; _id?: string }>({
   columns,
   data,
   isLoading = false,
@@ -61,17 +61,20 @@ export function DataTable<T extends { id: string | number }>({
             </tr>
           </thead>
           <tbody>
-            {data.map((row) => (
-              <tr key={row.id}>
-                {columns.map((col, i) => (
-                  <td key={i} className={col.className}>
-                    {typeof col.accessor === "function"
-                      ? col.accessor(row)
-                      : (row[col.accessor] as ReactNode)}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {data.map((row) => {
+              const key = (row as any).id || (row as any)._id || Math.random();
+              return (
+                <tr key={key}>
+                  {columns.map((col, i) => (
+                    <td key={i} className={col.className}>
+                      {typeof col.accessor === "function"
+                        ? col.accessor(row)
+                        : (row[col.accessor] as ReactNode)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

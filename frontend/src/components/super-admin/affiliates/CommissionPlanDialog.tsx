@@ -6,19 +6,25 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Sparkles } from "lucide-react";
+import { CommissionPlan as ApiCommissionPlan } from "@/api/services/affiliate.service";
 
-export interface CommissionPlan {
-  id: string;
+// Extend API type with optional id for compatibility with old dialogs
+export interface CommissionPlan extends ApiCommissionPlan {
+  id?: string;
+}
+
+// Form data type - only editable fields
+type CommissionPlanFormData = {
   name: string;
   subscriptionPlan: string;
-  commissionType: "percentage" | "fixed";
+  commissionType: 'percentage' | 'fixed';
   commissionValue: number;
-  couponCode: string;
-  couponDiscount: number;
+  couponCode?: string;
+  couponDiscount?: number;
   cookieWindow: number;
   minPayout: number;
   isActive: boolean;
-}
+};
 
 interface CommissionPlanDialogProps {
   open: boolean;
@@ -35,7 +41,7 @@ const generateCode = () => {
 };
 
 export function CommissionPlanDialog({ open, onOpenChange, plan, onSave }: CommissionPlanDialogProps) {
-  const [formData, setFormData] = useState<Omit<CommissionPlan, "id">>({
+  const [formData, setFormData] = useState<CommissionPlanFormData>({
     name: "",
     subscriptionPlan: "Starter",
     commissionType: "percentage",
@@ -77,10 +83,8 @@ export function CommissionPlanDialog({ open, onOpenChange, plan, onSave }: Commi
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      id: plan?.id || crypto.randomUUID(),
-      ...formData,
-    });
+    // Don't send id field - backend manages it
+    onSave(formData);
     onOpenChange(false);
   };
 

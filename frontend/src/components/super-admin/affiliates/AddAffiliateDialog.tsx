@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sparkles } from "lucide-react";
-import { Affiliate } from "@/data/mockData";
+import { Affiliate } from "@/api/services/affiliate.service";
 
 interface AddAffiliateDialogProps {
   open: boolean;
@@ -35,12 +35,9 @@ export function AddAffiliateDialog({ open, onOpenChange, affiliate, onSave }: Ad
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      ...formData,
-      referrals: affiliate?.referrals || 0,
-      earnings: affiliate?.earnings || 0,
-      pending: affiliate?.pending || 0,
-    });
+    // Only send editable fields (name, email, phone, code, tier, status)
+    // Backend manages referrals, earnings, pending automatically
+    onSave(formData);
     onOpenChange(false);
     setFormData({ name: "", email: "", phone: "", code: "", tier: "Bronze", status: "active" });
   };
