@@ -17,7 +17,6 @@ import {
   dashboardKPIs, 
   planDistributionData,
   mockActivityFeed,
-  mockSubscribers
 } from "@/data/mockData";
 import { 
   XAxis, 
@@ -35,6 +34,7 @@ import {
 import { formatCurrency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useGetSubscribers, useGetSubscriberStats } from "@/hooks/api/useSubscribers";
 
 const activityIcons: Record<string, React.ReactNode> = {
   new_subscriber: <Users className="w-4 h-4 text-blue-500" />,
@@ -76,10 +76,11 @@ const revenueByPlanData = [
 ];
 
 export default function Overview() {
-  // Get the 5 most recent subscribers
-  const recentSubscribers = [...mockSubscribers]
-    .sort((a, b) => new Date(b.subscriptionDate).getTime() - new Date(a.subscriptionDate).getTime())
-    .slice(0, 5);
+  // Fetch real subscriber data
+  const { data: subscribersData } = useGetSubscribers(undefined, undefined, undefined, 5, 0);
+  const { data: stats } = useGetSubscriberStats();
+
+  const recentSubscribers = subscribersData?.items || [];
 
   return (
     <div className="space-y-6">
@@ -259,7 +260,7 @@ export default function Overview() {
           <h3 className="text-lg font-semibold mb-4">Recent Subscribers</h3>
           <div className="space-y-3">
             {recentSubscribers.map((subscriber) => (
-              <div key={subscriber.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+              <div key={subscriber._id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
                 <Avatar className="h-10 w-10">
                   <AvatarFallback className="bg-primary/10 text-primary font-medium">
                     {subscriber.name.split(' ').map(n => n[0]).join('')}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Subscriber } from "@/data/mockData";
+import { Subscriber } from "@/api/services/subscriber.service";
 import {
   Dialog,
   DialogContent,

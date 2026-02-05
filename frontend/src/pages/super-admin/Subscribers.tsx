@@ -4,7 +4,6 @@ import { Users, Eye, Pencil, MoreVertical } from "lucide-react";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
 import { DataTable } from "@/components/super-admin/DataTable";
 import { StatusBadge } from "@/components/super-admin/StatusBadge";
-import { mockSubscribers, Subscriber } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,6 +21,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/currency";
 import { EditSubscriberDialog } from "@/components/super-admin/subscribers/EditSubscriberDialog";
+import { useGetSubscribers, useGetSubscriberStats } from "@/hooks/api/useSubscribers";
+import { Subscriber } from "@/api/services/subscriber.service";
 
 export default function Subscribers() {
   const [searchValue, setSearchValue] = useState("");
@@ -30,17 +31,18 @@ export default function Subscribers() {
   const [selectedSubscriber, setSelectedSubscriber] = useState<Subscriber | null>(null);
   const [editSubscriber, setEditSubscriber] = useState<Subscriber | null>(null);
 
-  const filteredSubscribers = mockSubscribers.filter(sub => {
-    const matchesSearch = 
-      sub.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-      sub.email.toLowerCase().includes(searchValue.toLowerCase()) ||
-      sub.company.toLowerCase().includes(searchValue.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || sub.status === statusFilter;
-    const matchesType = typeFilter === "all" || sub.subscriptionType === typeFilter;
+  // API Hooks
+  const { data: subscribersData, isLoading: subscribersLoading } = useGetSubscribers(
+    searchValue || undefined,
+    statusFilter !== "all" ? statusFilter : undefined,
+    typeFilter !== "all" ? typeFilter : undefined,
+    50,
+    0
+  );
 
-    return matchesSearch && matchesStatus && matchesType;
-  });
+  const { data: stats } = useGetSubscriberStats();
+
+  const displaySubscribers = subscribersData?.items || [];
 
   const columns = [
     {
@@ -145,7 +147,8 @@ export default function Subscribers() {
 
         <DataTable
           columns={columns}
-          data={filteredSubscribers}
+          data={displaySubscribers}
+          isLoading={subscribersLoading}
           emptyMessage="No subscribers found"
           emptyIcon={<Users className="w-12 h-12" />}
         />
