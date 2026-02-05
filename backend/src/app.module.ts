@@ -19,6 +19,7 @@ import { GmailModule } from './gmail/gmail.module';
 import { AffiliateModule } from './affiliate/affiliate.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { SubscribersModule } from './subscribers/subscribers.module';
+import { BillingPlanModule } from './billing-plan/billing-plan.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { SubscribersModule } from './subscribers/subscribers.module';
     AffiliateModule,
     TicketsModule,
     SubscribersModule,
+    BillingPlanModule,
   ],
   controllers: [AppController],
   providers: [AppService],

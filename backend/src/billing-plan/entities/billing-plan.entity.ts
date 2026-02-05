@@ -1,0 +1,52 @@
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
+
+@Schema({ timestamps: true })
+export class BillingPlan extends Document {
+  @Prop({ required: true })
+  name: string;
+
+  @Prop({ required: true })
+  price: number; // 0 = Free, -1 = Custom/Enterprise
+
+  @Prop({ default: 'KWD' })
+  currency: string;
+
+  @Prop({ enum: ['monthly', 'yearly'], required: true })
+  interval: string;
+
+  @Prop({ enum: ['active', 'hidden', 'archived'], default: 'active' })
+  status: string;
+
+  @Prop({ type: [String], required: true })
+  features: string[];
+
+  // Limits - usage restrictions for each plan
+  @Prop({ type: Object, required: true })
+  limits: {
+    invoices: number; // -1 = unlimited
+    quotes: number; // -1 = unlimited
+    clients: number; // -1 = unlimited
+    teamMembers: number; // -1 = unlimited
+    storage: string; // "100MB", "10GB", "Unlimited"
+    receipts: number; // -1 = unlimited
+    recurringInvoices: number; // -1 = unlimited
+    expenseTracking: boolean;
+    invoiceTemplates: string; // "Basic", "All", "Custom"
+  };
+
+  @Prop({ default: false })
+  isPopular: boolean;
+
+  @Prop({ default: 0 })
+  subscriberCount: number;
+
+  @Prop()
+  createdAt: Date;
+
+  @Prop()
+  updatedAt: Date;
+}
+
+export const BillingPlanSchema = SchemaFactory.createForClass(BillingPlan);
+
