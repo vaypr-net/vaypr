@@ -24,6 +24,9 @@ export class User extends BaseEntity {
   @Prop({ default: false })
   emailVerified: boolean; // Auto-verified for Google OAuth
 
+  @Prop({ default: false })
+  isSuperAdmin: boolean; // Super admin flag - only one super admin
+
   // Google OAuth tokens for Gmail API
   // These are ONLY set when user grants Gmail permission (gmail.send scope)
   // refresh_token is stored ONLY on first consent or re-consent

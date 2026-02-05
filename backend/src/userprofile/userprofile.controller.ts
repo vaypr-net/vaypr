@@ -5,13 +5,17 @@ import { UserprofileService } from './userprofile.service';
 import { CreateUserprofileDto } from './dto/create-userprofile.dto';
 import { UpdateUserprofileDto } from './dto/update-userprofile.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { UserService } from '../user/user.service';
 
 @ApiTags('profile')
 @ApiBearerAuth()
 @Controller('userprofile')
 @UseGuards(JwtAuthGuard)
 export class UserprofileController {
-  constructor(private readonly userprofileService: UserprofileService) {}
+  constructor(
+    private readonly userprofileService: UserprofileService,
+    private readonly userService: UserService,
+  ) {}
 
   @Post()
   async create(@Request() req, @Body() createUserprofileDto: CreateUserprofileDto) {
@@ -20,7 +24,14 @@ export class UserprofileController {
 
   @Get()
   async findOne(@Request() req) {
-    return this.userprofileService.findByUserId(req.user.sub);
+    const profile = await this.userprofileService.findByUserId(req.user.sub);
+    const user = await this.userService.findOne(req.user.sub);
+    
+    // Merge user profile with isSuperAdmin flag
+    return {
+      ...profile.toObject(),
+      isSuperAdmin: user.isSuperAdmin || false,
+    };
   }
 
   @Patch()

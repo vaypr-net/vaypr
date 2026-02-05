@@ -26,12 +26,19 @@ export class UserService {
     const user = new this.userModel({
       ...createUserDto,
       password: hashedPassword,
+      // SECURITY: isSuperAdmin can ONLY be set via CLI script
+      // Never allow API registration to create super admin
+      isSuperAdmin: false,
     });
 
     const savedUser = await user.save();
 
-    // Generate JWT token
-    const payload = { sub: savedUser._id, email: savedUser.email };
+    // Generate JWT token with isSuperAdmin flag for performance
+    const payload = { 
+      sub: savedUser._id, 
+      email: savedUser.email,
+      isSuperAdmin: savedUser.isSuperAdmin || false,
+    };
     const token = this.jwtService.sign(payload);
 
     return {
@@ -40,6 +47,7 @@ export class UserService {
         id: savedUser._id,
         fullName: savedUser.fullName,
         email: savedUser.email,
+        isSuperAdmin: savedUser.isSuperAdmin || false,
       },
     };
   }
@@ -54,6 +62,9 @@ export class UserService {
     const user = new this.userModel({
       ...createUserDto,
       password: hashedPassword,
+      // SECURITY: isSuperAdmin can ONLY be set via CLI script
+      // This ensures create() method never creates a super admin
+      isSuperAdmin: false,
     });
 
     return user.save();
@@ -72,7 +83,21 @@ export class UserService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userModel.findOne({ email }).exec();
+    const user = await this.userModel
+      .findOne({ email })
+      .lean()
+      .exec();
+    
+    // Explicitly log to debug isSuperAdmin field
+    if (user) {
+      console.log('🔍 findByEmail DEBUG:', {
+        email: user.email,
+        isSuperAdmin: user.isSuperAdmin,
+        type: typeof user.isSuperAdmin,
+        allKeys: Object.keys(user),
+      });
+    }
+    return user as any;
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
@@ -80,8 +105,12 @@ export class UserService {
       updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
     }
 
+    // SECURITY: Remove isSuperAdmin from update data if somehow it got through
+    // isSuperAdmin can ONLY be modified via CLI script (setSuperAdmin method)
+    const { isSuperAdmin, ...safeUpdateData } = updateUserDto as any;
+
     const user = await this.userModel
-      .findByIdAndUpdate(id, updateUserDto, { new: true })
+      .findByIdAndUpdate(id, safeUpdateData, { new: true })
       .select('-password')
       .exec();
 
@@ -124,6 +153,9 @@ export class UserService {
       profilePicture: googleData.profilePicture,
       authProvider: 'google',
       emailVerified: true,
+      // SECURITY: isSuperAdmin can ONLY be set via CLI script
+      // OAuth signup never creates super admin
+      isSuperAdmin: false,
       // password is undefined/null - OAuth users don't have passwords
     });
 
@@ -252,6 +284,29 @@ export class UserService {
         },
         { new: true },
       )
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
+  /**
+   * Set or remove super admin status for a user
+   * 
+   * Used by CLI script to manage super admin accounts
+   * Only one super admin should exist at a time
+   */
+  async setSuperAdmin(userId: string, isSuperAdmin: boolean): Promise<User> {
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { isSuperAdmin },
+        { new: true },
+      )
+      .select('-password')
       .exec();
 
     if (!user) {

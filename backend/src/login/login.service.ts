@@ -34,8 +34,24 @@ export class LoginService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = { sub: user._id, email: user.email };
+    // DEBUG: Confirm isSuperAdmin is in the user object
+    console.log('🔐 LOGIN SERVICE DEBUG:', {
+      email: user.email,
+      isSuperAdmin: user.isSuperAdmin,
+      isSuperAdminType: typeof user.isSuperAdmin,
+      userKeys: Object.keys(user),
+      fullUser: JSON.stringify(user, null, 2),
+    });
+
+    // Generate JWT token with isSuperAdmin flag for performance
+    const payload = { 
+      sub: user._id, 
+      email: user.email,
+      isSuperAdmin: user.isSuperAdmin || false,
+    };
     const token = this.jwtService.sign(payload);
+
+    console.log('🔐 JWT PAYLOAD:', payload);
 
     return {
       access_token: token,
@@ -43,6 +59,7 @@ export class LoginService {
         id: user._id,
         fullName: user.fullName,
         email: user.email,
+        isSuperAdmin: user.isSuperAdmin || false,
       },
     };
   }
@@ -111,8 +128,12 @@ export class LoginService {
       }
     }
 
-    // Issue JWT token (same as manual login)
-    const payload = { sub: user._id, email: user.email };
+    // Issue JWT token with isSuperAdmin flag for performance (same as manual login)
+    const payload = { 
+      sub: user._id, 
+      email: user.email,
+      isSuperAdmin: user.isSuperAdmin || false,
+    };
     const token = this.jwtService.sign(payload);
 
     return {
@@ -122,6 +143,7 @@ export class LoginService {
         fullName: user.fullName,
         email: user.email,
         profilePicture: user.profilePicture,
+        isSuperAdmin: user.isSuperAdmin || false,
       },
     };
   }
