@@ -18,6 +18,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { GmailModule } from './gmail/gmail.module';
 import { AffiliateModule } from './affiliate/affiliate.module';
 import { TicketsModule } from './tickets/tickets.module';
+import { SubscribersModule } from './subscribers/subscribers.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { TicketsModule } from './tickets/tickets.module';
     GmailModule,
     AffiliateModule,
     TicketsModule,
+    SubscribersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
