@@ -17,6 +17,7 @@ import { ExpenseModule } from './expense/expense.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { GmailModule } from './gmail/gmail.module';
 import { AffiliateModule } from './affiliate/affiliate.module';
+import { TicketsModule } from './tickets/tickets.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { AffiliateModule } from './affiliate/affiliate.module';
     DashboardModule,
     GmailModule,
     AffiliateModule,
+    TicketsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
