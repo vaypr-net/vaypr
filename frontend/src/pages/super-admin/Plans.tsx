@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit, Copy, Trash2, Check, Star, Users, X, Phone } from "lucide-react";
-import { mockPlans, Plan } from "@/data/mockData";
+import { Plus, Edit, Copy, Trash2, Check, Star, Users, X, Phone, CreditCard, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/super-admin/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  useGetPlans,
+  useCreatePlan,
+  useUpdatePlan,
+  useDeletePlan,
+} from "@/hooks/api/useBillingPlans";
+import type { BillingPlan, CreateBillingPlanDto, UpdateBillingPlanDto } from "@/api/services/billing-plan.service";
 import {
   Dialog,
   DialogContent,
@@ -36,10 +42,10 @@ function formatPlanPrice(value: number) {
 }
 
 interface PlanCardProps {
-  plan: Plan;
-  onEdit: (plan: Plan) => void;
-  onDelete: (plan: Plan) => void;
-  onDuplicate: (plan: Plan) => void;
+  plan: BillingPlan;
+  onEdit: (plan: BillingPlan) => void;
+  onDelete: (plan: BillingPlan) => void;
+  onDuplicate: (plan: BillingPlan) => void;
 }
 
 function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps) {
@@ -125,10 +131,17 @@ function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps) {
 }
 
 export default function Plans() {
-  const [plans, setPlans] = useState<Plan[]>(mockPlans);
+  // API Hooks
+  const { data: plansData, isLoading: plansLoading } = useGetPlans();
+  const createPlanMutation = useCreatePlan();
+  const updatePlanMutation = useUpdatePlan();
+  const deletePlanMutation = useDeletePlan();
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
-  const [deletingPlan, setDeletingPlan] = useState<Plan | null>(null);
+  const [editingPlan, setEditingPlan] = useState<BillingPlan | null>(null);
+  const [deletingPlan, setDeletingPlan] = useState<BillingPlan | null>(null);
+  
+  const displayPlans = plansData?.items || [];
   
   // Form state
   const [formData, setFormData] = useState({
@@ -167,7 +180,7 @@ export default function Plans() {
     });
   };
 
-  const openEditDialog = (plan: Plan) => {
+  const openEditDialog = (plan: BillingPlan) => {
     setFormData({
       name: plan.name,
       price: plan.price === -1 ? "-1" : plan.price.toString(),
@@ -187,9 +200,8 @@ export default function Plans() {
     setEditingPlan(plan);
   };
 
-  const handleSave = () => {
-    const newPlan: Plan = {
-      id: editingPlan?.id || Date.now().toString(),
+  const handleSave = async () => {
+    const planData: CreateBillingPlanDto | UpdateBillingPlanDto = {
       name: formData.name,
       price: parseInt(formData.price) || 0,
       currency: "KWD",
@@ -208,38 +220,50 @@ export default function Plans() {
         invoiceTemplates: formData.invoiceTemplates,
       },
       isPopular: formData.isPopular,
-      subscriberCount: editingPlan?.subscriberCount || 0,
     };
 
-    if (editingPlan) {
-      setPlans(plans.map(p => p.id === editingPlan.id ? newPlan : p));
-      toast.success(`Plan "${newPlan.name}" updated successfully`);
-    } else {
-      setPlans([...plans, newPlan]);
-      toast.success(`Plan "${newPlan.name}" created successfully`);
+    try {
+      if (editingPlan) {
+        await updatePlanMutation.mutateAsync({ id: editingPlan._id, data: planData });
+      } else {
+        await createPlanMutation.mutateAsync(planData);
+      }
+      
+      setEditingPlan(null);
+      setIsCreateOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving plan:', error);
     }
-
-    setEditingPlan(null);
-    setIsCreateOpen(false);
-    resetForm();
   };
 
-  const handleDuplicate = (plan: Plan) => {
-    const duplicatedPlan: Plan = {
-      ...plan,
-      id: Date.now().toString(),
+  const handleDuplicate = async (plan: BillingPlan) => {
+    const duplicateData: CreateBillingPlanDto = {
       name: `${plan.name} (Copy)`,
-      subscriberCount: 0,
+      price: plan.price,
+      currency: plan.currency,
+      interval: plan.interval,
+      status: 'hidden', // Set duplicates as hidden by default
+      features: [...plan.features],
+      limits: { ...plan.limits },
+      isPopular: false,
     };
-    setPlans([...plans, duplicatedPlan]);
-    toast.success(`Plan "${plan.name}" duplicated`);
+    
+    try {
+      await createPlanMutation.mutateAsync(duplicateData);
+    } catch (error) {
+      console.error('Error duplicating plan:', error);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deletingPlan) {
-      setPlans(plans.filter(p => p.id !== deletingPlan.id));
-      toast.success(`Plan "${deletingPlan.name}" deleted`);
-      setDeletingPlan(null);
+      try {
+        await deletePlanMutation.mutateAsync(deletingPlan._id);
+        setDeletingPlan(null);
+      } catch (error) {
+        console.error('Error deleting plan:', error);
+      }
     }
   };
 
@@ -591,19 +615,39 @@ export default function Plans() {
         </TabsList>
 
         <TabsContent value="plans" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <AnimatePresence>
-              {plans.map((plan) => (
-                <PlanCard 
-                  key={plan.id} 
-                  plan={plan} 
-                  onEdit={openEditDialog}
-                  onDelete={setDeletingPlan}
-                  onDuplicate={handleDuplicate}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
+          {plansLoading ? (
+            <div className="text-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading plans...</p>
+            </div>
+          ) : displayPlans.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="mx-auto w-16 h-16 mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                <CreditCard className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No plans yet</h3>
+              <p className="text-muted-foreground mb-6">
+                Get started by creating your first subscription plan
+              </p>
+              <Button onClick={() => setIsCreateOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Create Your First Plan
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <AnimatePresence>
+                {displayPlans.map((plan) => (
+                  <PlanCard 
+                    key={plan._id} 
+                    plan={plan} 
+                    onEdit={openEditDialog}
+                    onDelete={setDeletingPlan}
+                    onDuplicate={handleDuplicate}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="billing" className="mt-6">
