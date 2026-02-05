@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminLayout } from "@/components/super-admin/AdminLayout";
+import { AdminRoute } from "@/components/auth/AdminRoute";
 import Index from "./pages/Index";
 import Generator from "./pages/Generator";
 import NotFound from "./pages/NotFound";
@@ -81,7 +82,7 @@ function AppRoutes() {
       <Route path="/guides" element={<Guides />} />
       <Route path="/about" element={<AboutUs />} />
       <Route path="/b2b" element={<B2BServices />} />
-      <Route path="/super-admin" element={<AdminLayout />}>
+      <Route path="/super-admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
         <Route index element={<AdminOverview />} />
         <Route path="page-editor" element={<PageEditor />} />
         <Route path="subscribers" element={<Subscribers />} />

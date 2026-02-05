@@ -38,6 +38,7 @@ export interface User {
   timezone?: string;
   createdAt: string;
   subscription?: Subscription;
+  isSuperAdmin?: boolean; // Super admin flag
 }
 
 export type ClientType = 'individual' | 'company';

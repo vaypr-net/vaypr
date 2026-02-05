@@ -49,8 +49,12 @@ export default function AuthCallback() {
           localStorage.setItem('user', JSON.stringify(userData));
           updateUser(userData);
           
-          // Redirect to dashboard
-          navigate('/dashboard');
+          // Redirect based on user role
+          if (userData.isSuperAdmin) {
+            navigate('/super-admin');
+          } else {
+            navigate('/dashboard');
+          }
         } else {
           throw new Error('Failed to fetch user data');
         }
