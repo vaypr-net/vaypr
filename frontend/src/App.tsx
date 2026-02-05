@@ -52,6 +52,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
   
+  // Super admins should only access /super-admin, not /dashboard
+  if (user.isSuperAdmin) {
+    return <Navigate to="/super-admin" replace />;
+  }
+  
   return <>{children}</>;
 }
 
