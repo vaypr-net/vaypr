@@ -20,6 +20,13 @@ import { AffiliateModule } from './affiliate/affiliate.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { SubscribersModule } from './subscribers/subscribers.module';
 import { BillingPlanModule } from './billing-plan/billing-plan.module';
+import { TranscationsModule } from './transcations/transcations.module';
+
+import { SocialLinksModule } from './social-links/social-links.module';
+import { FaqsModule } from './faqs/faqs.module';
+import { LandingPageModule } from './landing-page/landing-page.module';
+import { SupportPagesModule } from './support-pages/support-pages.module';
+import { CorporatePagesModule } from './corporate-pages/corporate-pages.module';
 
 @Module({
   imports: [
@@ -44,6 +51,17 @@ import { BillingPlanModule } from './billing-plan/billing-plan.module';
     TicketsModule,
     SubscribersModule,
     BillingPlanModule,
+    TranscationsModule,
+   
+    SocialLinksModule,
+   
+    FaqsModule,
+   
+    LandingPageModule,
+   
+    SupportPagesModule,
+   
+    CorporatePagesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
