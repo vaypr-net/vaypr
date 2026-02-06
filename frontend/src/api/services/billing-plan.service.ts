@@ -73,44 +73,32 @@ export const BillingPlanService = {
     offset: number = 0,
   ): Promise<PaginatedResponse<BillingPlan>> {
     const params = { status, limit, offset };
-    console.log('💳 Fetching billing plans:', params);
     const response = await axios.get<PaginatedResponse<BillingPlan>>(BASE_URL, { params });
-    console.log('✅ Billing plans response:', response.data);
     return response.data;
   },
 
   async getPlanById(id: string): Promise<BillingPlan> {
-    console.log('💳 Fetching billing plan:', id);
     const response = await axios.get<BillingPlan>(`${BASE_URL}/${id}`);
-    console.log('✅ Billing plan response:', response.data);
     return response.data;
   },
 
   async createPlan(data: CreateBillingPlanDto): Promise<BillingPlan> {
-    console.log('💳 Creating billing plan:', data);
     const response = await axios.post<BillingPlan>(BASE_URL, data);
-    console.log('✅ Billing plan created:', response.data);
     return response.data;
   },
 
   async updatePlan(id: string, data: UpdateBillingPlanDto): Promise<BillingPlan> {
-    console.log('💳 Updating billing plan:', id, data);
     const response = await axios.patch<BillingPlan>(`${BASE_URL}/${id}`, data);
-    console.log('✅ Billing plan updated:', response.data);
     return response.data;
   },
 
   async deletePlan(id: string): Promise<{ success: boolean; message: string }> {
-    console.log('💳 Deleting billing plan:', id);
     const response = await axios.delete<{ success: boolean; message: string }>(`${BASE_URL}/${id}`);
-    console.log('✅ Billing plan deleted:', response.data);
     return response.data;
   },
 
   async getStats(): Promise<BillingPlanStats> {
-    console.log('💳 Fetching billing plan stats');
     const response = await axios.get<BillingPlanStats>(`${BASE_URL}/stats`);
-    console.log('✅ Stats response:', response.data);
     return response.data;
   },
 };
