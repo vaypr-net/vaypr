@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     strictPort: true,
+    allowedHosts: [
+      'invoicesoftwareforage.up.railway.app',
+      'localhost',
+      '.railway.app', // Allow all Railway domains
+    ],
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

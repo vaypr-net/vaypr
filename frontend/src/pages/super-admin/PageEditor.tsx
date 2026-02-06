@@ -1,5 +1,5 @@
 // src/pages/super-admin/PageEditor.tsx
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ElementType, ReactNode, ChangeEvent } from "react";
 import {
@@ -51,6 +51,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
+import { useLandingPage, useUpdateLandingSection } from "@/hooks/useLandingPage";
 
 import { SocialMediaEditor } from "@/components/super-admin/SocialMediaEditor";
 import { FAQsEditor } from "@/components/super-admin/FAQsEditor";
@@ -851,60 +852,88 @@ function CorporatePagesEditor() {
 
 // -------------------- Landing Page Editor --------------------
 function LandingPageEditor() {
-  const [sections, setSections] = useState(initialLandingSections);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const { data: landingPage, isLoading } = useLandingPage();
+  const updateSection = useUpdateLandingSection();
 
-  const toggleSection = (id: string) => {
-    setSections((prev) => prev.map((section) => (section.id === id ? { ...section, enabled: !section.enabled } : section)));
+  const [heroForm, setHeroForm] = useState({
+    badge: "",
+    headline: "",
+    subheadline: "",
+    primaryButtonText: "",
+    secondaryButtonText: "",
+  });
+
+  const [footerForm, setFooterForm] = useState({
+    companyName: "",
+    description: "",
+    copyright: "",
+    showSocialLinks: true,
+  });
+
+  // Initialize forms when data loads
+  useEffect(() => {
+    if (landingPage) {
+      setHeroForm({
+        badge: landingPage.heroSection.badge,
+        headline: landingPage.heroSection.headline,
+        subheadline: landingPage.heroSection.subheadline,
+        primaryButtonText: landingPage.heroSection.primaryButtonText,
+        secondaryButtonText: landingPage.heroSection.secondaryButtonText,
+      });
+      setFooterForm({
+        companyName: landingPage.footerSection.companyName,
+        description: landingPage.footerSection.description,
+        copyright: landingPage.footerSection.copyright,
+        showSocialLinks: landingPage.footerSection.showSocialLinks,
+      });
+    }
+  }, [landingPage]);
+
+  const handleUpdateHero = () => {
+    updateSection.mutate({
+      section: 'heroSection',
+      data: heroForm,
+    });
   };
 
+  const handleUpdateFooter = () => {
+    updateSection.mutate({
+      section: 'footerSection',
+      data: footerForm,
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center space-y-2">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading landing page settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!landingPage) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-muted-foreground">Failed to load landing page settings</p>
+      </div>
+    );
+  }
+
   return (
-    <Tabs defaultValue="sections" className="w-full">
+    <Tabs defaultValue="hero" className="w-full">
       <TabsList className="mb-4">
-        <TabsTrigger value="sections">Sections</TabsTrigger>
         <TabsTrigger value="hero">Hero</TabsTrigger>
         <TabsTrigger value="features">Features</TabsTrigger>
+        <TabsTrigger value="stats">Stats</TabsTrigger>
         <TabsTrigger value="how-it-works">How It Works</TabsTrigger>
-        <TabsTrigger value="plans">Plans</TabsTrigger>
+        <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
+        <TabsTrigger value="pricing">Pricing</TabsTrigger>
+        <TabsTrigger value="cta">CTA</TabsTrigger>
         <TabsTrigger value="footer">Footer</TabsTrigger>
       </TabsList>
-
-      <TabsContent value="sections" className="space-y-3">
-        <p className="text-sm text-muted-foreground mb-4">
-          Drag to reorder sections. Toggle visibility on/off for each section.
-        </p>
-
-        {sections
-          .slice()
-          .sort((a, b) => a.order - b.order)
-          .map((section) => (
-            <motion.div
-              key={section.id}
-              layout
-              className="flex items-center gap-3 p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow cursor-move"
-            >
-              <GripVertical className="w-5 h-5 text-muted-foreground" />
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <section.icon className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-medium">{section.title}</h4>
-                <span className="text-xs text-muted-foreground">Section {section.order}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch checked={section.enabled} onCheckedChange={() => toggleSection(section.id)} />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setActiveSection(activeSection === section.id ? null : section.id)}
-                >
-                  <Edit3 className="w-4 h-4" />
-                </Button>
-              </div>
-            </motion.div>
-          ))}
-      </TabsContent>
 
       <TabsContent value="hero" className="space-y-4">
         <Card>
@@ -914,36 +943,56 @@ function LandingPageEditor() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
+              <Label>Badge</Label>
+              <Input 
+                value={heroForm.badge}
+                onChange={(e) => setHeroForm({ ...heroForm, badge: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
               <Label>Headline</Label>
-              <Input defaultValue="Streamline Your Business with VAYPR" className="mt-1" />
+              <Input 
+                value={heroForm.headline}
+                onChange={(e) => setHeroForm({ ...heroForm, headline: e.target.value })}
+                className="mt-1"
+              />
             </div>
 
             <div>
               <Label>Subheadline</Label>
               <Textarea
-                defaultValue="The all-in-one billing and financial SaaS solution that helps you manage invoices, subscriptions, and payments effortlessly."
+                value={heroForm.subheadline}
+                onChange={(e) => setHeroForm({ ...heroForm, subheadline: e.target.value })}
                 className="mt-1"
+                rows={3}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Primary CTA Text</Label>
-                <Input defaultValue="Start Free Trial" className="mt-1" />
+                <Label>Primary Button Text</Label>
+                <Input 
+                  value={heroForm.primaryButtonText}
+                  onChange={(e) => setHeroForm({ ...heroForm, primaryButtonText: e.target.value })}
+                  className="mt-1"
+                />
               </div>
               <div>
-                <Label>Secondary CTA Text</Label>
-                <Input defaultValue="Watch Demo" className="mt-1" />
+                <Label>Secondary Button Text</Label>
+                <Input 
+                  value={heroForm.secondaryButtonText}
+                  onChange={(e) => setHeroForm({ ...heroForm, secondaryButtonText: e.target.value })}
+                  className="mt-1"
+                />
               </div>
             </div>
 
-            <div>
-              <Label>Background Image</Label>
-              <div className="mt-1 border-2 border-dashed rounded-lg p-8 text-center hover:bg-muted/50 transition-colors cursor-pointer">
-                <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Click to upload or drag and drop</p>
-                <p className="text-xs text-muted-foreground mt-1">PNG, JPG up to 5MB</p>
-              </div>
+            <div className="pt-4">
+              <Button onClick={handleUpdateHero} disabled={updateSection.isPending}>
+                {updateSection.isPending ? 'Saving...' : 'Save Hero Section'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -957,36 +1006,44 @@ function LandingPageEditor() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Section Title</Label>
-              <Input defaultValue="Powerful Features for Your Business" className="mt-1" />
+              <Label>Badge</Label>
+              <Input defaultValue={landingPage.featuresSection.badge} className="mt-1" />
+            </div>
+
+            <div>
+              <Label>Headline</Label>
+              <Input defaultValue={landingPage.featuresSection.headline} className="mt-1" />
+            </div>
+
+            <div>
+              <Label>Description</Label>
+              <Textarea defaultValue={landingPage.featuresSection.description} className="mt-1" />
             </div>
 
             <Separator />
 
             <div className="space-y-3">
-              <Label>Feature Items</Label>
-              {[
-                { title: "Automated Invoicing", desc: "Generate and send professional invoices automatically" },
-                { title: "Subscription Management", desc: "Handle recurring billing with ease" },
-                { title: "Financial Reports", desc: "Get insights with detailed analytics" },
-                { title: "Multi-Currency Support", desc: "Accept payments in any currency" },
-              ].map((feature, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
-                  <GripVertical className="w-4 h-4 text-muted-foreground mt-1" />
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Input defaultValue={feature.title} placeholder="Feature title" />
-                    <Input defaultValue={feature.desc} placeholder="Feature description" />
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
+              <Label>Feature Items ({landingPage.featuresSection.features.length})</Label>
+              <p className="text-xs text-muted-foreground">
+                Feature management coming soon. Currently displaying {landingPage.featuresSection.features.length} features.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
 
-              <Button variant="outline" size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Feature
-              </Button>
+      <TabsContent value="stats" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Stats Section</CardTitle>
+            <CardDescription>Display key statistics and metrics</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <Label>Statistics ({landingPage.statsSection.stats.length})</Label>
+              <p className="text-xs text-muted-foreground">
+                Stats management coming soon. Currently displaying {landingPage.statsSection.stats.length} stats.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -1000,85 +1057,155 @@ function LandingPageEditor() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Section Title</Label>
-              <Input defaultValue="Get Started in 3 Simple Steps" className="mt-1" />
+              <Label>Badge</Label>
+              <Input defaultValue={landingPage.howItWorksSection.badge} className="mt-1" />
+            </div>
+
+            <div>
+              <Label>Headline</Label>
+              <Input defaultValue={landingPage.howItWorksSection.headline} className="mt-1" />
+            </div>
+
+            <div>
+              <Label>Description</Label>
+              <Textarea defaultValue={landingPage.howItWorksSection.description} className="mt-1" />
             </div>
 
             <Separator />
 
             <div className="space-y-3">
-              <Label>Steps</Label>
-              {[
-                { step: 1, title: "Sign Up", desc: "Create your free account in seconds" },
-                { step: 2, title: "Configure", desc: "Set up your billing preferences" },
-                { step: 3, title: "Go Live", desc: "Start accepting payments immediately" },
-              ].map((step, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm flex-shrink-0">
-                    {step.step}
-                  </div>
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Input defaultValue={step.title} placeholder="Step title" />
-                    <Input defaultValue={step.desc} placeholder="Step description" />
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-
-              <Button variant="outline" size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Step
-              </Button>
+              <Label>Steps ({landingPage.howItWorksSection.steps.length})</Label>
+              <p className="text-xs text-muted-foreground">
+                Step management coming soon. Currently displaying {landingPage.howItWorksSection.steps.length} steps.
+              </p>
             </div>
           </CardContent>
         </Card>
       </TabsContent>
 
-      <TabsContent value="plans" className="space-y-4">
+      <TabsContent value="testimonials" className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Subscription Plans Section</CardTitle>
+            <CardTitle className="text-lg">Testimonials Section</CardTitle>
+            <CardDescription>Showcase customer testimonials</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Badge</Label>
+              <Input defaultValue={landingPage.testimonialsSection.badge} className="mt-1" />
+            </div>
+
+            <div>
+              <Label>Headline</Label>
+              <Input defaultValue={landingPage.testimonialsSection.headline} className="mt-1" />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+              <div>
+                <h4 className="font-medium">Enable Testimonials Section</h4>
+                <p className="text-sm text-muted-foreground">Show/hide testimonials on landing page</p>
+              </div>
+              <Switch checked={landingPage.testimonialsSection.enabled} />
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <Label>Testimonials ({landingPage.testimonialsSection.testimonials.length})</Label>
+              <p className="text-xs text-muted-foreground">
+                Testimonial management coming soon. Currently displaying {landingPage.testimonialsSection.testimonials.length} testimonials.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="pricing" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Pricing Section</CardTitle>
             <CardDescription>Configure how pricing is displayed on the landing page</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Section Title</Label>
-              <Input defaultValue="Choose Your Plan" className="mt-1" />
+              <Label>Headline</Label>
+              <Input defaultValue={landingPage.pricingSection.headline} className="mt-1" />
             </div>
 
             <div>
-              <Label>Section Subtitle</Label>
-              <Input defaultValue="Simple, transparent pricing that grows with you" className="mt-1" />
+              <Label>Description</Label>
+              <Input defaultValue={landingPage.pricingSection.description} className="mt-1" />
             </div>
 
             <Separator />
+
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+              <div>
+                <h4 className="font-medium">Enable Pricing Section</h4>
+                <p className="text-sm text-muted-foreground">Show/hide pricing on landing page</p>
+              </div>
+              <Switch checked={landingPage.pricingSection.enabled} />
+            </div>
 
             <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
               <div>
                 <h4 className="font-medium">Show Monthly/Yearly Toggle</h4>
                 <p className="text-sm text-muted-foreground">Allow users to switch between billing periods</p>
               </div>
-              <Switch defaultChecked />
+              <Switch checked={landingPage.pricingSection.showYearlyToggle} />
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <Label>Plans ({landingPage.pricingSection.plans.length})</Label>
+              <p className="text-xs text-muted-foreground">
+                Plan management coming soon. Currently displaying {landingPage.pricingSection.plans.length} plans.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="cta" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Call-to-Action Section</CardTitle>
+            <CardDescription>Configure the final CTA section</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Headline</Label>
+              <Input defaultValue={landingPage.ctaSection.headline} className="mt-1" />
+            </div>
+
+            <div>
+              <Label>Description</Label>
+              <Textarea defaultValue={landingPage.ctaSection.description} className="mt-1" rows={3} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Primary Button Text</Label>
+                <Input defaultValue={landingPage.ctaSection.primaryButtonText} className="mt-1" />
+              </div>
+              <div>
+                <Label>Secondary Button Text</Label>
+                <Input defaultValue={landingPage.ctaSection.secondaryButtonText} className="mt-1" />
+              </div>
+            </div>
+
+            <div>
+              <Label>Disclaimer</Label>
+              <Input defaultValue={landingPage.ctaSection.disclaimer} className="mt-1" />
             </div>
 
             <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
               <div>
-                <h4 className="font-medium">Highlight Popular Plan</h4>
-                <p className="text-sm text-muted-foreground">Add a badge to the recommended plan</p>
+                <h4 className="font-medium">Enable CTA Section</h4>
+                <p className="text-sm text-muted-foreground">Show/hide CTA on landing page</p>
               </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="p-4 rounded-lg border bg-primary/5">
-              <p className="text-sm text-muted-foreground">
-                <strong>Note:</strong> Plans are managed in the{" "}
-                <a href="/super-admin/plans" className="text-primary hover:underline">
-                  Plans & Billing
-                </a>{" "}
-                section.
-              </p>
+              <Switch checked={landingPage.ctaSection.enabled} />
             </div>
           </CardContent>
         </Card>
@@ -1092,38 +1219,63 @@ function LandingPageEditor() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Company Description</Label>
-              <Textarea
-                defaultValue="VAYPR is a leading billing and financial management platform helping businesses streamline their operations since 2020."
+              <Label>Company Name</Label>
+              <Input 
+                value={footerForm.companyName}
+                onChange={(e) => setFooterForm({ ...footerForm, companyName: e.target.value })}
                 className="mt-1"
               />
             </div>
 
             <div>
+              <Label>Company Description</Label>
+              <Textarea
+                value={footerForm.description}
+                onChange={(e) => setFooterForm({ ...footerForm, description: e.target.value })}
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+
+            <div>
               <Label>Copyright Text</Label>
-              <Input defaultValue="© 2026 VAYPR. All rights reserved." className="mt-1" />
+              <Input 
+                value={footerForm.copyright}
+                onChange={(e) => setFooterForm({ ...footerForm, copyright: e.target.value })}
+                className="mt-1"
+              />
             </div>
 
             <Separator />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-                <div>
-                  <h4 className="font-medium text-sm">Show Social Links</h4>
-                </div>
-                <Switch defaultChecked />
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+              <div>
+                <h4 className="font-medium text-sm">Show Social Links</h4>
               </div>
-              <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-                <div>
-                  <h4 className="font-medium text-sm">Show Newsletter</h4>
-                </div>
-                <Switch defaultChecked />
-              </div>
+              <Switch 
+                checked={footerForm.showSocialLinks}
+                onCheckedChange={(checked) => setFooterForm({ ...footerForm, showSocialLinks: checked })}
+              />
             </div>
 
-            <div>
-              <Label>Newsletter Title</Label>
-              <Input defaultValue="Subscribe to our newsletter" className="mt-1" />
+            <Separator />
+
+            <div className="space-y-3">
+              <Label>Footer Links</Label>
+              <p className="text-xs text-muted-foreground">
+                Social: {landingPage.footerSection.socialMediaLinks.length} links | 
+                Support: {landingPage.footerSection.supportLinks.length} links | 
+                Corporate: {landingPage.footerSection.corporateLinks.length} links
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Footer link management coming soon.
+              </p>
+            </div>
+
+            <div className="pt-4">
+              <Button onClick={handleUpdateFooter} disabled={updateSection.isPending}>
+                {updateSection.isPending ? 'Saving...' : 'Save Footer Section'}
+              </Button>
             </div>
           </CardContent>
         </Card>

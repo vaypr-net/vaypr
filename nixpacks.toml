@@ -1,0 +1,19 @@
+# Nixpacks configuration for Vayper Frontend
+
+[phases.setup]
+nixPkgs = ["nodejs-18_x"]
+
+[phases.install]
+cmds = [
+  "cd frontend",
+  "npm install"
+]
+
+[phases.build]
+cmds = [
+  "cd frontend",
+  "npm run build"
+]
+
+[start]
+cmd = "cd frontend && npm run preview -- --port $PORT --host 0.0.0.0"
