@@ -7,12 +7,20 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { mockAuditLogs } from "@/data/mockData";
 import { BrevoDomainsPage } from "@/components/super-admin/brevo/BrevoDomainsPage";
+import { useAuth } from "@/contexts/AuthContext";
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 export default function Settings() {
+  const { user } = useAuth();
+
+  // Split fullName into first and last name
+  const [firstName, lastName] = user?.fullName
+    ? user.fullName.split(' ')
+    : ['', ''];
+
   return (
     <div className="space-y-6">
       <div className="page-header">
@@ -34,10 +42,10 @@ export default function Settings() {
             <h3 className="text-lg font-semibold mb-4">Profile Information</h3>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>First Name</Label><Input defaultValue="Super" className="mt-1" /></div>
-                <div><Label>Last Name</Label><Input defaultValue="Admin" className="mt-1" /></div>
+                <div><Label>First Name</Label><Input defaultValue={firstName || ""} className="mt-1" /></div>
+                <div><Label>Last Name</Label><Input defaultValue={lastName || ""} className="mt-1" /></div>
               </div>
-              <div><Label>Email</Label><Input defaultValue="admin@vaypr.com" className="mt-1" /></div>
+              <div><Label>Email</Label><Input defaultValue={user?.email || ""} className="mt-1" /></div>
               <Button>Save Changes</Button>
             </div>
           </motion.div>
