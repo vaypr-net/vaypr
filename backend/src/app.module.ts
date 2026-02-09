@@ -21,6 +21,7 @@ import { TicketsModule } from './tickets/tickets.module';
 import { SubscribersModule } from './subscribers/subscribers.module';
 import { BillingPlanModule } from './billing-plan/billing-plan.module';
 import { TranscationsModule } from './transcations/transcations.module';
+import { BrevoModule } from './brevo/brevo.module';
 
 import { SocialLinksModule } from './social-links/social-links.module';
 import { FaqsModule } from './faqs/faqs.module';
@@ -52,6 +53,7 @@ import { CorporatePagesModule } from './corporate-pages/corporate-pages.module';
     SubscribersModule,
     BillingPlanModule,
     TranscationsModule,
+    BrevoModule,
    
     SocialLinksModule,
    
