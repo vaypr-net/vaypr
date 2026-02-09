@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
@@ -7,6 +7,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { UserProfile } from '../userprofile/entities/userprofile.entity';
+import { BrevoService } from '../brevo/brevo.service';
 
 @Injectable()
 export class UserService {
@@ -14,6 +15,7 @@ export class UserService {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(UserProfile.name) private userProfileModel: Model<UserProfile>,
     private readonly jwtService: JwtService,
+    private readonly brevoService: BrevoService,
   ) {}
 
   async register(createUserDto: CreateUserDto) {
@@ -22,10 +24,32 @@ export class UserService {
       throw new ConflictException('Email already exists');
     }
 
+    // If user provides a domain, verify it's authenticated in Brevo
+    let brandingDomain: string | undefined;
+    if (createUserDto.brandingDomain) {
+      console.log(`[Register] Verifying domain: ${createUserDto.brandingDomain}`);
+      
+      // Check if domain is verified in Brevo
+      const domains = await this.brevoService.getAllDomains();
+      const verifiedDomain = domains.find(
+        d => d.domain === createUserDto.brandingDomain && d.status === 'VERIFIED'
+      );
+
+      if (!verifiedDomain) {
+        throw new BadRequestException(
+          `Domain ${createUserDto.brandingDomain} is not verified in Brevo. Please verify it first.`
+        );
+      }
+
+      brandingDomain = createUserDto.brandingDomain;
+      console.log(`[Register] Domain verified successfully: ${brandingDomain}`);
+    }
+
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     const user = new this.userModel({
       ...createUserDto,
       password: hashedPassword,
+      brandingDomain, // Set the verified domain
       // SECURITY: isSuperAdmin can ONLY be set via CLI script
       // Never allow API registration to create super admin
       isSuperAdmin: false,
@@ -47,6 +71,7 @@ export class UserService {
         id: savedUser._id,
         fullName: savedUser.fullName,
         email: savedUser.email,
+        brandingDomain: savedUser.brandingDomain,
         isSuperAdmin: savedUser.isSuperAdmin || false,
       },
     };

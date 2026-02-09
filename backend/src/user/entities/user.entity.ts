@@ -38,6 +38,10 @@ export class User extends BaseEntity {
 
   @Prop({ required: false })
   googleTokenExpiry: Date; // When the access token expires
+
+  // Brevo Domain for email sending
+  @Prop({ required: false })
+  brandingDomain: string; // Verified Brevo domain (e.g., "example.com") - used as sender for invoices, receipts, quotes
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

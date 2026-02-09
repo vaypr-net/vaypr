@@ -6,6 +6,7 @@ import { UserService } from './user.service';
 import { UserController } from './user.controller';
 import { User, UserSchema } from './entities/user.entity';
 import { UserProfile, UserProfileSchema } from '../userprofile/entities/userprofile.entity';
+import { BrevoModule } from '../brevo/brevo.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { UserProfile, UserProfileSchema } from '../userprofile/entities/userprof
       }),
       inject: [ConfigService],
     }),
+    BrevoModule,
   ],
   controllers: [UserController],
   providers: [UserService],

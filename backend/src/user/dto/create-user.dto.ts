@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, Matches } from 'class-validator';
 
 export class CreateUserDto {
   @ApiProperty()
@@ -16,4 +16,13 @@ export class CreateUserDto {
   @IsString()
   @MinLength(6)
   password: string;
+
+  @ApiProperty({ required: false, description: 'Verified Brevo domain for sending emails (e.g., example.com)' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/, {
+    message: 'Invalid domain format. Use format like: example.com',
+  })
+  brandingDomain?: string; // Must be verified in Brevo before registration
 }
+

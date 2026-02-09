@@ -293,4 +293,175 @@ export class BrevoService {
       throw new NotFoundException(`Domain with ID ${id} not found`);
     }
   }
+
+  /**
+   * Sync domain status from Brevo API and update local database
+   * Fetches the latest domain status from Brevo and saves it locally
+   */
+  async syncDomainStatusFromBrevo(domainName: string): Promise<BrevoDomain> {
+    try {
+      console.log(`[Brevo] Syncing domain status from Brevo API: ${domainName}`);
+
+      // Call Brevo API to get domain status
+      const response = await firstValueFrom(
+        this.httpService.get(
+          `${this.brevoApiUrl}/senders/domains/${domainName}`,
+          {
+            headers: {
+              'api-key': this.brevoApiKey,
+            },
+          }
+        )
+      );
+
+      const brevoData = (response as any).data;
+      console.log(`[Brevo] API Response for ${domainName}:`, JSON.stringify(brevoData, null, 2));
+
+      // Update checks based on Brevo API response
+      const checks = this.mapBrevoChecks(brevoData);
+
+      // Determine overall status
+      let status: 'VERIFIED' | 'DNS_PENDING' | 'FAILED' = 'DNS_PENDING';
+      let errorMessage: string | null = null;
+
+      // Check if domain is authenticated/verified in Brevo
+      // Brevo API returns "verified" and "authenticated" boolean properties
+      if (brevoData.verified === true || brevoData.authenticated === true) {
+        status = 'VERIFIED';
+        console.log(`[Brevo] ✓ Domain ${domainName} is VERIFIED/AUTHENTICATED (verified=${brevoData.verified}, authenticated=${brevoData.authenticated})`);
+      } else if (checks.brevo_code === 'OK' && checks.dkim === 'OK') {
+        status = 'VERIFIED';
+        console.log(`[Brevo] ✓ Domain ${domainName} is VERIFIED (via checks)`);
+      } else if (checks.brevo_code === 'FAIL' || checks.dkim === 'FAIL') {
+        status = 'FAILED';
+        const failedChecks: string[] = [];
+        if (checks.brevo_code === 'FAIL') failedChecks.push('Brevo Code');
+        if (checks.dkim === 'FAIL') failedChecks.push('DKIM');
+        errorMessage = `Failed to verify: ${failedChecks.join(', ')}. Please check your DNS records in your provider.`;
+      }
+
+      // Find or create domain in local database
+      let localDomain = await this.brevioDomainModel.findOne({ domain: domainName }).exec();
+
+      if (localDomain) {
+        // Update existing domain
+        localDomain.status = status;
+        localDomain.checks = checks;
+        localDomain.lastCheckedAt = new Date();
+        localDomain.errorMessage = errorMessage;
+        console.log(`[Brevo] ✓ Updated domain ${domainName}: status=${status}`);
+      } else {
+        // Create new domain document in local database
+        localDomain = new this.brevioDomainModel({
+          domain: domainName,
+          status: status,
+          checks: checks,
+          lastCheckedAt: new Date(),
+          errorMessage: errorMessage,
+        });
+        console.log(`[Brevo] ✓ Created domain ${domainName}: status=${status}`);
+      }
+
+      return localDomain.save();
+    } catch (error) {
+      console.error(`[Brevo] Error syncing domain ${domainName}:`, error.message);
+      throw new BadRequestException(
+        `Failed to sync domain status from Brevo: ${error.response?.data?.message || error.message}`
+      );
+    }
+  }
+
+  /**
+   * Send email via Brevo API using verified domain
+   * 
+   * @param fromEmail - Sender email (must be from verified domain, e.g., "noreply@example.com")
+   * @param toEmail - Recipient email
+   * @param subject - Email subject
+   * @param htmlContent - Email body (HTML format)
+   * @returns Success message with message ID
+   */
+  async sendEmail(
+    fromEmail: string,
+    toEmail: string,
+    subject: string,
+    htmlContent: string,
+    attachmentData?: string,
+    attachmentFilename?: string,
+  ): Promise<{ success: boolean; messageId?: string; message: string }> {
+    try {
+      // Extract domain from sender email
+      const senderDomain = fromEmail.split('@')[1];
+      if (!senderDomain) {
+        throw new BadRequestException('Invalid sender email format');
+      }
+
+      // Sync domain status from Brevo API first (get latest status)
+      console.log(`[Brevo] Syncing domain status before sending: ${senderDomain}`);
+      await this.syncDomainStatusFromBrevo(senderDomain);
+
+      // Now check if domain is verified locally (after sync)
+      const domain = await this.brevioDomainModel
+        .findOne({ domain: senderDomain, status: 'VERIFIED' })
+        .exec();
+
+      if (!domain) {
+        throw new BadRequestException(
+          `Domain ${senderDomain} is not verified in Brevo. Please verify your DNS records.`,
+        );
+      }
+
+      // Build email payload
+      const emailPayload: any = {
+        sender: {
+          name: fromEmail.split('@')[0], // Use email prefix as name
+          email: fromEmail,
+        },
+        to: [
+          {
+            email: toEmail,
+          },
+        ],
+        subject: subject,
+        htmlContent: htmlContent,
+      };
+
+      // Add attachment if provided
+      if (attachmentData && attachmentFilename) {
+        emailPayload.attachment = [
+          {
+            content: attachmentData, // Base64 encoded content
+            name: attachmentFilename,
+          },
+        ];
+      }
+
+      // Send email via Brevo API
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.brevoApiUrl}/smtp/email`,
+          emailPayload,
+          {
+            headers: {
+              'api-key': this.brevoApiKey,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      );
+
+      const messageId = (response as any).data?.messageId;
+      console.log(`[Brevo] Email sent via domain ${senderDomain}. Message ID: ${messageId}`);
+
+      return {
+        success: true,
+        messageId: messageId,
+        message: `Email sent successfully from ${fromEmail}`,
+      };
+    } catch (error) {
+      console.error('[Brevo] Email send error:', error);
+      throw new InternalServerErrorException(
+        `Failed to send email via Brevo: ${error.response?.data?.message || error.message}`,
+      );
+    }
+  }
 }
