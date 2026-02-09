@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { User, Shield, Bell, Clock } from "lucide-react";
+import { User, Shield, Bell, Clock, Mail } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { mockAuditLogs } from "@/data/mockData";
+import { BrevoDomainsPage } from "@/components/super-admin/brevo/BrevoDomainsPage";
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -24,6 +25,7 @@ export default function Settings() {
           <TabsTrigger value="profile"><User className="w-4 h-4 mr-2" /> Profile</TabsTrigger>
           <TabsTrigger value="security"><Shield className="w-4 h-4 mr-2" /> Security</TabsTrigger>
           <TabsTrigger value="notifications"><Bell className="w-4 h-4 mr-2" /> Notifications</TabsTrigger>
+          <TabsTrigger value="email"><Mail className="w-4 h-4 mr-2" /> Email</TabsTrigger>
           <TabsTrigger value="audit"><Clock className="w-4 h-4 mr-2" /> Audit Log</TabsTrigger>
         </TabsList>
 
@@ -68,6 +70,10 @@ export default function Settings() {
               ))}
             </div>
           </motion.div>
+        </TabsContent>
+
+        <TabsContent value="email" className="mt-6">
+          <BrevoDomainsPage />
         </TabsContent>
 
         <TabsContent value="audit" className="mt-6">
