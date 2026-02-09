@@ -116,8 +116,12 @@ export default function Quotes() {
   const { data: clients = [], isLoading: loadingClients } = useClients();
   const { reminders, unreadCount } = useReminders();
   
+  // Ensure apiQuotes and clients are always arrays
+  const apiQuotesArray = Array.isArray(apiQuotes) ? apiQuotes : [];
+  const clientsArray = Array.isArray(clients) ? clients : [];
+  
   // Map API quotes to local Quote type
-  const quotes: Quote[] = apiQuotes.map((q: any) => ({
+  const quotes: Quote[] = apiQuotesArray.map((q: any) => ({
     id: q._id,
     quoteNumber: q.quoteNumber,
     clientId: q.clientId || '',
@@ -588,7 +592,7 @@ export default function Quotes() {
       const pdfBase64 = pdf.output('dataurlstring').split(',')[1];
 
       // Step 2: Create HTML email body
-      const client = clients.find(c => c._id === selectedQuote.clientId);
+      const client = clientsArray.find(c => c._id === selectedQuote.clientId);
       const companyName = selectedQuote.companyName || 'Our Company';
       
       const emailSubject = `Quote ${selectedQuote.quoteNumber} from ${companyName}`;
@@ -748,7 +752,7 @@ export default function Quotes() {
   };
 
   const handleClientSelect = (clientId: string) => {
-    const client = clients.find(c => c._id === clientId);
+    const client = clientsArray.find(c => c._id === clientId);
     if (client) {
       setFormData(prev => ({
         ...prev,
@@ -988,7 +992,7 @@ export default function Quotes() {
                     <SelectValue placeholder="Choose a client..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients.map((client) => (
+                    {clientsArray.map((client) => (
                       <SelectItem key={client._id} value={client._id}>
                         {client.name}
                       </SelectItem>

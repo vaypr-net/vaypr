@@ -1,8 +1,12 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 // Create axios instance with base configuration
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+
+console.log('🔌 API Base URL:', apiBaseUrl); // Debug log
+
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: apiBaseUrl,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

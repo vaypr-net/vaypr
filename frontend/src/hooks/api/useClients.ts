@@ -8,6 +8,7 @@ export function useClients(includeStats: boolean = false) {
   return useQuery({
     queryKey: [QUERY_KEY, includeStats ? 'withStats' : 'simple'],
     queryFn: () => ClientService.getAll(includeStats),
+    initialData: [],
   });
 }
 

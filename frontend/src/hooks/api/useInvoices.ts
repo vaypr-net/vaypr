@@ -8,6 +8,7 @@ export function useInvoices(status?: string) {
   return useQuery({
     queryKey: [QUERY_KEY, { status }],
     queryFn: () => InvoiceService.getAll(status),
+    initialData: [],
   });
 }
 
@@ -24,6 +25,7 @@ export function useInvoicesByClient(clientId: string) {
     queryKey: [QUERY_KEY, 'client', clientId],
     queryFn: () => InvoiceService.getByClient(clientId),
     enabled: !!clientId,
+    initialData: [],
   });
 }
 
@@ -32,6 +34,7 @@ export function useInvoicesByStatus(status: string) {
     queryKey: [QUERY_KEY, 'status', status],
     queryFn: () => InvoiceService.getByStatus(status),
     enabled: !!status,
+    initialData: [],
   });
 }
 

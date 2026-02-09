@@ -14,6 +14,7 @@ export function useExpenses(filters?: ExpenseFilters) {
   return useQuery({
     queryKey: [QUERY_KEY, filters],
     queryFn: () => ExpenseService.getAll(filters),
+    initialData: [],
   });
 }
 
@@ -29,6 +30,7 @@ export function useExpenseStats(filters?: { startDate?: string; endDate?: string
   return useQuery({
     queryKey: [QUERY_KEY, 'stats', filters],
     queryFn: () => ExpenseService.getStats(filters),
+    initialData: { totalExpenses: 0, categories: [] },
   });
 }
 

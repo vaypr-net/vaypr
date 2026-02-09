@@ -62,8 +62,8 @@ export default function Dashboard() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.invoices.overdue}</div>
-              {stats.invoices.overdue > 0 && (
+              <div className="text-2xl font-bold">{stats?.invoices?.overdue ?? 0}</div>
+              {(stats?.invoices?.overdue ?? 0) > 0 && (
                 <p className="text-xs text-destructive flex items-center mt-1">
                   <AlertTriangle className="h-3 w-3 mr-1" />
                   Requires attention
@@ -80,7 +80,7 @@ export default function Dashboard() {
               <FileCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.quotes.viewed}</div>
+              <div className="text-2xl font-bold">{stats?.quotes?.viewed ?? 0}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 Awaiting response
               </p>
@@ -95,7 +95,7 @@ export default function Dashboard() {
               <RefreshCw className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.recurring.thisMonth}</div>
+              <div className="text-2xl font-bold">{stats?.recurring?.thisMonth ?? 0}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 Invoices due this month
               </p>
@@ -118,7 +118,7 @@ export default function Dashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              {stats.recentInvoices.length === 0 ? (
+              {(stats?.recentInvoices?.length ?? 0) === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>No invoices yet</p>
@@ -128,7 +128,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {stats.recentInvoices.map((invoice) => (
+                  {(stats?.recentInvoices ?? []).map((invoice) => (
                     <div 
                       key={invoice.id} 
                       className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
@@ -162,7 +162,7 @@ export default function Dashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              {stats.recentQuotes.length === 0 ? (
+              {(stats?.recentQuotes?.length ?? 0) === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileCheck className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>No quotes yet</p>
@@ -172,7 +172,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {stats.recentQuotes.map((quote) => (
+                  {(stats?.recentQuotes ?? []).map((quote) => (
                     <div 
                       key={quote.id} 
                       className="flex items-center justify-between p-3 rounded-lg bg-muted/50"

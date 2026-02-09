@@ -6,6 +6,7 @@ export const useReceiptsAPI = (status?: string) => {
   return useQuery({
     queryKey: ['receipts', status],
     queryFn: () => ReceiptService.getAll(status),
+    initialData: [],
   });
 };
 
@@ -22,6 +23,7 @@ export const useReceiptsByClient = (clientId: string) => {
     queryKey: ['receipts', 'client', clientId],
     queryFn: () => ReceiptService.getByClient(clientId),
     enabled: !!clientId,
+    initialData: [],
   });
 };
 
@@ -30,6 +32,7 @@ export const useReceiptsByInvoice = (invoiceId: string) => {
     queryKey: ['receipts', 'invoice', invoiceId],
     queryFn: () => ReceiptService.getByInvoice(invoiceId),
     enabled: !!invoiceId,
+    initialData: [],
   });
 };
 

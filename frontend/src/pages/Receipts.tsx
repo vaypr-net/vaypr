@@ -100,8 +100,13 @@ export default function Receipts() {
   const { data: clients = [], isLoading: loadingClients } = useClients();
   const { data: invoices = [], isLoading: loadingInvoices } = useInvoicesAPI();
   
+  // Ensure all data sources are arrays
+  const apiReceiptsArray = Array.isArray(apiReceipts) ? apiReceipts : [];
+  const clientsArray = Array.isArray(clients) ? clients : [];
+  const invoicesArray = Array.isArray(invoices) ? invoices : [];
+  
   // Map API receipts to local type
-  const receipts: ReceiptVoucher[] = apiReceipts.map((r: any) => ({
+  const receipts: ReceiptVoucher[] = apiReceiptsArray.map((r: any) => ({
     id: r._id,
     receiptNumber: r.receiptNumber,
     clientId: r.clientId || '',
@@ -398,7 +403,7 @@ export default function Receipts() {
   };
 
   const handleClientSelect = (clientId: string) => {
-    const client = clients.find(c => c._id === clientId);
+    const client = clientsArray.find(c => c._id === clientId);
     if (client) {
       setFormData(prev => ({
         ...prev,
@@ -409,7 +414,7 @@ export default function Receipts() {
   };
 
   const handleInvoiceSelect = (invoiceId: string) => {
-    const invoice = invoices.find(i => i._id === invoiceId);
+    const invoice = invoicesArray.find(i => i._id === invoiceId);
     if (invoice) {
       setFormData(prev => ({
         ...prev,
@@ -432,7 +437,7 @@ export default function Receipts() {
     }
   };
 
-  const pendingInvoices = invoices.filter(i => i.status === 'sent' || i.status === 'overdue');
+  const pendingInvoices = invoicesArray.filter(i => i.status === 'sent' || i.status === 'overdue');
 
   return (
     <DashboardLayout>
@@ -629,7 +634,7 @@ export default function Receipts() {
                     <SelectValue placeholder="Choose a client..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients.map((client) => (
+                    {clientsArray.map((client) => (
                       <SelectItem key={client._id} value={client._id}>
                         {client.name}
                       </SelectItem>

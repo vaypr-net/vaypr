@@ -6,6 +6,7 @@ export const useQuotesAPI = (status?: string) => {
   return useQuery({
     queryKey: ['quotes', status],
     queryFn: () => QuoteService.getAll(status),
+    initialData: [],
   });
 };
 
@@ -22,6 +23,7 @@ export const useQuotesByClient = (clientId: string) => {
     queryKey: ['quotes', 'client', clientId],
     queryFn: () => QuoteService.getByClient(clientId),
     enabled: !!clientId,
+    initialData: [],
   });
 };
 

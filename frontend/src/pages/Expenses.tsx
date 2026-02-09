@@ -60,6 +60,9 @@ export default function Expenses() {
   const updateMutation = useUpdateExpense();
   const deleteMutation = useDeleteExpense();
   
+  // Ensure expenses is always an array
+  const expensesArray = Array.isArray(expenses) ? expenses : [];
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any | null>(null);
@@ -93,7 +96,7 @@ export default function Expenses() {
     notes: '',
   });
 
-  const filteredExpenses = expenses.filter(expense => {
+  const filteredExpenses = expensesArray.filter(expense => {
     const matchesSearch = 
       expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       expense.vendor?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -146,7 +149,7 @@ export default function Expenses() {
     });
   };
 
-  const thisMonthExpenses = expenses
+  const thisMonthExpenses = expensesArray
     .filter(e => {
       const expenseDate = new Date(e.date);
       const now = new Date();

@@ -99,6 +99,9 @@ export default function Clients() {
   const updateMutation = useUpdateClient();
   const deleteMutation = useDeleteClient();
   
+  // Ensure clients is always an array
+  const clientsArray = Array.isArray(clients) ? clients : [];
+  
   // No longer need to fetch these separately since we get stats from the API
   const { toast } = useToast();
   
@@ -174,7 +177,7 @@ export default function Clients() {
     };
   };
 
-  const filteredClients = clients.filter(client =>
+  const filteredClients = clientsArray.filter(client =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.company?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -297,7 +300,7 @@ export default function Clients() {
   };
 
   const handleExport = (format: 'csv' | 'excel') => {
-    if (clients.length === 0) {
+    if (clientsArray.length === 0) {
       toast({
         title: 'No clients to export',
         description: 'Add some clients first before exporting.',
@@ -307,7 +310,7 @@ export default function Clients() {
     }
 
     // Prepare export data with stats
-    const exportData = clients.map(client => {
+    const exportData = clientsArray.map(client => {
       const stats = getClientStats(client);
       return {
         Name: client.name,
@@ -354,17 +357,17 @@ export default function Clients() {
 
     toast({
       title: 'Export successful',
-      description: `${clients.length} clients exported as ${format.toUpperCase()}`,
+      description: `${clientsArray.length} clients exported as ${format.toUpperCase()}`,
     });
   };
 
   // Summary stats
-  const totalClients = clients.length;
-  const activeClients = clients.filter(c => {
+  const totalClients = clientsArray.length;
+  const activeClients = clientsArray.filter(c => {
     const stats = getClientStats(c);
     return stats.sentInvoices > 0 || stats.hasSubscription;
   }).length;
-  const clientsWithOverdue = clients.filter(c => getClientStats(c).overdueInvoices > 0).length;
+  const clientsWithOverdue = clientsArray.filter(c => getClientStats(c).overdueInvoices > 0).length;
 
   return (
     <DashboardLayout>

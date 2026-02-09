@@ -52,6 +52,10 @@ import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 export default function Invoices() {
   const { data: invoices = [], isLoading, error } = useInvoicesAPI();
   const { data: clients = [] } = useClientsAPI();
+  
+  // Ensure invoices and clients are always arrays
+  const invoicesArray = Array.isArray(invoices) ? invoices : [];
+  const clientsArray = Array.isArray(clients) ? clients : [];
   const createInvoice = useCreateInvoice();
   const updateInvoice = useUpdateInvoice();
   const deleteInvoice = useDeleteInvoice();
@@ -82,7 +86,7 @@ export default function Invoices() {
 
   const [paymentMethod, setPaymentMethod] = useState<string>('bank_transfer');
 
-  const filteredInvoices = invoices.filter(invoice => {
+  const filteredInvoices = invoicesArray.filter(invoice => {
     const matchesSearch = 
       invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       invoice.billTo.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -146,7 +150,7 @@ export default function Invoices() {
   };
 
   const handleCreate = async () => {
-    const client = clients.find(c => c._id === formData.clientId);
+    const client = clientsArray.find(c => c._id === formData.clientId);
     if (!client) {
       toast({
         title: 'Please select a client',
@@ -557,12 +561,12 @@ export default function Invoices() {
                       <SelectValue placeholder="Select client" />
                     </SelectTrigger>
                     <SelectContent>
-                      {clients.map((client) => (
+                      {clientsArray.map((client) => (
                         <SelectItem key={client._id} value={client._id}>{client.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {clients.length === 0 && (
+                  {clientsArray.length === 0 && (
                     <p className="text-xs text-muted-foreground">No clients yet. Add a client first.</p>
                   )}
                 </div>

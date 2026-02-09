@@ -60,8 +60,12 @@ export default function Recurring() {
   const generateInvoiceMutation = useGenerateInvoice();
   const { data: clients = [], isLoading: loadingClients } = useClients();
   
+  // Ensure all data is arrays
+  const apiRecurringArray = Array.isArray(apiRecurring) ? apiRecurring : [];
+  const clientsArray = Array.isArray(clients) ? clients : [];
+  
   // Map API data to local type
-  const recurringBillings: RecurringBilling[] = apiRecurring.map((r: any) => ({
+  const recurringBillings: RecurringBilling[] = apiRecurringArray.map((r: any) => ({
     id: r._id,
     clientId: (typeof r.clientId === 'object' && r.clientId) ? r.clientId._id : r.clientId,
     clientName: (typeof r.clientId === 'object' && r.clientId) ? r.clientId.name : 'Unknown Client',
@@ -151,7 +155,7 @@ export default function Recurring() {
   };
 
   const handleCreate = async () => {
-    const client = clients.find(c => c._id === formData.clientId);
+    const client = clientsArray.find(c => c._id === formData.clientId);
     if (!client) {
       toast({
         title: 'Please select a client',
@@ -237,7 +241,7 @@ export default function Recurring() {
   };
 
   const handleEditRecurring = (recurring: RecurringBilling) => {
-    const client = clients.find(c => c._id === recurring.clientId);
+    const client = clientsArray.find(c => c._id === recurring.clientId);
     setFormData({
       clientId: recurring.clientId,
       clientEmail: client?.email || '',
@@ -271,7 +275,7 @@ export default function Recurring() {
   const handleUpdate = async () => {
     if (!editingRecurring) return;
     
-    const client = clients.find(c => c._id === formData.clientId);
+    const client = clientsArray.find(c => c._id === formData.clientId);
     if (!client) {
       toast({
         title: 'Please select a client',
@@ -331,7 +335,7 @@ export default function Recurring() {
   };
 
   const handleClientChange = (clientId: string) => {
-    const selectedClient = clients.find(c => c._id === clientId);
+    const selectedClient = clientsArray.find(c => c._id === clientId);
     setFormData({ 
       ...formData, 
       clientId,
@@ -612,7 +616,7 @@ export default function Recurring() {
                       <SelectValue placeholder="Select client" />
                     </SelectTrigger>
                     <SelectContent>
-                      {clients.map((client) => (
+                      {clientsArray.map((client) => (
                         <SelectItem key={client._id} value={client._id}>{client.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -896,7 +900,7 @@ export default function Recurring() {
                   data={{
                     logo: formData.logo,
                     logoScale: formData.logoScale,
-                    clientName: clients.find(c => c._id === formData.clientId)?.name || '',
+                    clientName: clientsArray.find(c => c._id === formData.clientId)?.name || '',
                     frequency: formData.frequency,
                     nextBillingDate: formData.nextBillingDate,
                     description: formData.description,

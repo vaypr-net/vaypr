@@ -8,6 +8,7 @@ export function useRecurringAPI(status?: string) {
   return useQuery({
     queryKey: [QUERY_KEY, { status }],
     queryFn: () => RecurringService.getAll(status),
+    initialData: [],
   });
 }
 
@@ -31,6 +32,7 @@ export function useRecurringByClient(clientId: string) {
     queryKey: [QUERY_KEY, 'client', clientId],
     queryFn: () => RecurringService.getByClient(clientId),
     enabled: !!clientId,
+    initialData: [],
   });
 }
 
