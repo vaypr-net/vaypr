@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { GmailService } from '@/api/services/gmail.service';
+import { EmailService } from '@/api/services/email.service';
 import {
   Dialog,
   DialogContent,
@@ -338,8 +338,8 @@ export default function Receipts() {
         </html>
       `;
 
-      // Step 3: Send email via Gmail API with PDF attachment
-      const result = await GmailService.sendEmail({
+      // Step 3: Send email via Gmail or Brevo (based on user's branding domain)
+      const result = await EmailService.sendEmail({
         to: clientEmail,
         subject: emailSubject,
         body: emailBody,
@@ -349,7 +349,7 @@ export default function Receipts() {
 
       toast({
         title: 'Email Sent Successfully!',
-        description: `Receipt sent to ${clientEmail} with PDF attachment`,
+        description: `Receipt sent to ${clientEmail} with PDF attachment (via ${result.sentVia === 'brevo' ? 'Brevo' : 'Gmail'})`,
       });
 
       setIsEmailDialogOpen(false);

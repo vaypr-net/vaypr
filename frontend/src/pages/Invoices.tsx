@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { GmailService } from '@/api/services/gmail.service';
+import { EmailService } from '@/api/services/email.service';
 import {
   Table,
   TableBody,
@@ -304,8 +304,8 @@ export default function Invoices() {
         </html>
       `;
 
-      // Step 3: Send email via Gmail API with PDF attachment
-      const result = await GmailService.sendEmail({
+      // Step 3: Send email via Gmail or Brevo (based on user's branding domain)
+      const result = await EmailService.sendEmail({
         to: clientEmail,
         subject: emailSubject,
         body: emailBody,
@@ -315,7 +315,7 @@ export default function Invoices() {
 
       toast({
         title: 'Email Sent Successfully!',
-        description: `Invoice sent to ${clientEmail} with PDF attachment`,
+        description: `Invoice sent to ${clientEmail} with PDF attachment (via ${result.sentVia === 'brevo' ? 'Brevo' : 'Gmail'})`,
       });
 
       // Update invoice status to 'sent'
