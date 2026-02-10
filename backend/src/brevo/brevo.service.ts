@@ -8,6 +8,7 @@ import * as dns from 'dns';
 import { promisify } from 'util';
 import { BrevoDomain, DNSRecord, DomainChecks } from './entities/brevo.entity';
 import { CreateBrevoDomainDto } from './dto/create-brevo-domain.dto';
+import { ActivityService } from '../activity/activity.service';
 
 const resolveTxt = promisify(dns.resolveTxt);
 const resolveCname = promisify(dns.resolveCname);
@@ -21,6 +22,7 @@ export class BrevoService {
     @InjectModel(BrevoDomain.name) private brevioDomainModel: Model<BrevoDomain>,
     private configService: ConfigService,
     private httpService: HttpService,
+    private activityService: ActivityService,
   ) {
     this.brevoApiUrl = 'https://api.brevo.com/v3';
     this.brevoApiKey = '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';
@@ -249,7 +251,24 @@ export class BrevoService {
       domain.lastCheckedAt = new Date();
       domain.errorMessage = errorMessage;
 
-      return domain.save();
+      const savedDomain = await domain.save();
+
+      // Create activity if domain was successfully verified
+      if (status === 'VERIFIED' && domain.status !== 'VERIFIED') {
+        try {
+          await this.activityService.create({
+            type: 'domain_verified',
+            title: 'Domain verified',
+            description: `Domain ${domain.domain} has been successfully verified`,
+            relatedEntityId: domain._id.toString(),
+          });
+        } catch (error) {
+          console.error('Failed to create activity:', error);
+          // Don't fail domain verification if activity creation fails
+        }
+      }
+
+      return savedDomain;
     } catch (error) {
       domain.status = 'FAILED';
       domain.lastCheckedAt = new Date();

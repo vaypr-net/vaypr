@@ -21,10 +21,23 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private configService: ConfigService) {
+    const clientID = configService.get<string>('GOOGLE_CLIENT_ID');
+    const clientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET');
+    const callbackURL = configService.get<string>('GOOGLE_CALLBACK_URL');
+
+    // Validate required credentials exist
+    if (!clientID || !clientSecret || !callbackURL) {
+      console.error('❌ Missing Google OAuth credentials:');
+      if (!clientID) console.error('   - GOOGLE_CLIENT_ID not found');
+      if (!clientSecret) console.error('   - GOOGLE_CLIENT_SECRET not found');
+      if (!callbackURL) console.error('   - GOOGLE_CALLBACK_URL not found');
+      throw new Error('Google OAuth credentials are not configured. Please set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_CALLBACK_URL in your .env file.');
+    }
+
     super({
-      clientID: configService.get<string>('GOOGLE_CLIENT_ID') || '',
-      clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET') || '',
-      callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL') || '',
+      clientID,
+      clientSecret,
+      callbackURL,
       scope: [
         'openid', 
         'email', 

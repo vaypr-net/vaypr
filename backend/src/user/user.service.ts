@@ -8,6 +8,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { UserProfile } from '../userprofile/entities/userprofile.entity';
 import { BrevoService } from '../brevo/brevo.service';
+import { ActivityService } from '../activity/activity.service';
 
 @Injectable()
 export class UserService {
@@ -16,6 +17,7 @@ export class UserService {
     @InjectModel(UserProfile.name) private userProfileModel: Model<UserProfile>,
     private readonly jwtService: JwtService,
     private readonly brevoService: BrevoService,
+    private readonly activityService: ActivityService,
   ) {}
 
   async register(createUserDto: CreateUserDto) {
@@ -56,6 +58,19 @@ export class UserService {
     });
 
     const savedUser = await user.save();
+
+    // Create activity for new subscriber
+    try {
+      await this.activityService.create({
+        type: 'new_subscriber',
+        title: 'New subscriber',
+        description: `${savedUser.fullName} signed up for a free trial`,
+        relatedEntityId: savedUser._id.toString(),
+      });
+    } catch (error) {
+      console.error('Failed to create activity:', error);
+      // Don't fail registration if activity creation fails
+    }
 
     // Generate JWT token with isSuperAdmin flag for performance
     const payload = { 

@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BillingPlanService } from './billing-plan.service';
 import { BillingPlanController } from './billing-plan.controller';
+import { BillingPlanPublicController } from './billing-plan-public.controller';
 import { BillingPlan, BillingPlanSchema } from './entities/billing-plan.entity';
 
 @Module({
@@ -20,7 +21,7 @@ import { BillingPlan, BillingPlanSchema } from './entities/billing-plan.entity';
       }),
     }),
   ],
-  controllers: [BillingPlanController],
+  controllers: [BillingPlanController, BillingPlanPublicController],
   providers: [BillingPlanService],
   exports: [BillingPlanService],
 })

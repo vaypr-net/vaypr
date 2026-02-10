@@ -7,6 +7,10 @@ import * as bodyParser from 'body-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // IMPORTANT: Raw body parsing for Stripe webhook signature verification
+  // Must be BEFORE JSON body parser
+  app.use('/billing/webhook', bodyParser.raw({ type: 'application/json' }));
+
   // Increase body size limit for PDF attachments (10MB)
   app.use(bodyParser.json({ limit: '10mb' }));
   app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));

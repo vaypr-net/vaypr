@@ -7,6 +7,7 @@ import { UserController } from './user.controller';
 import { User, UserSchema } from './entities/user.entity';
 import { UserProfile, UserProfileSchema } from '../userprofile/entities/userprofile.entity';
 import { BrevoModule } from '../brevo/brevo.module';
+import { ActivityModule } from '../activity/activity.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { BrevoModule } from '../brevo/brevo.module';
       inject: [ConfigService],
     }),
     BrevoModule,
+    ActivityModule,
   ],
   controllers: [UserController],
   providers: [UserService],

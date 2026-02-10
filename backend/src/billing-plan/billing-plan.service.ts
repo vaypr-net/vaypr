@@ -82,6 +82,52 @@ export class BillingPlanService {
     return { success: true, message: 'Billing plan deleted successfully' };
   }
 
+  /**
+   * Set Stripe price IDs for a billing plan
+   * Used when configuring Stripe payment processing
+   */
+  async setStripePriceIds(
+    planId: string,
+    monthlyPriceId: string,
+    yearlyPriceId: string,
+  ): Promise<BillingPlan> {
+    const plan = await this.billingPlanModel.findByIdAndUpdate(
+      planId,
+      {
+        stripeMonthlyPriceId: monthlyPriceId,
+        stripeYearlyPriceId: yearlyPriceId,
+      },
+      { new: true },
+    );
+    if (!plan) {
+      throw new NotFoundException('Billing plan not found');
+    }
+    return plan;
+  }
+
+  /**
+   * Set Stripe price IDs by plan name
+   * Useful for seeding/updating plans by name
+   */
+  async setStripePriceIdsByName(
+    planName: string,
+    monthlyPriceId: string,
+    yearlyPriceId: string,
+  ): Promise<BillingPlan> {
+    const plan = await this.billingPlanModel.findOneAndUpdate(
+      { name: planName },
+      {
+        stripeMonthlyPriceId: monthlyPriceId,
+        stripeYearlyPriceId: yearlyPriceId,
+      },
+      { new: true },
+    );
+    if (!plan) {
+      throw new NotFoundException(`Billing plan with name "${planName}" not found`);
+    }
+    return plan;
+  }
+
   async getStats(): Promise<{
     totalPlans: number;
     activePlans: number;

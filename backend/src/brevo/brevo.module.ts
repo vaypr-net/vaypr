@@ -7,6 +7,7 @@ import { BrevoService } from './brevo.service';
 import { BrevoController } from './brevo.controller';
 import { BrevoDomain, BrevoSchema } from './entities/brevo.entity';
 import { SuperAdminGuard } from '../common/guards/super-admin.guard';
+import { ActivityModule } from '../activity/activity.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SuperAdminGuard } from '../common/guards/super-admin.guard';
         };
       },
     }),
+    ActivityModule,
   ],
   controllers: [BrevoController],
   providers: [BrevoService, SuperAdminGuard],

@@ -29,11 +29,14 @@ import { FaqsModule } from './faqs/faqs.module';
 import { LandingPageModule } from './landing-page/landing-page.module';
 import { SupportPagesModule } from './support-pages/support-pages.module';
 import { CorporatePagesModule } from './corporate-pages/corporate-pages.module';
+import { ActivityModule } from './activity/activity.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
     }),
     MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/vaypr'),
     CloudinaryModule,
@@ -66,6 +69,9 @@ import { CorporatePagesModule } from './corporate-pages/corporate-pages.module';
     SupportPagesModule,
    
     CorporatePagesModule,
+   
+    ActivityModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

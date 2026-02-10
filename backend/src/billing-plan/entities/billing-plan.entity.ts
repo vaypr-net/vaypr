@@ -41,6 +41,13 @@ export class BillingPlan extends Document {
   @Prop({ default: 0 })
   subscriberCount: number;
 
+  // ==================== STRIPE INTEGRATION ====================
+  @Prop({ required: false })
+  stripeMonthlyPriceId: string; // Stripe price ID for monthly billing
+
+  @Prop({ required: false })
+  stripeYearlyPriceId: string; // Stripe price ID for yearly billing
+
   @Prop()
   createdAt: Date;
 

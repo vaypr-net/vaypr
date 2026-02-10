@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Types, Document } from 'mongoose';
 
 export type TransactionDocument = Transaction & Document;
 
@@ -7,6 +7,9 @@ export type TransactionDocument = Transaction & Document;
 export class Transaction {
   @Prop({ required: true, unique: true })
   transactionId: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  userId: Types.ObjectId; // Reference to User for subscriptions
 
   @Prop({ required: true })
   subscriberId: string;
@@ -45,6 +48,25 @@ export class Transaction {
   @Prop({ required: true })
   plan: string;
 
+  // ==================== STRIPE INTEGRATION ====================
+  @Prop({ required: false, sparse: true })
+  stripeEventId: string; // Stripe event ID for idempotency
+
+  @Prop({ required: false })
+  stripeCheckoutSessionId: string; // Stripe checkout session ID
+
+  @Prop({ required: false })
+  stripeSubscriptionId: string; // Stripe subscription ID
+
+  @Prop({ required: false })
+  stripePaymentIntentId: string; // Stripe payment intent ID
+
+  @Prop({ required: false })
+  stripeInvoiceId: string; // Stripe invoice ID for subscription charge
+
+  @Prop({ required: false })
+  billingCycle: string; // 'monthly' or 'yearly'
+
   @Prop()
   createdAt: Date;
 
@@ -53,3 +75,7 @@ export class Transaction {
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
+// Indexes for Stripe operations
+TransactionSchema.index({ stripeEventId: 1 }, { sparse: true });
+TransactionSchema.index({ stripeSubscriptionId: 1 });
+TransactionSchema.index({ userId: 1 });
