@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthService } from '@/api/services/auth.service';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth as useAuthContext } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const QUERY_KEY = 'auth';
 
@@ -28,6 +28,7 @@ export function useLogin() {
   const { toast } = useToast();
   const { updateUser } = useAuthContext();
   const navigate = useNavigate();
+  const location = useLocation();
 
   return useMutation({
     mutationFn: AuthService.login,
@@ -49,31 +50,26 @@ export function useLogin() {
       
       updateUser(user as any);
       
-      // DEBUG: Log the response data
-      console.log('🔐 FRONTEND LOGIN DEBUG:', {
-        rawData: data,
-        dataUserIsSuperAdmin: data.user.isSuperAdmin,
-        type: typeof data.user.isSuperAdmin,
-        user: user,
-      });
-      
       toast({
         title: 'Welcome back!',
         description: `Logged in as ${data.user.fullName}`,
       });
       
-      // Redirect based on user role
-      console.log('🔄 REDIRECT CHECK:', {
-        isSuperAdmin: data.user.isSuperAdmin,
-        condition: data.user.isSuperAdmin === true,
-        redirectTo: data.user.isSuperAdmin ? '/super-admin' : '/dashboard',
-      });
+      // Check if there's a redirect URL in location state
+      const from = (location.state as any)?.from || null;
+      console.log('📍 Post-login redirect:', { from, isSuperAdmin: data.user.isSuperAdmin });
       
-      if (data.user.isSuperAdmin) {
+      // Redirect logic:
+      // 1. If user came from a specific page (e.g., /pricing), go back there
+      // 2. Otherwise, redirect based on user role
+      if (from) {
+        console.log('✅ Redirecting to:', from);
+        navigate(from, { replace: true });
+      } else if (data.user.isSuperAdmin) {
         console.log('✅ Redirecting to /super-admin');
         navigate('/super-admin', { replace: true });
       } else {
-        console.log('❌ Redirecting to /dashboard');
+        console.log('✅ Redirecting to /dashboard');
         navigate('/dashboard', { replace: true });
       }
     },
@@ -94,6 +90,7 @@ export function useSignup() {
   const { toast } = useToast();
   const { updateUser } = useAuthContext();
   const navigate = useNavigate();
+  const location = useLocation();
 
   return useMutation({
     mutationFn: AuthService.signup,
@@ -122,8 +119,17 @@ export function useSignup() {
         description: `Account created successfully. Welcome, ${data.user.fullName}!`,
       });
       
-      // Redirect based on user role
-      if (data.user.isSuperAdmin) {
+      // Check if there's a redirect URL in location state
+      const from = (location.state as any)?.from || null;
+      console.log('📍 Post-signup redirect:', { from, isSuperAdmin: data.user.isSuperAdmin });
+      
+      // Redirect logic:
+      // 1. If user came from a specific page (e.g., /pricing), go back there
+      // 2. Otherwise, redirect based on user role
+      if (from) {
+        console.log('✅ Redirecting to:', from);
+        navigate(from, { replace: true });
+      } else if (data.user.isSuperAdmin) {
         navigate('/super-admin', { replace: true });
       } else {
         navigate('/dashboard', { replace: true });

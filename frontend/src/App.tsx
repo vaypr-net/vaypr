@@ -38,6 +38,9 @@ import Reports from "./pages/super-admin/Reports";
 import Support from "./pages/super-admin/Support";
 import Affiliates from "./pages/super-admin/Affiliates";
 import Settings from "./pages/super-admin/Settings";
+import BillingSuccess from "./pages/BillingSuccess";
+import BillingCancel from "./pages/BillingCancel";
+import Pricing from "./pages/Pricing";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +73,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" replace /> : <Signup />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/pricing" element={<Pricing />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/dashboard/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
       <Route path="/dashboard/quotes" element={<ProtectedRoute><Quotes /></ProtectedRoute>} />
@@ -79,6 +83,8 @@ function AppRoutes() {
       <Route path="/dashboard/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
       <Route path="/dashboard/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/dashboard/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+      <Route path="/billing/success" element={<BillingSuccess />} />
+      <Route path="/billing/cancel" element={<BillingCancel />} />
       <Route path="/quote/:token" element={<QuoteView />} />
       <Route path="/faqs" element={<FAQs />} />
       <Route path="/contact" element={<Contact />} />

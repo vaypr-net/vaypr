@@ -16,7 +16,6 @@ import { KPICard } from "@/components/super-admin/KPICard";
 import { 
   dashboardKPIs, 
   planDistributionData,
-  mockActivityFeed,
 } from "@/data/mockData";
 import { 
   XAxis, 
@@ -35,6 +34,7 @@ import { formatCurrency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useGetSubscribers, useGetSubscriberStats } from "@/hooks/api/useSubscribers";
+import { useGetActivities } from "@/hooks/api/useActivities";
 
 const activityIcons: Record<string, React.ReactNode> = {
   new_subscriber: <Users className="w-4 h-4 text-blue-500" />,
@@ -45,6 +45,11 @@ const activityIcons: Record<string, React.ReactNode> = {
   ticket_resolved: <UserCheck className="w-4 h-4 text-green-500" />,
   affiliate: <Users className="w-4 h-4 text-purple-500" />,
   referral: <TrendingUp className="w-4 h-4 text-purple-500" />,
+  invoice_sent: <DollarSign className="w-4 h-4 text-blue-500" />,
+  domain_verified: <CheckCircle2 className="w-4 h-4 text-green-500" />,
+  downgrade: <TrendingUp className="w-4 h-4 text-yellow-500" style={{ transform: 'rotate(180deg)' }} />,
+  payment_failed: <DollarSign className="w-4 h-4 text-red-500" />,
+  reactivated: <UserCheck className="w-4 h-4 text-green-500" />,
 };
 
 function formatTimeAgo(timestamp: string) {
@@ -79,8 +84,10 @@ export default function Overview() {
   // Fetch real subscriber data
   const { data: subscribersData } = useGetSubscribers(undefined, undefined, undefined, 5, 0);
   const { data: stats } = useGetSubscriberStats();
+  const { data: activitiesData, isLoading: activitiesLoading } = useGetActivities(6, 0);
 
   const recentSubscribers = subscribersData?.items || [];
+  const activities = activitiesData?.data || [];
 
   return (
     <div className="space-y-6">
@@ -287,20 +294,28 @@ export default function Overview() {
         >
           <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
           <div className="space-y-4 max-h-[280px] overflow-y-auto scrollbar-hide">
-            {mockActivityFeed.slice(0, 6).map((activity) => (
-              <div key={activity.id} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                  {activityIcons[activity.type]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{activity.title}</p>
-                  <p className="text-xs text-muted-foreground truncate">{activity.description}</p>
-                </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {formatTimeAgo(activity.timestamp)}
-                </span>
+            {activitiesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               </div>
-            ))}
+            ) : activities.length > 0 ? (
+              activities.map((activity) => (
+                <div key={activity._id} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    {activityIcons[activity.type]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{activity.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{activity.description}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {formatTimeAgo(activity.createdAt)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">No activities yet</p>
+            )}
           </div>
         </motion.div>
       </div>

@@ -3,6 +3,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { BillingStatus } from '@/components/dashboard/BillingStatus';
 import { 
   FileText, 
   AlertTriangle,
@@ -52,6 +53,8 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Overview of your financial activity</p>
         </div>
+
+        <BillingStatus />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>

@@ -3,6 +3,7 @@ import { User } from '@/types/app';
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   isLoading: boolean;
   logout: () => void;
   updateUser: (user: User) => void;
@@ -24,15 +25,17 @@ function cleanupOldLocalStorage() {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('accessToken');
+    const storedToken = localStorage.getItem('accessToken');
 
-    if (storedUser && token) {
+    if (storedUser && storedToken) {
       try {
         setUser(JSON.parse(storedUser));
+        setToken(storedToken);
       } catch {
         localStorage.removeItem('user');
         localStorage.removeItem('accessToken');
@@ -46,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('user');
     cleanupOldLocalStorage();
     setUser(null);
+    setToken(null);
     // Don't redirect here - let the component handle navigation
   };
 
@@ -55,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
