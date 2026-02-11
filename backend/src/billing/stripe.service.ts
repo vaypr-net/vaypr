@@ -229,8 +229,60 @@ export class StripeService {
       throw new NotFoundException('User not found');
     }
 
+    // Cast planId as a plan object since it's populated
+    const plan = user.planId as any;
+    
+    // Use stored subscription amount if available, otherwise fetch from Stripe
+    let actualPrice = user.subscriptionAmount || plan?.price || 0;
+    
+    // If no stored amount but has active subscription, fetch from Stripe
+    if (!user.subscriptionAmount && user.stripeSubscriptionId && user.subscriptionStatus !== 'free') {
+      try {
+        this.ensureStripeConfigured();
+        // Retrieve subscription with expanded price information
+        const subscription = (await this.stripe.subscriptions.retrieve(
+          user.stripeSubscriptionId,
+          {
+            expand: ['items.data.price'], // Expand price to get full details
+          }
+        )) as any;
+
+        this.logger.debug(
+          `Subscription retrieved - ID: ${subscription?.id}, Items: ${subscription?.items?.data?.length}, Status: ${subscription?.status}`
+        );
+
+        if (subscription && subscription.items?.data?.length > 0) {
+          // Get the actual amount being charged from the first subscription item
+          const item = subscription.items.data[0];
+          this.logger.debug(
+            `Item price object - unit_amount: ${item.price?.unit_amount}, currency: ${item.price?.currency}, interval: ${item.price?.recurring?.interval}, interval_count: ${item.price?.recurring?.interval_count}`
+          );
+
+          if (item.price?.unit_amount) {
+            // Convert from cents to major unit (divide by 100)
+            actualPrice = item.price.unit_amount / 100;
+            this.logger.debug(
+              `Actual price calculated: ${actualPrice} (from ${item.price.unit_amount} cents)`
+            );
+          }
+        } else {
+          this.logger.warn(`No subscription items found for user ${userId}`);
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to fetch actual subscription price from Stripe for user ${userId}: ${error.message}`
+        );
+        // Fall back to base plan price if Stripe fetch fails
+      }
+    }
+
+    const planObject = (plan?.toObject?.() || plan) || { price: actualPrice };
+    
     return {
-      plan: user.planId,
+      plan: {
+        ...planObject,
+        price: actualPrice, // Override with actual charged price
+      },
       status: user.subscriptionStatus,
       billingCycle: user.billingCycle,
       currentPeriodEnd: user.currentPeriodEnd,
@@ -628,6 +680,9 @@ export class StripeService {
     // Fetch subscription details from Stripe with retry for consistency
     let subscription = (await this.stripe.subscriptions.retrieve(
       session.subscription as string,
+      {
+        expand: ['items.data.price'], // Expand price details
+      }
     )) as any;
 
     // If current_period_end is missing, retry once after a short delay
@@ -639,7 +694,19 @@ export class StripeService {
       await new Promise(resolve => setTimeout(resolve, 1000));
       subscription = (await this.stripe.subscriptions.retrieve(
         session.subscription as string,
+        {
+          expand: ['items.data.price'],
+        }
       )) as any;
+    }
+
+    // Get the actual subscription amount from Stripe
+    let subscriptionAmount = 0;
+    if (subscription.items?.data?.[0]?.price?.unit_amount) {
+      subscriptionAmount = subscription.items.data[0].price.unit_amount / 100;
+      this.logger.log(
+        `Webhook: Subscription amount calculated - ${subscriptionAmount} ${subscription.currency}`,
+      );
     }
 
     // Prepare update data with proper date handling
@@ -648,6 +715,7 @@ export class StripeService {
       subscriptionStatus: subscription.status,
       planId: new Types.ObjectId(planId),
       billingCycle: billingCycle,
+      subscriptionAmount: subscriptionAmount, // Store actual charged amount
       subscriptionStartedAt: new Date(),
     };
 
@@ -674,18 +742,24 @@ export class StripeService {
     }
 
     this.logger.log(
-      `Webhook: Subscription ${subscription.id} saved for user ${userId}. Status: ${user.subscriptionStatus}, Period End: ${user.currentPeriodEnd}`,
+      `Webhook: Subscription ${subscription.id} saved for user ${userId}. Status: ${user.subscriptionStatus}, Period End: ${user.currentPeriodEnd}, Amount: ${subscriptionAmount}`,
     );
 
     // Create transaction record
     const plan = await this.billingPlanModel.findById(planId);
+    const transactionAmount = (session.amount_total || 0) / 100; // Convert cents
+    
+    this.logger.log(
+      `Webhook: Creating transaction - Session Amount: ${transactionAmount}, Calculated Subscription Amount: ${subscriptionAmount}, Billing Cycle: ${billingCycle}`,
+    );
+    
     await this.transactionModel.create({
       transactionId: `stripe_${session.id}`,
       userId: new Types.ObjectId(userId),
       subscriberId: userId,
       subscriberName: user.fullName,
       subscriberEmail: user.email,
-      amount: (session.amount_total || 0) / 100, // Convert cents to KWD
+      amount: transactionAmount, // Amount from checkout session
       currency: session.currency?.toUpperCase() || 'KWD',
       type: 'subscription',
       provider: 'Stripe',
@@ -702,12 +776,12 @@ export class StripeService {
     await this.activityService.create({
       type: 'payment',
       title: `Subscription activated: ${plan?.name || 'Plan'}`,
-      description: `${user.fullName} (${user.email}) subscribed to ${plan?.name || 'a plan'} (${billingCycle})`,
+      description: `${user.fullName} (${user.email}) subscribed to ${plan?.name || 'a plan'} (${billingCycle}) for ${transactionAmount} ${session.currency?.toUpperCase()}`,
       relatedEntityId: userId,
     });
 
     this.logger.log(
-      `Webhook: Activated subscription for user ${userId}, subscription ${subscription.id}`,
+      `Webhook: Activated subscription for user ${userId}, subscription ${subscription.id}, amount: ${transactionAmount} ${session.currency?.toUpperCase()}`,
     );
   }
 

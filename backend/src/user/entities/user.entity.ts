@@ -64,6 +64,9 @@ export class User extends BaseEntity {
   billingCycle: string; // Monthly or yearly billing
 
   @Prop({ required: false })
+  subscriptionAmount: number; // Amount being charged per billing period
+
+  @Prop({ required: false })
   currentPeriodEnd: Date; // When current billing period ends
 
   @Prop({ required: false })
