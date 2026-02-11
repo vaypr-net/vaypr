@@ -19,6 +19,9 @@ export class User extends BaseEntity {
   @Prop({ required: false })
   profilePicture: string; // Google profile picture URL
 
+  @Prop({ required: false })
+  avatar: string; // Custom user avatar URL (Cloudinary)
+
   @Prop({ default: 'manual' }) // 'manual' or 'google'
   authProvider: string;
 

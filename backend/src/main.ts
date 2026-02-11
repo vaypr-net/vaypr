@@ -16,10 +16,20 @@ async function bootstrap() {
   app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
   // Enable CORS for frontend
+  const corsOrigins = [
+    'http://localhost:5173',
+    'http://localhost:8080',
+    'http://localhost:3000',
+    'https://invoicesoftwareforage.up.railway.app', // Production Railway URL
+  ];
+  
+  // Add FRONTEND_URL from env if provided
+  if (process.env.FRONTEND_URL) {
+    corsOrigins.push(...process.env.FRONTEND_URL.split(','));
+  }
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL 
-      ? process.env.FRONTEND_URL.split(',') 
-      : ['http://localhost:5173', 'http://localhost:8080', 'http://localhost:3000'],
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
