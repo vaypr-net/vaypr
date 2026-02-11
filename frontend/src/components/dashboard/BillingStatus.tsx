@@ -72,46 +72,92 @@ export function BillingStatus() {
 
   return (
     <div className="space-y-6">
-      {/* Current Plan Status Card */}
-      <Card className="p-6 bg-gradient-to-br from-primary/10 to-accent/10">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-foreground mb-2">
-              Current Plan: <span className="text-primary">{currentPlan?.name || 'Free'}</span>
-            </h2>
-            
-            {isActive && renewalDate && (
-              <p className="text-sm text-muted-foreground">
-                Renews on: <span className="font-semibold">{renewalDate}</span>
-              </p>
-            )}
+      {/* Current Plan Status Card - Compact */}
+      <Card className="p-6 bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-primary/20">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="flex items-baseline gap-4">
+              <h2 className="text-lg font-bold text-foreground">
+                Current Plan: <span className="text-primary text-xl">{currentPlan?.name || 'Free'}</span>
+              </h2>
+              
+              {/* Current Plan Price - Inline */}
+              {currentPlan && currentPlan.price > 0 && (
+                <div className="flex items-baseline gap-2">
+                  <div className="text-3xl font-bold text-primary">
+                    KWD {currentPlan.price.toFixed(2)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    /{subscription?.billingCycle === 'yearly' ? 'year' : 'month'}
+                  </div>
+                  {subscription?.billingCycle === 'yearly' && (
+                    <div className="text-xs text-muted-foreground ml-2 px-2 py-1 bg-muted rounded">
+                      ~KWD {(currentPlan.price / 12).toFixed(2)}/mo
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-            {subscription?.status === 'past_due' && (
-              <p className="text-sm text-red-600 flex items-center gap-2 mt-2">
-                <AlertCircle className="w-4 h-4" />
-                Payment failed - update payment method
-              </p>
-            )}
+            {/* Renewal Date and Status */}
+            <div className="mt-3 flex items-center gap-4 text-sm">
+              {isActive && renewalDate && (
+                <p className="text-muted-foreground">
+                  Renews: <span className="font-semibold text-foreground">{renewalDate}</span>
+                </p>
+              )}
 
-            {subscription?.status === 'canceled' && (
-              <p className="text-sm text-yellow-600 flex items-center gap-2 mt-2">
-                <AlertCircle className="w-4 h-4" />
-                Subscription canceled
-              </p>
-            )}
+              {subscription?.status === 'past_due' && (
+                <p className="text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  Payment failed
+                </p>
+              )}
+
+              {subscription?.status === 'canceled' && (
+                <p className="text-yellow-600 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  Subscription canceled
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Current Plan Price */}
-          {currentPlan && currentPlan.price > 0 && (
-            <div className="text-right">
-              <div className="text-2xl font-bold text-primary">
-                KWD {currentPlan.price.toFixed(2)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                per {subscription?.billingCycle === 'yearly' ? 'year' : 'month'}
-              </p>
-            </div>
-          )}
+          {/* Action Buttons - Compact */}
+          <div className="flex gap-2 ml-8">
+            {isActive && currentPlan?.price > 0 ? (
+              <>
+                <Button 
+                  onClick={() => navigate('/pricing')}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs whitespace-nowrap"
+                >
+                  <ArrowRight className="w-3 h-3 mr-1" />
+                  Upgrade
+                </Button>
+
+                <Button 
+                  onClick={() => setShowCancelDialog(true)}
+                  variant="destructive"
+                  size="sm"
+                  className="text-xs whitespace-nowrap"
+                >
+                  <LogOut className="w-3 h-3 mr-1" />
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Button 
+                onClick={() => navigate('/pricing')}
+                size="sm"
+                className="text-xs whitespace-nowrap"
+              >
+                <ArrowRight className="w-3 h-3 mr-1" />
+                Choose Plan
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -120,51 +166,12 @@ export function BillingStatus() {
         <h3 className="text-lg font-bold mb-4 text-foreground">Your Features</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {planFeatures[currentPlan?.name || 'Free']?.map((feature, idx) => (
-            <div key={idx} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
+            <div key={idx} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors">
               <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
               <span className="text-sm text-foreground">{feature}</span>
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-3 flex-wrap">
-        {isActive && currentPlan?.price > 0 ? (
-          <>
-            {/* For paid users - show upgrade and manage options */}
-            <Button 
-              onClick={() => navigate('/pricing')}
-              variant="outline"
-              className="flex-1 min-w-fit"
-            >
-              <ArrowRight className="w-4 h-4 mr-2" />
-              Upgrade Plan
-            </Button>
-
-            {/* Cancel Subscription Button */}
-            <Button 
-              onClick={() => setShowCancelDialog(true)}
-              variant="destructive"
-              className="flex-1 min-w-fit"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Cancel Subscription
-            </Button>
-          </>
-        ) : (
-          <>
-            {/* For free users - show choose plan button */}
-            <Button 
-              onClick={() => navigate('/pricing')}
-              className="flex-1"
-              size="lg"
-            >
-              <ArrowRight className="w-4 h-4 mr-2" />
-              Choose a Plan
-            </Button>
-          </>
-        )}
       </div>
 
       {/* Cancel Subscription Dialog */}
