@@ -15,6 +15,18 @@ export class SuperAdminSettings extends BaseEntity {
 
   @Prop({ required: true })
   email: string;
+
+  @Prop({ default: true })
+  notifyNewSubscribers: boolean;
+
+  @Prop({ default: true })
+  notifyPaymentAlerts: boolean;
+
+  @Prop({ default: true })
+  notifySupportTickets: boolean;
+
+  @Prop({ default: false })
+  twoFactorEnabled: boolean;
 }
 
 export const SuperAdminSettingsSchema = SchemaFactory.createForClass(SuperAdminSettings);

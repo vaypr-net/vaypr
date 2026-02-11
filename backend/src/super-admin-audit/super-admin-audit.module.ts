@@ -2,13 +2,13 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { FaqsService } from './faqs.service';
-import { FaqsController } from './faqs.controller';
-import { Faq, FaqSchema } from './entities/faq.entity';
+import { SuperAdminAuditController } from './super-admin-audit.controller';
+import { SuperAdminAuditService } from './super-admin-audit.service';
+import { Activity, ActivitySchema } from '../activity/entities/activity.entity';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Faq.name, schema: FaqSchema }]),
+    MongooseModule.forFeature([{ name: Activity.name, schema: ActivitySchema }]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -20,7 +20,7 @@ import { Faq, FaqSchema } from './entities/faq.entity';
       }),
     }),
   ],
-  controllers: [FaqsController],
-  providers: [FaqsService],
+  controllers: [SuperAdminAuditController],
+  providers: [SuperAdminAuditService],
 })
-export class FaqsModule {}
+export class SuperAdminAuditModule {}

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsBoolean, IsOptional } from 'class-validator';
 
 export class CreateSuperadminSettingsDto {
   @ApiProperty()
@@ -16,4 +16,24 @@ export class CreateSuperadminSettingsDto {
   @IsEmail()
   @IsNotEmpty()
   email: string;
+
+  @ApiProperty({ required: false, default: true })
+  @IsBoolean()
+  @IsOptional()
+  notifyNewSubscribers?: boolean;
+
+  @ApiProperty({ required: false, default: true })
+  @IsBoolean()
+  @IsOptional()
+  notifyPaymentAlerts?: boolean;
+
+  @ApiProperty({ required: false, default: true })
+  @IsBoolean()
+  @IsOptional()
+  notifySupportTickets?: boolean;
+
+  @ApiProperty({ required: false, default: false })
+  @IsBoolean()
+  @IsOptional()
+  twoFactorEnabled?: boolean;
 }

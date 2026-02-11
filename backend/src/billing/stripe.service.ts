@@ -208,6 +208,362 @@ export class StripeService {
   }
 
   /**
+   * Get cancellation preview before user confirms cancellation
+   * Shows what will happen and refund amount
+   */
+  async getCancellationPreview(
+    userId: string,
+    cancellationMethod: 'immediate' | 'at_period_end',
+  ): Promise<any> {
+    const user = await this.userModel
+      .findById(userId)
+      .populate('planId', 'name price billingCycle');
+
+    if (!user || !user.stripeSubscriptionId) {
+      throw new BadRequestException('You do not have an active subscription');
+    }
+
+    this.logger.debug(
+      `Cancellation preview request: User ID=${userId}, Subscription ID=${user.stripeSubscriptionId}, User currentPeriodEnd=${user.currentPeriodEnd}`,
+    );
+
+    // Fetch subscription from Stripe
+    const subscription = (await this.stripe.subscriptions.retrieve(
+      user.stripeSubscriptionId,
+    )) as any;
+
+    // Log subscription details for debugging
+    this.logger.debug(
+      `Subscription retrieved: ID=${subscription?.id}, Status=${subscription?.status}, Period End=${subscription?.current_period_end}, Currency=${subscription?.currency}, Start Date=${subscription?.start_date}`,
+    );
+    this.logger.debug(`Subscription items: ${subscription?.items?.data?.length || 0} items`);
+    if (subscription?.items?.data?.length > 0) {
+      const item = subscription.items.data[0];
+      this.logger.debug(`First item - Price: ${(item.price as any)?.id}, Interval: ${(item.price as any)?.recurring?.interval}`);
+    }
+
+    // Check subscription status
+    if (!subscription) {
+      throw new BadRequestException('Subscription not found in Stripe');
+    }
+
+    if (subscription.status === 'canceled') {
+      throw new BadRequestException('This subscription is already canceled');
+    }
+
+    if (subscription.status === 'incomplete') {
+      throw new BadRequestException('This subscription is incomplete. Please complete payment first');
+    }
+
+    // Only allow cancellation for active, trialing, or past_due subscriptions
+    if (!['active', 'trialing', 'past_due'].includes(subscription.status)) {
+      throw new BadRequestException(`Cannot cancel subscription with status: ${subscription.status}`);
+    }
+
+    // Use current_period_end from Stripe, fallback to user's stored value if missing
+    let periodEndDate = subscription.current_period_end 
+      ? new Date((subscription.current_period_end as number) * 1000)
+      : user.currentPeriodEnd;
+
+    // If still missing, try to calculate from subscription items and start date
+    if (!periodEndDate && subscription.items?.data?.length > 0 && subscription.start_date) {
+      const item = subscription.items.data[0];
+      const price = (item.price as any);
+      const startDate = new Date((subscription.start_date as number) * 1000);
+
+      this.logger.debug(`Calculating period end: Start=${startDate}, Billing Period=${price?.recurring?.interval}`);
+
+      // Calculate based on billing interval
+      if (price?.recurring?.interval === 'year') {
+        periodEndDate = new Date(startDate);
+        periodEndDate.setFullYear(periodEndDate.getFullYear() + 1);
+      } else if (price?.recurring?.interval === 'month') {
+        periodEndDate = new Date(startDate);
+        periodEndDate.setMonth(periodEndDate.getMonth() + 1);
+      }
+    }
+
+    this.logger.debug(
+      `Period end date resolution: Stripe provided=${!!subscription.current_period_end}, User stored=${!!user.currentPeriodEnd}, Calculated=${periodEndDate}`,
+    );
+
+    if (!periodEndDate) {
+      this.logger.error(
+        `Cannot retrieve period end: Stripe current_period_end=${subscription.current_period_end}, User currentPeriodEnd=${user.currentPeriodEnd}, Subscription start_date=${subscription.start_date}`,
+      );
+      throw new BadRequestException('Unable to retrieve subscription period end date');
+    }
+
+    const now = new Date();
+    const daysRemaining = Math.ceil(
+      (periodEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    // Calculate prorated refund
+    let refundAmount = 0;
+    let refundMessage = '';
+
+    if (cancellationMethod === 'immediate') {
+      refundAmount = this.calculateProRatedRefund(
+        subscription,
+        user.planId as any,
+      );
+      refundMessage = `You will receive a refund of ${refundAmount} ${subscription.currency?.toUpperCase()} for ${daysRemaining} unused days.`;
+    } else {
+      refundMessage = `Your subscription will remain active until ${periodEndDate.toLocaleDateString()}. No refund will be issued.`;
+    }
+
+    return {
+      method: cancellationMethod,
+      currentPlan: (user.planId as any)?.name || 'Unknown',
+      daysRemaining,
+      periodEndDate,
+      estimatedRefundAmount: refundAmount,
+      currency: subscription.currency?.toUpperCase() || 'KWD',
+      refundMessage,
+    };
+  }
+
+  /**
+   * Calculate prorated refund amount based on unused days
+   * Private helper method
+   */
+  private calculateProRatedRefund(
+    subscription: any,
+    plan: any,
+  ): number {
+    if (!subscription.current_period_end || !plan?.price) {
+      return 0;
+    }
+
+    const periodEndDate = new Date((subscription.current_period_end as number) * 1000);
+    const now = new Date();
+    const totalDaysInPeriod = Math.ceil(
+      ((subscription.current_period_end as number) - (subscription.current_period_start as number)) /
+        (60 * 60 * 24),
+    );
+    const unusedDays = Math.max(
+      0,
+      Math.ceil(
+        (periodEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      ),
+    );
+
+    // Calculate refund: (unused days / total days in period) * monthly price
+    const refund =
+      (unusedDays / totalDaysInPeriod) * (plan.price / 100); // Convert from cents
+    return Math.round(refund * 100) / 100; // Round to 2 decimals
+  }
+
+  /**
+   * Cancel user's subscription
+   * Handles both immediate and at_period_end cancellations
+   * Processes refunds if applicable
+   */
+  async cancelSubscription(
+    userId: string,
+    cancellationMethod: 'immediate' | 'at_period_end',
+    refundStrategy: 'full_prorated' | 'account_credit' | 'no_refund',
+    reason?: string,
+    feedback?: string,
+  ): Promise<any> {
+    const user = await this.userModel.findById(userId);
+
+    if (!user || !user.stripeSubscriptionId) {
+      throw new BadRequestException('User has no active subscription');
+    }
+
+    if (user.subscriptionStatus === 'canceled') {
+      throw new BadRequestException(
+        'Subscription is already canceled or pending cancellation',
+      );
+    }
+
+    try {
+      // Fetch subscription from Stripe
+      const subscription = (await this.stripe.subscriptions.retrieve(
+        user.stripeSubscriptionId,
+      )) as any;
+
+      // Prepare cancellation data
+      let cancellationUpdate: any = {
+        metadata: {
+          cancelledBy: userId,
+          cancelledAt: new Date().toISOString(),
+          cancellationMethod,
+          cancellationReason: reason || 'not_specified',
+        },
+      };
+
+      // Set cancellation method
+      if (cancellationMethod === 'at_period_end') {
+        cancellationUpdate.cancel_at_period_end = true;
+      } else {
+        // Immediate cancellation
+        cancellationUpdate.cancel_at = 'now';
+      }
+
+      // Update subscription in Stripe
+      await this.stripe.subscriptions.update(
+        user.stripeSubscriptionId,
+        cancellationUpdate,
+      );
+
+      // Calculate refund if applicable
+      let refundAmount = 0;
+      let refundStatus = 'pending';
+
+      if (cancellationMethod === 'immediate' && refundStrategy === 'full_prorated') {
+        refundAmount = this.calculateProRatedRefund(
+          subscription,
+          user.planId,
+        );
+
+        if (refundAmount > 0) {
+          // Issue refund through Stripe
+          await this.issueRefund(
+            user,
+            subscription,
+            refundAmount,
+            refundStrategy,
+          );
+          refundStatus = 'processing';
+        }
+      }
+
+      // Get period end date
+      const periodEndDate = new Date((subscription.current_period_end as number) * 1000);
+
+      // Update user record
+      await this.userModel.findByIdAndUpdate(userId, {
+        subscriptionStatus:
+          cancellationMethod === 'immediate' ? 'canceled' : 'active', // Active until period end
+        cancellationMethod,
+        cancellationScheduledFor:
+          cancellationMethod === 'at_period_end' ? periodEndDate : new Date(),
+        cancellationReason: reason,
+        cancellationFeedback: feedback,
+        refundStatus,
+        refundAmount: Math.round(refundAmount * 100) / 100,
+        refundCurrency: subscription.currency?.toUpperCase() || 'KWD',
+      });
+
+      // Create transaction record for refund
+      if (refundAmount > 0) {
+        await this.transactionModel.create({
+          transactionId: `stripe_refund_${user.stripeSubscriptionId}_${Date.now()}`,
+          userId: user._id,
+          subscriberId: user._id.toString(),
+          subscriberName: user.fullName,
+          subscriberEmail: user.email,
+          amount: refundAmount,
+          currency: subscription.currency?.toUpperCase() || 'KWD',
+          type: 'refund',
+          provider: 'Stripe',
+          status: 'pending', // Will be updated when refund completes
+          plan: user.planId?.toString() || 'Unknown',
+          transactionDate: new Date(),
+          stripeSubscriptionId: user.stripeSubscriptionId,
+        });
+      }
+
+      // Log activity
+      const activityTitle =
+        cancellationMethod === 'immediate'
+          ? 'Subscription canceled immediately'
+          : 'Subscription cancellation scheduled';
+      const activityDescription =
+        cancellationMethod === 'immediate'
+          ? `${user.fullName} cancelled subscription immediately. Refund: ${refundAmount} ${subscription.currency?.toUpperCase()}`
+          : `${user.fullName} scheduled subscription cancellation for ${periodEndDate.toLocaleDateString()}`;
+
+      await this.activityService.create({
+        type: 'canceled',
+        title: activityTitle,
+        description: activityDescription,
+        relatedEntityId: user._id.toString(),
+      });
+
+      this.logger.log(
+        `Subscription canceled for user ${userId}, method: ${cancellationMethod}, refund: ${refundAmount}`,
+      );
+
+      // Return confirmation details
+      return {
+        subscriptionId: user.stripeSubscriptionId,
+        cancellationDate: new Date(),
+        accessUntilDate:
+          cancellationMethod === 'at_period_end' ? periodEndDate : undefined,
+        refundAmount: Math.round(refundAmount * 100) / 100,
+        refundCurrency: subscription.currency?.toUpperCase() || 'KWD',
+        refundStatus,
+        message:
+          cancellationMethod === 'immediate'
+            ? `Your subscription has been canceled immediately. A refund of ${Math.round(refundAmount * 100) / 100} ${subscription.currency?.toUpperCase()} will be processed within 5-7 business days.`
+            : `Your subscription will remain active until ${periodEndDate.toLocaleDateString()}. After that, you'll be downgraded to the Free plan.`,
+      };
+    } catch (error) {
+      this.logger.error(`Cancellation error for user ${userId}: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to cancel subscription: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Issue refund to customer
+   * Creates a credit note in Stripe for the refund
+   */
+  private async issueRefund(
+    user: any,
+    subscription: Stripe.Subscription,
+    refundAmount: number,
+    refundStrategy: 'full_prorated' | 'account_credit' | 'no_refund',
+  ): Promise<void> {
+    try {
+      // Get the latest invoice for the subscription
+      const invoices = await this.stripe.invoices.list({
+        subscription: subscription.id,
+        limit: 1,
+      });
+
+      if (invoices.data.length > 0) {
+        const latestInvoice = invoices.data[0];
+
+        // Create credit note for partial refund
+        const creditNote = await this.stripe.creditNotes.create({
+          invoice: latestInvoice.id,
+          lines: [
+            {
+              type: 'custom_line_item' as any,
+              description: `Prorated refund for subscription cancellation (${refundAmount} ${subscription.currency?.toUpperCase()})`,
+              unit_amount: Math.round(refundAmount * 100), // Convert to cents
+              quantity: 1,
+            },
+          ],
+          memo: `Refund issued on subscription cancellation by user ${user._id}`,
+        });
+
+        // Store credit note ID for tracking
+        await this.userModel.findByIdAndUpdate(user._id, {
+          stripeCreditNoteId: creditNote.id,
+        });
+
+        this.logger.log(
+          `Created credit note ${creditNote.id} for refund of ${refundAmount} to user ${user._id}`,
+        );
+      } else {
+        this.logger.warn(
+          `No invoices found for subscription ${subscription.id} to create refund`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(`Error issuing refund for user ${user._id}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * Handle checkout.session.completed webhook
    * Called when user completes payment and subscription starts
    */
@@ -226,10 +582,22 @@ export class StripeService {
       return;
     }
 
-    // Fetch subscription details from Stripe
-    const subscription = await this.stripe.subscriptions.retrieve(
+    // Fetch subscription details from Stripe with retry for consistency
+    let subscription = (await this.stripe.subscriptions.retrieve(
       session.subscription as string,
-    );
+    )) as any;
+
+    // If current_period_end is missing, retry once after a short delay
+    // (Stripe may need a moment to finalize subscription data)
+    if (!subscription.current_period_end) {
+      this.logger.warn(
+        `Webhook: Subscription ${subscription.id} missing current_period_end, retrying...`,
+      );
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      subscription = (await this.stripe.subscriptions.retrieve(
+        session.subscription as string,
+      )) as any;
+    }
 
     // Prepare update data with proper date handling
     const updateData: any = {
@@ -240,9 +608,20 @@ export class StripeService {
       subscriptionStartedAt: new Date(),
     };
 
-    // Only set currentPeriodEnd if it's a valid timestamp
+    // Set currentPeriodEnd (required field for cancellation)
     if ((subscription as any).current_period_end && typeof (subscription as any).current_period_end === 'number') {
       updateData.currentPeriodEnd = new Date(((subscription as any).current_period_end as number) * 1000);
+    } else {
+      // Fallback: calculate from billing cycle if Stripe doesn't provide it
+      const now = new Date();
+      if (billingCycle === 'yearly') {
+        updateData.currentPeriodEnd = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+      } else {
+        updateData.currentPeriodEnd = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      }
+      this.logger.warn(
+        `Webhook: Using fallback currentPeriodEnd for subscription ${subscription.id}`,
+      );
     }
 
     // Update user with subscription info
@@ -256,6 +635,10 @@ export class StripeService {
       this.logger.error(`Webhook: User ${userId} not found when processing checkout.`);
       return;
     }
+
+    this.logger.log(
+      `Webhook: Subscription ${subscription.id} saved for user ${userId}. Status: ${user.subscriptionStatus}, Period End: ${user.currentPeriodEnd}`,
+    );
 
     // Create transaction record
     const plan = await this.billingPlanModel.findById(planId);
@@ -317,9 +700,25 @@ export class StripeService {
       subscriptionStatus: subscription.status,
     };
 
-    // Only set currentPeriodEnd if it's a valid timestamp
+    // Set currentPeriodEnd (required field for cancellation)
     if ((subscription as any).current_period_end && typeof (subscription as any).current_period_end === 'number') {
       updateData.currentPeriodEnd = new Date(((subscription as any).current_period_end as number) * 1000);
+    } else if (user.currentPeriodEnd) {
+      // Keep existing value if subscription doesn't provide one
+      updateData.currentPeriodEnd = user.currentPeriodEnd;
+    } else {
+      // Last resort: calculate estimate based on current billing cycle
+      const now = new Date();
+      const estimatedEnd = new Date(now);
+      if (user.billingCycle === 'yearly') {
+        estimatedEnd.setFullYear(estimatedEnd.getFullYear() + 1);
+      } else {
+        estimatedEnd.setMonth(estimatedEnd.getMonth() + 1);
+      }
+      updateData.currentPeriodEnd = estimatedEnd;
+      this.logger.warn(
+        `Webhook: Using fallback currentPeriodEnd for subscription ${subscription.id}`,
+      );
     }
 
     // Update user subscription info

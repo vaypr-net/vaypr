@@ -31,6 +31,9 @@ import { SupportPagesModule } from './support-pages/support-pages.module';
 import { CorporatePagesModule } from './corporate-pages/corporate-pages.module';
 import { ActivityModule } from './activity/activity.module';
 import { BillingModule } from './billing/billing.module';
+import { SuperAdminOverviewModule } from './super-admin-overview/super-admin-overview.module';
+import { SuperAdminReportsModule } from './super-admin-reports/super-admin-reports.module';
+import { SuperAdminAuditModule } from './super-admin-audit/super-admin-audit.module';
 
 @Module({
   imports: [
@@ -72,6 +75,9 @@ import { BillingModule } from './billing/billing.module';
    
     ActivityModule,
     BillingModule,
+    SuperAdminOverviewModule,
+    SuperAdminReportsModule,
+    SuperAdminAuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],

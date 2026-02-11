@@ -71,6 +71,35 @@ export class User extends BaseEntity {
 
   @Prop({ required: false })
   subscriptionCanceledAt: Date; // When subscription was canceled
+
+  // ==================== SUBSCRIPTION CANCELLATION FIELDS ====================
+  @Prop({ enum: ['immediate', 'at_period_end'], required: false })
+  cancellationMethod?: string; // How subscription was canceled
+
+  @Prop({ required: false })
+  cancellationScheduledFor?: Date; // When cancellation takes effect
+
+  @Prop({ required: false })
+  cancellationReason?: string; // Reason for cancellation (enum value as string)
+
+  @Prop({ required: false })
+  cancellationFeedback?: string; // User-provided feedback
+
+  // ==================== REFUND TRACKING ====================
+  @Prop({ enum: ['pending', 'processing', 'completed', 'failed'], required: false })
+  refundStatus?: string; // Status of refund processing
+
+  @Prop({ required: false })
+  refundAmount?: number; // Refund amount in user's currency
+
+  @Prop({ required: false })
+  refundCurrency?: string; // Currency of refund
+
+  @Prop({ required: false })
+  refundProcessedAt?: Date; // When refund was processed
+
+  @Prop({ required: false, sparse: true })
+  stripeCreditNoteId?: string; // Stripe credit note ID for refund tracking
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

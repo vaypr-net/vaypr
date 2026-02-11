@@ -14,6 +14,13 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { StripeService } from './stripe.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
+import {
+  CancelSubscriptionDto,
+  CancellationConfirmationDto,
+  CancellationPreviewDto,
+  CancellationReason,
+  CancellationMethod,
+} from './dto/cancel-subscription.dto';
 
 @Controller('billing')
 @ApiTags('Billing - Stripe Checkout Subscriptions')
@@ -98,6 +105,126 @@ export class BillingController {
       return result;
     } catch (error) {
       this.logger.error(`Get subscription error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get available cancellation reasons
+   * Used by frontend to populate cancellation form
+   */
+  @Get('cancellation-reasons')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get cancellation reasons',
+    description: 'Returns list of available cancellation reasons for the cancellation form',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of cancellation reasons',
+    schema: {
+      example: {
+        reasons: [
+          { value: 'too_expensive', label: 'Too expensive' },
+          { value: 'switching_to_competitor', label: 'Switching to competitor' },
+          { value: 'missing_features', label: 'Missing features' },
+          { value: 'poor_quality', label: 'Poor quality' },
+          { value: 'not_using', label: 'Not using it' },
+          { value: 'other', label: 'Other' },
+        ],
+      },
+    },
+  })
+  getCancellationReasons() {
+    return {
+      reasons: [
+        { value: CancellationReason.TOO_EXPENSIVE, label: 'Too expensive' },
+        {
+          value: CancellationReason.SWITCHING_TO_COMPETITOR,
+          label: 'Switching to competitor',
+        },
+        {
+          value: CancellationReason.MISSING_FEATURES,
+          label: 'Missing features',
+        },
+        { value: CancellationReason.POOR_QUALITY, label: 'Poor quality' },
+        {
+          value: CancellationReason.NOT_USING,
+          label: 'Not using it',
+        },
+        { value: CancellationReason.OTHER, label: 'Other' },
+      ],
+    };
+  }
+
+  /**
+   * Get cancellation preview
+   * Shows user what will happen if they cancel
+   */
+  @Post('cancellation-preview')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get cancellation preview',
+    description: 'Shows what will happen to the subscription if canceled (refund amount, end date, etc.)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cancellation preview',
+    type: CancellationPreviewDto,
+  })
+  async getCancellationPreview(
+    @Body('method') method: 'immediate' | 'at_period_end' = 'immediate',
+    @Request() req: any,
+  ) {
+    try {
+      return await this.stripeService.getCancellationPreview(
+        req.user.sub,
+        method,
+      );
+    } catch (error) {
+      this.logger.error(`Cancellation preview error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Cancel subscription
+   * Handles immediate or at_period_end cancellations
+   * Can issue refunds based on strategy
+   */
+  @Post('cancel')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Cancel subscription',
+    description: 'Cancels user subscription immediately or at period end, with optional refund',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription canceled successfully',
+    type: CancellationConfirmationDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid cancellation request or no active subscription',
+  })
+  async cancelSubscription(
+    @Body() body: CancelSubscriptionDto,
+    @Request() req: any,
+  ) {
+    try {
+      const { method, refundStrategy, reason, feedback } = body;
+
+      return await this.stripeService.cancelSubscription(
+        req.user.sub,
+        method,
+        refundStrategy,
+        reason,
+        feedback,
+      );
+    } catch (error) {
+      this.logger.error(`Cancel subscription error: ${error.message}`);
       throw error;
     }
   }
