@@ -15,6 +15,24 @@ export class SuperadminSettingsService {
     private userService: UserService,
   ) {}
 
+  private async buildDefaultSettings(userId: string) {
+    const user = await this.userService.findOne(userId);
+    const fullName = (user.fullName || '').trim();
+    const [firstName = '', ...rest] = fullName.split(' ');
+    const lastName = rest.join(' ');
+
+    return {
+      userId: new Types.ObjectId(userId),
+      firstName: firstName || 'Super',
+      lastName: lastName || 'Admin',
+      email: user.email,
+      notifyNewSubscribers: true,
+      notifyPaymentAlerts: true,
+      notifySupportTickets: true,
+      twoFactorEnabled: false,
+    };
+  }
+
   async create(userId: string, createDto: CreateSuperadminSettingsDto): Promise<SuperAdminSettings> {
     const existing = await this.superAdminSettingsModel.findOne({ userId: new Types.ObjectId(userId) });
     
@@ -31,27 +49,37 @@ export class SuperadminSettingsService {
   }
 
   async findByUserId(userId: string): Promise<SuperAdminSettings> {
-    const settings = await this.superAdminSettingsModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
-    
+    const userObjectId = new Types.ObjectId(userId);
+    let settings = await this.superAdminSettingsModel.findOne({ userId: userObjectId }).exec();
+
     if (!settings) {
-      throw new NotFoundException('Settings not found');
+      const defaults = await this.buildDefaultSettings(userId);
+      settings = await new this.superAdminSettingsModel(defaults).save();
     }
-    
+
     return settings;
   }
 
   async update(userId: string, updateDto: UpdateSuperadminSettingsDto): Promise<SuperAdminSettings> {
+    const defaults = await this.buildDefaultSettings(userId);
+    const setOnInsert = Object.fromEntries(
+      Object.entries(defaults).filter(([key]) => !(key in updateDto)),
+    );
+
     const settings = await this.superAdminSettingsModel
       .findOneAndUpdate(
         { userId: new Types.ObjectId(userId) },
-        updateDto,
-        { new: true }
+        {
+          $set: updateDto,
+          $setOnInsert: setOnInsert,
+        },
+        {
+          new: true,
+          upsert: true,
+          setDefaultsOnInsert: true,
+        }
       )
       .exec();
-
-    if (!settings) {
-      throw new NotFoundException('Settings not found');
-    }
 
     return settings;
   }

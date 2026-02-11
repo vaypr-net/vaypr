@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { BulkImportClientsDto } from './dto/bulk-import-clients.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @ApiTags('clients')
@@ -15,6 +16,11 @@ export class ClientsController {
   @Post()
   async create(@Request() req, @Body() createClientDto: CreateClientDto) {
     return this.clientsService.create(req.user.userId, createClientDto);
+  }
+
+  @Post('bulk-import')
+  async bulkImport(@Request() req, @Body() bulkImportDto: BulkImportClientsDto) {
+    return this.clientsService.bulkImport(req.user.userId, bulkImportDto.clients);
   }
 
   @Get()

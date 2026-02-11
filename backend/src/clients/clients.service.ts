@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { BulkImportClientItemDto } from './dto/bulk-import-clients.dto';
 import { Client } from './entities/client.entity';
 import { Invoice } from '../invoice/entities/invoice.entity';
 import { Quote } from '../quotes/entities/quote.entity';
@@ -23,6 +24,115 @@ export class ClientsService {
       userId: new Types.ObjectId(userId),
     });
     return client.save();
+  }
+
+  async bulkImport(userId: string, clients: BulkImportClientItemDto[]) {
+    if (!clients?.length) {
+      throw new BadRequestException('No clients provided for import');
+    }
+
+    const userIdObj = new Types.ObjectId(userId);
+    const failures: Array<{ rowNumber: number; email: string; reason: string }> = [];
+    const uniqueCandidates: BulkImportClientItemDto[] = [];
+    const seenEmails = new Set<string>();
+
+    for (let index = 0; index < clients.length; index++) {
+      const item = clients[index];
+      const rowNumber = item.rowNumber || index + 1;
+      const normalizedEmail = item.email.trim().toLowerCase();
+
+      if (seenEmails.has(normalizedEmail)) {
+        failures.push({
+          rowNumber,
+          email: normalizedEmail,
+          reason: 'Duplicate email in import file',
+        });
+        continue;
+      }
+
+      seenEmails.add(normalizedEmail);
+      uniqueCandidates.push({
+        ...item,
+        email: normalizedEmail,
+        rowNumber,
+      });
+    }
+
+    const existingClients = await this.clientModel
+      .find({
+        userId: userIdObj,
+        email: { $in: Array.from(seenEmails) },
+      })
+      .select('email')
+      .lean()
+      .exec();
+
+    const existingEmails = new Set(existingClients.map((c: any) => c.email.toLowerCase()));
+    const itemsToInsert: BulkImportClientItemDto[] = [];
+
+    for (const item of uniqueCandidates) {
+      const normalizedEmail = item.email.toLowerCase();
+      if (existingEmails.has(normalizedEmail)) {
+        failures.push({
+          rowNumber: item.rowNumber || 0,
+          email: normalizedEmail,
+          reason: 'Client with this email already exists',
+        });
+        continue;
+      }
+
+      itemsToInsert.push(item);
+    }
+
+    const docsToInsert = itemsToInsert.map((item) => ({
+      userId: userIdObj,
+      clientType: item.clientType,
+      name: item.name,
+      email: item.email,
+      phone: item.phone,
+      company: item.company,
+      address: item.address,
+      notes: item.notes,
+    }));
+
+    let imported = 0;
+
+    if (docsToInsert.length > 0) {
+      try {
+        const insertedDocs = await this.clientModel.insertMany(docsToInsert, { ordered: false });
+        imported = insertedDocs.length;
+      } catch (error: any) {
+        imported = error?.insertedDocs?.length || 0;
+
+        const writeErrors = error?.writeErrors || [];
+        const seenFailedRows = new Set<number>();
+        for (const writeError of writeErrors) {
+          const failedIndex = writeError?.index;
+          const failedItem = itemsToInsert[failedIndex];
+          if (!failedItem) continue;
+
+          const rowNumber = failedItem.rowNumber || failedIndex + 1;
+          if (seenFailedRows.has(rowNumber)) continue;
+          seenFailedRows.add(rowNumber);
+
+          failures.push({
+            rowNumber,
+            email: failedItem.email,
+            reason: writeError?.errmsg || 'Failed to insert client',
+          });
+        }
+      }
+    }
+
+    const total = clients.length;
+    const failed = total - imported;
+
+    return {
+      total,
+      imported,
+      failed,
+      failures: failures.sort((a, b) => a.rowNumber - b.rowNumber),
+    };
   }
 
   async findAll(userId: string): Promise<Client[]> {
