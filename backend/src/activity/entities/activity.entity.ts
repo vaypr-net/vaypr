@@ -5,7 +5,7 @@ export type ActivityDocument = Activity & Document;
 
 @Schema({ timestamps: { createdAt: 'createdAt', updatedAt: false } })
 export class Activity {
-  @Prop({ required: true, enum: ['new_subscriber', 'payment', 'payment_failed', 'invoice_sent', 'domain_verified', 'ticket', 'ticket_resolved', 'affiliate', 'referral', 'upgrade', 'canceled'] })
+  @Prop({ required: true, enum: ['new_subscriber', 'payment', 'payment_failed', 'invoice_sent', 'domain_created', 'domain_verified', 'ticket', 'ticket_resolved', 'affiliate', 'referral', 'upgrade', 'canceled'] })
   type: string;
 
   @Prop({ required: true })
