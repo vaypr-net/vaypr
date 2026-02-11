@@ -20,8 +20,8 @@ async function bootstrap() {
     'http://localhost:5173',
     'http://localhost:8080',
     'http://localhost:3000',
-    'https://invoicesoftwareforage.up.railway.app', // Production Railway URL
-    'https://vaypr-backend-production.up.railway.app', // Backend production URL
+    'https://invoicesoftwareforage.up.railway.app', 
+    'https://vaypr-backend-production.up.railway.app',
   ];
   
   // Add FRONTEND_URL from env if provided
