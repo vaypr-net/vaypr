@@ -4,7 +4,9 @@ import { Card } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { billingService } from '@/api/services/billing.service';
-import { Check, AlertCircle, ArrowRight } from 'lucide-react';
+import { Check, AlertCircle, ArrowRight, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import CancelSubscriptionDialog from '@/components/billing/CancelSubscriptionDialog';
 
 interface BillingPlan {
   _id: string;
@@ -20,6 +22,7 @@ interface BillingPlan {
 export function BillingStatus() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   // Fetch current subscription info
   const { data: subscription, isLoading } = useQuery({
@@ -126,17 +129,27 @@ export function BillingStatus() {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         {isActive && currentPlan?.price > 0 ? (
           <>
             {/* For paid users - show upgrade and manage options */}
             <Button 
               onClick={() => navigate('/pricing')}
               variant="outline"
-              className="flex-1"
+              className="flex-1 min-w-fit"
             >
               <ArrowRight className="w-4 h-4 mr-2" />
               Upgrade Plan
+            </Button>
+
+            {/* Cancel Subscription Button */}
+            <Button 
+              onClick={() => setShowCancelDialog(true)}
+              variant="destructive"
+              className="flex-1 min-w-fit"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Cancel Subscription
             </Button>
           </>
         ) : (
@@ -153,6 +166,12 @@ export function BillingStatus() {
           </>
         )}
       </div>
+
+      {/* Cancel Subscription Dialog */}
+      <CancelSubscriptionDialog
+        isOpen={showCancelDialog}
+        onClose={() => setShowCancelDialog(false)}
+      />
     </div>
   );
 }

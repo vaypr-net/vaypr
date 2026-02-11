@@ -120,7 +120,7 @@ export function AdminHeader() {
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="end">
+          <PopoverContent className="w-[420px] max-w-[calc(100vw-1.5rem)] p-0" align="end">
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <h4 className="font-semibold">Notifications</h4>
               <Badge variant="secondary" className="text-xs">
@@ -144,15 +144,15 @@ export function AdminHeader() {
                       className={`flex gap-3 p-4 hover:bg-muted/50 cursor-pointer transition-colors`}
                       onClick={() => markAsRead(notification.id)}
                     >
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
                         {activityToNotificationIcon[notification.type] || <Bell className="w-4 h-4" />}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{notification.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-sm font-medium leading-5 line-clamp-2">{notification.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2 break-words">
                           {notification.description}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-[11px] text-muted-foreground">
                           {notification.time}
                         </p>
                       </div>

@@ -22,11 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  mrrChartData, 
-  planDistributionData 
-} from "@/data/mockData";
 import { formatCurrency } from "@/lib/currency";
+import { useReportsAnalytics } from "@/hooks/api/useReports";
 import { 
   XAxis, 
   YAxis, 
@@ -44,6 +41,23 @@ import {
 
 export default function Reports() {
   const [testStatus, setTestStatus] = useState<"idle" | "success" | "error">("idle");
+  const { data: analytics } = useReportsAnalytics();
+
+  const metrics = analytics?.metrics || [
+    { label: "Affiliate Referrals", value: 0, changePercent: 0, positive: true },
+    { label: "Monthly Subscribers", value: 0, changePercent: 0, positive: true },
+    { label: "Yearly Subscribers", value: 0, changePercent: 0, positive: true },
+    { label: "Paid Subscribers", value: 0, changePercent: 0, positive: true },
+  ];
+  const secondaryMetrics = analytics?.secondaryMetrics || [
+    { label: "Free Subscribers", value: 0, changePercent: 0, positive: true },
+    { label: "Enterprise Subscribers", value: 0, changePercent: 0, positive: true },
+    { label: "Canceled Subscribers", value: 0, changePercent: 0, positive: false },
+  ];
+  const mrrChartData = analytics?.revenueByMonth || [];
+  const conversionByMonth = analytics?.conversionByMonth || [];
+  const planDistributionData = analytics?.planDistributionData || [];
+  const affiliatePerformance = analytics?.affiliatePerformance || [];
 
   return (
     <div className="space-y-6">
@@ -61,12 +75,7 @@ export default function Reports() {
         <TabsContent value="analytics" className="mt-6 space-y-6">
           {/* Key Metrics Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: "Affiliate Referrals", value: "1,284", change: "+18.5%", positive: true },
-              { label: "Monthly Subscribers", value: "2,847", change: "+8.3%", positive: true },
-              { label: "Yearly Subscribers", value: "1,156", change: "+15.2%", positive: true },
-              { label: "Paid Subscribers", value: "3,421", change: "+11.4%", positive: true },
-            ].map((metric, i) => (
+            {metrics.map((metric, i) => (
               <motion.div
                 key={metric.label}
                 initial={{ opacity: 0, y: 20 }}
@@ -75,9 +84,9 @@ export default function Reports() {
                 className="kpi-card"
               >
                 <p className="text-sm text-muted-foreground">{metric.label}</p>
-                <p className="text-2xl font-semibold mt-1">{metric.value}</p>
+                <p className="text-2xl font-semibold mt-1">{metric.value.toLocaleString()}</p>
                 <p className={`text-xs mt-1 ${metric.positive ? "text-success" : "text-destructive"}`}>
-                  {metric.change} from last month
+                  {metric.positive ? "+" : ""}{metric.changePercent}% from last month
                 </p>
               </motion.div>
             ))}
@@ -85,36 +94,21 @@ export default function Reports() {
           
           {/* Additional Metrics Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="kpi-card"
-            >
-              <p className="text-sm text-muted-foreground">Free Subscribers</p>
-              <p className="text-2xl font-semibold mt-1">582</p>
-              <p className="text-xs mt-1 text-success">+6.7% from last month</p>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="kpi-card"
-            >
-              <p className="text-sm text-muted-foreground">Enterprise Subscribers</p>
-              <p className="text-2xl font-semibold mt-1">238</p>
-              <p className="text-xs mt-1 text-success">+22.4% from last month</p>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className="kpi-card"
-            >
-              <p className="text-sm text-muted-foreground">Canceled Subscribers</p>
-              <p className="text-2xl font-semibold mt-1">147</p>
-              <p className="text-xs mt-1 text-destructive">+3.2% from last month</p>
-            </motion.div>
+            {secondaryMetrics.map((metric, i) => (
+              <motion.div
+                key={metric.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 + i * 0.05 }}
+                className="kpi-card"
+              >
+                <p className="text-sm text-muted-foreground">{metric.label}</p>
+                <p className="text-2xl font-semibold mt-1">{metric.value.toLocaleString()}</p>
+                <p className={`text-xs mt-1 ${metric.positive ? "text-success" : "text-destructive"}`}>
+                  {metric.positive ? "+" : ""}{metric.changePercent}% from last month
+                </p>
+              </motion.div>
+            ))}
           </div>
 
           {/* Charts Grid */}
@@ -156,14 +150,7 @@ export default function Reports() {
                 <Badge variant="outline">Last 6 months</Badge>
               </div>
               <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={[
-                  { month: "Aug", rate: 24 },
-                  { month: "Sep", rate: 28 },
-                  { month: "Oct", rate: 32 },
-                  { month: "Nov", rate: 29 },
-                  { month: "Dec", rate: 35 },
-                  { month: "Jan", rate: 38 },
-                ]}>
+                <AreaChart data={conversionByMonth}>
                   <defs>
                     <linearGradient id="conversionGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.3}/>
@@ -237,14 +224,7 @@ export default function Reports() {
                 <Badge variant="outline">Last 6 months</Badge>
               </div>
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={[
-                  { month: "Aug", referrals: 156, conversions: 42 },
-                  { month: "Sep", referrals: 189, conversions: 58 },
-                  { month: "Oct", referrals: 234, conversions: 71 },
-                  { month: "Nov", referrals: 198, conversions: 65 },
-                  { month: "Dec", referrals: 267, conversions: 89 },
-                  { month: "Jan", referrals: 312, conversions: 102 },
-                ]}>
+                <BarChart data={affiliatePerformance}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                   <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
                   <YAxis stroke="#94A3B8" fontSize={12} />

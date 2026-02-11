@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Receipt, Eye, FileText, Download, Calendar, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Receipt, Eye, FileText, Download, Calendar, CheckCircle, Clock, XCircle, Loader } from "lucide-react";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
 import { DataTable } from "@/components/super-admin/DataTable";
 import { StatusBadge } from "@/components/super-admin/StatusBadge";
-import { mockTransactions, Transaction } from "@/data/mockData";
+import { TransactionService, Transaction, TransactionStats } from "@/api/services/transaction.service";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -26,13 +26,65 @@ function formatDate(dateString: string) {
 }
 
 export default function Transactions() {
+  // State management
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [stats, setStats] = useState<TransactionStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Filter state
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(50);
+  
+  // UI state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showAllInvoices, setShowAllInvoices] = useState(false);
 
-  // Mock invoices data for the subscriber
+  // Fetch transactions
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await TransactionService.getAll({
+          search: searchValue || undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          type: typeFilter !== "all" ? typeFilter : undefined,
+          limit: pageSize,
+          offset: page * pageSize,
+        });
+        
+        setTransactions(response.items);
+      } catch (err: any) {
+        setError(err?.response?.data?.message || 'Failed to load transactions');
+        console.error('Error fetching transactions:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTransactions();
+  }, [searchValue, statusFilter, typeFilter, page, pageSize]);
+
+  // Fetch stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await TransactionService.getStats();
+        setStats(data);
+      } catch (err) {
+        console.error('Error fetching stats:', err);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  // Mock invoices data for the subscriber (can be replaced with real API later)
   const getMockInvoices = (subscriberName: string) => [
     { id: "INV-2025001", date: "2025-01-15", amount: 29, status: "paid" as const },
     { id: "INV-2024012", date: "2024-12-15", amount: 29, status: "paid" as const },
@@ -42,20 +94,8 @@ export default function Transactions() {
     { id: "INV-2024008", date: "2024-08-15", amount: 29, status: "overdue" as const },
   ];
 
-  const filteredTransactions = mockTransactions.filter(txn => {
-    const matchesSearch = 
-      txn.id.toLowerCase().includes(searchValue.toLowerCase()) ||
-      txn.subscriberName.toLowerCase().includes(searchValue.toLowerCase()) ||
-      txn.subscriberEmail.toLowerCase().includes(searchValue.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || txn.status === statusFilter;
-    const matchesType = typeFilter === "all" || txn.type === typeFilter;
-
-    return matchesSearch && matchesStatus && matchesType;
-  });
-
   const columns = [
-    { header: "Transaction ID", accessor: "id" as keyof Transaction },
+    { header: "Transaction ID", accessor: (row: Transaction) => row.transactionId },
     {
       header: "Subscriber",
       accessor: (row: Transaction) => (
@@ -89,7 +129,7 @@ export default function Transactions() {
     },
     {
       header: "Date",
-      accessor: (row: Transaction) => formatDate(row.date),
+      accessor: (row: Transaction) => formatDate(row.transactionDate),
     },
     {
       header: "Actions",
@@ -115,10 +155,27 @@ export default function Transactions() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Revenue (30d)", value: formatCurrency(15650), change: "+12.5%" },
-          { label: "Successful", value: "156", change: "+8" },
-          { label: "Failed", value: "23", change: "+5", negative: true },
-          { label: "Refunds", value: formatCurrency(890), change: "-15%" },
+          { 
+            label: "Total Revenue", 
+            value: stats ? formatCurrency(stats.totalRevenue) : "—", 
+            change: stats ? `${stats.successfulCount} transactions` : "—" 
+          },
+          { 
+            label: "Successful", 
+            value: stats?.successfulCount || "0", 
+            change: stats?.successfulCount ? `${stats.successfulCount} completed` : "—" 
+          },
+          { 
+            label: "Failed", 
+            value: stats?.failedCount || "0", 
+            change: stats?.failedCount ? `${stats.failedCount} failed` : "—", 
+            negative: true 
+          },
+          { 
+            label: "Refunds", 
+            value: stats ? formatCurrency(stats.refundsTotal) : "—", 
+            change: stats?.refundsTotal ? `Total refunded` : "—" 
+          },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -130,7 +187,7 @@ export default function Transactions() {
             <p className="text-sm text-muted-foreground">{stat.label}</p>
             <p className="text-2xl font-semibold mt-1">{stat.value}</p>
             <p className={`text-xs mt-1 ${stat.negative ? "text-destructive" : "text-success"}`}>
-              {stat.change} from last period
+              {stat.change}
             </p>
           </motion.div>
         ))}
@@ -174,12 +231,29 @@ export default function Transactions() {
           onExport={() => console.log("Export CSV")}
         />
 
-        <DataTable
-          columns={columns}
-          data={filteredTransactions}
-          emptyMessage="No transactions found"
-          emptyIcon={<Receipt className="w-12 h-12" />}
-        />
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader className="w-8 h-8 animate-spin mx-auto mb-2 text-muted-foreground" />
+              <p className="text-muted-foreground">Loading transactions...</p>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            ⚠️ {error}
+          </div>
+        )}
+
+        {!loading && !error && (
+          <DataTable
+            columns={columns}
+            data={transactions}
+            emptyMessage="No transactions found"
+            emptyIcon={<Receipt className="w-12 h-12" />}
+          />
+        )}
       </motion.div>
 
       {/* Transaction Detail Sheet */}
@@ -204,7 +278,7 @@ export default function Transactions() {
                 <div className="space-y-4">
                   <div className="flex justify-between py-2 border-b border-border">
                     <span className="text-muted-foreground">Transaction ID</span>
-                    <span className="font-medium">{selectedTransaction.id}</span>
+                    <span className="font-medium">{selectedTransaction.transactionId}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-border">
                     <span className="text-muted-foreground">Type</span>
@@ -212,7 +286,7 @@ export default function Transactions() {
                   </div>
                   <div className="flex justify-between py-2 border-b border-border">
                     <span className="text-muted-foreground">Date</span>
-                    <span className="font-medium">{formatDate(selectedTransaction.date)}</span>
+                    <span className="font-medium">{formatDate(selectedTransaction.transactionDate)}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-border">
                     <span className="text-muted-foreground">Provider</span>

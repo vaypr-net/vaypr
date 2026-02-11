@@ -160,7 +160,7 @@ export type SectionName =
 // ===== Helper Functions =====
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('accessToken');
   return {
     headers: {
       Authorization: token ? `Bearer ${token}` : '',
@@ -196,7 +196,7 @@ export const landingPageService = {
    */
   async updateSection(section: SectionName, data: UpdateSectionDto): Promise<LandingPage> {
     const response = await axios.patch(
-      `${API_BASE_URL}/landing-page/${section}`,
+      `${API_BASE_URL}/landing-page/section/${section}`,
       data,
       getAuthHeaders()
     );

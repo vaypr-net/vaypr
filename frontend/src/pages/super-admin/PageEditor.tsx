@@ -52,6 +52,18 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { useLandingPage, useUpdateLandingSection } from "@/hooks/useLandingPage";
+import {
+  useCorporatePages,
+  useCreateCorporatePage,
+  useUpdateCorporatePage,
+  useToggleCorporatePageEnabled,
+  useGuides,
+  useCreateGuide,
+  useUpdateGuide,
+  useToggleGuidePublished,
+  useDeleteGuide,
+} from "@/hooks/useCorporatePages";
+import { CorporatePageType } from "@/api/services/corporate-pages.service";
 
 import { SocialMediaEditor } from "@/components/super-admin/SocialMediaEditor";
 import { FAQsEditor } from "@/components/super-admin/FAQsEditor";
@@ -85,27 +97,6 @@ interface FAQItem {
   category: string;
   published: boolean;
   order: number;
-}
-
-interface CorporatePage {
-  id: string;
-  title: string;
-  slug: string;
-  enabled: boolean;
-  icon: ElementType;
-  description?: string;
-}
-
-interface Guide {
-  id: string;
-  title: string;
-  description: string;
-  fileType: "image" | "pdf";
-  fileName: string;
-  fileUrl: string;
-  published: boolean;
-  createdAt: string;
-  downloads: number;
 }
 
 interface LandingSection {
@@ -209,69 +200,6 @@ const initialFAQs: FAQItem[] = [
   },
 ];
 
-const initialCorporatePages: CorporatePage[] = [
-  {
-    id: "guides",
-    title: "Guides",
-    slug: "/guides",
-    enabled: true,
-    icon: BookOpen,
-    description: "Step-by-step tutorials and documentation",
-  },
-  {
-    id: "about",
-    title: "About Us",
-    slug: "/about",
-    enabled: true,
-    icon: Building2,
-    description: "Learn about our mission and team",
-  },
-  {
-    id: "b2b",
-    title: "B2B Services",
-    slug: "/b2b",
-    enabled: true,
-    icon: Briefcase,
-    description: "Enterprise solutions for businesses",
-  },
-];
-
-const initialGuides: Guide[] = [
-  {
-    id: "1",
-    title: "Getting Started Guide",
-    description: "A comprehensive introduction to VAYPR platform and its core features.",
-    fileType: "pdf",
-    fileName: "getting-started.pdf",
-    fileUrl: "#",
-    published: true,
-    createdAt: "2025-01-10",
-    downloads: 245,
-  },
-  {
-    id: "2",
-    title: "Invoice Creation Tutorial",
-    description: "Learn how to create professional invoices step by step.",
-    fileType: "image",
-    fileName: "invoice-tutorial.png",
-    fileUrl: "#",
-    published: true,
-    createdAt: "2025-01-08",
-    downloads: 182,
-  },
-  {
-    id: "3",
-    title: "B2B Integration Guide",
-    description: "Technical documentation for enterprise API integrations.",
-    fileType: "pdf",
-    fileName: "b2b-integration.pdf",
-    fileUrl: "#",
-    published: false,
-    createdAt: "2025-01-05",
-    downloads: 67,
-  },
-];
-
 const initialLandingSections: LandingSection[] = [
   { id: "hero", title: "Hero Section", enabled: true, icon: Sparkles, order: 1 },
   { id: "features", title: "Features", enabled: true, icon: Zap, order: 2 },
@@ -365,49 +293,28 @@ function SupportPagesEditor() {
 
 // -------------------- Corporate Pages Editor (FIXED) --------------------
 function CorporatePagesEditor() {
-  const [pages, setPages] = useState<CorporatePage[]>(initialCorporatePages);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const { data: pages = [], isLoading: pagesLoading } = useCorporatePages();
+  const { data: guides = [], isLoading: guidesLoading } = useGuides();
+  const createPageMutation = useCreateCorporatePage();
+  const updatePageMutation = useUpdateCorporatePage();
+  const togglePageMutation = useToggleCorporatePageEnabled();
+  const createGuideMutation = useCreateGuide();
+  const updateGuideMutation = useUpdateGuide();
+  const toggleGuideMutation = useToggleGuidePublished();
+  const deleteGuideMutation = useDeleteGuide();
 
-  const [guides, setGuides] = useState<Guide[]>(initialGuides);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editingGuideId, setEditingGuideId] = useState<string | null>(null);
   const [showAddGuide, setShowAddGuide] = useState(false);
-
-  const [newGuide, setNewGuide] = useState<Pick<Guide, "title" | "description" | "fileType" | "fileName" | "fileUrl">>({
+  const [pageForm, setPageForm] = useState<Record<string, any>>({});
+  const [guideForm, setGuideForm] = useState<Record<string, any>>({});
+  const [newGuide, setNewGuide] = useState({
     title: "",
     description: "",
-    fileType: "pdf",
+    fileType: "pdf" as "pdf" | "image",
     fileName: "",
     fileUrl: "",
   });
-
-  const updatePage = (id: string, key: keyof CorporatePage, value: any) => {
-    setPages((prev) => prev.map((p) => (p.id === id ? { ...p, [key]: value } : p)));
-  };
-
-  const addCorporatePage = () => {
-    const id = `page_${Date.now()}`;
-    setPages((prev) => [
-      ...prev,
-      {
-        id,
-        title: "New Page",
-        slug: "/new-page",
-        enabled: true,
-        icon: FileText,
-        description: "Short description...",
-      },
-    ]);
-    toast({ title: "Page Added", description: "A new corporate page has been created." });
-  };
-
-  const updateGuide = (id: string, key: keyof Guide, value: any) => {
-    setGuides((prev) => prev.map((g) => (g.id === id ? { ...g, [key]: value } : g)));
-  };
-
-  const deleteGuide = (id: string) => {
-    setGuides((prev) => prev.filter((g) => g.id !== id));
-    toast({ title: "Guide Deleted", description: "The guide has been removed." });
-  };
 
   const inferFileType = (file: File): "pdf" | "image" => {
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) return "pdf";
@@ -422,25 +329,58 @@ function CorporatePagesEditor() {
     const fileUrl = URL.createObjectURL(file);
 
     if (isNew) {
-      setNewGuide((prev) => ({
-        ...prev,
-        fileType: type,
-        fileName: file.name,
-        fileUrl,
-      }));
+      setNewGuide((prev) => ({ ...prev, fileType: type, fileName: file.name, fileUrl }));
     } else if (guideId) {
-      updateGuide(guideId, "fileType", type === "pdf" ? "pdf" : "image");
-      updateGuide(guideId, "fileName", file.name);
-      updateGuide(guideId, "fileUrl", fileUrl);
-      toast({ title: "File Replaced", description: "Guide file has been updated (local preview URL)." });
+      setGuideForm((prev) => ({
+        ...prev,
+        [guideId]: {
+          ...(prev[guideId] || {}),
+          fileType: type,
+          fileName: file.name,
+          fileUrl,
+        },
+      }));
     }
 
-    // allow re-upload same file
     e.target.value = "";
   };
 
-  const addGuide = () => {
-    if (!newGuide.title.trim() || !newGuide.description.trim() || !newGuide.fileName) {
+  const addCorporatePage = async () => {
+    const timestamp = Date.now();
+    await createPageMutation.mutateAsync({
+      slug: `custom-${timestamp}`,
+      title: "New Page",
+      type: CorporatePageType.CUSTOM,
+      metaDescription: "New custom corporate page",
+      icon: "FileText",
+      sections: [{ title: "Section 1", content: "Add content here", order: 1 }],
+      enabled: true,
+      showInFooter: true,
+      order: pages.length + 1,
+    });
+  };
+
+  const startPageEdit = (page: any) => {
+    setEditingId(page._id);
+    setPageForm((prev) => ({
+      ...prev,
+      [page._id]: {
+        title: page.title,
+        slug: page.slug,
+        metaDescription: page.metaDescription || "",
+      },
+    }));
+  };
+
+  const savePage = async (id: string) => {
+    const form = pageForm[id];
+    if (!form) return;
+    await updatePageMutation.mutateAsync({ id, data: form });
+    setEditingId(null);
+  };
+
+  const addGuide = async () => {
+    if (!newGuide.title.trim() || !newGuide.description.trim() || !newGuide.fileName || !newGuide.fileUrl) {
       toast({
         title: "Missing fields",
         description: "Please add title, description, and upload a file.",
@@ -449,33 +389,42 @@ function CorporatePagesEditor() {
       return;
     }
 
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const createdAt = `${yyyy}-${mm}-${dd}`;
-
-    const guide: Guide = {
-      id: `g_${Date.now()}`,
+    await createGuideMutation.mutateAsync({
       title: newGuide.title.trim(),
       description: newGuide.description.trim(),
-      fileType: newGuide.fileType === "pdf" ? "pdf" : "image",
+      fileType: newGuide.fileType,
       fileName: newGuide.fileName,
-      fileUrl: newGuide.fileUrl || "#",
+      fileUrl: newGuide.fileUrl,
       published: false,
-      createdAt,
-      downloads: 0,
-    };
+    });
 
-    setGuides((prev) => [guide, ...prev]);
     setShowAddGuide(false);
     setNewGuide({ title: "", description: "", fileType: "pdf", fileName: "", fileUrl: "" });
-
-    toast({ title: "Guide Added", description: "New guide added as Draft." });
   };
 
-  const pagesCount = useMemo(() => pages.length, [pages]);
-  const guidesCount = useMemo(() => guides.length, [guides]);
+  const startGuideEdit = (guide: any) => {
+    setEditingGuideId(guide._id);
+    setGuideForm((prev) => ({
+      ...prev,
+      [guide._id]: {
+        title: guide.title,
+        description: guide.description,
+        fileType: guide.fileType,
+        fileName: guide.fileName,
+        fileUrl: guide.fileUrl,
+      },
+    }));
+  };
+
+  const saveGuide = async (id: string) => {
+    const form = guideForm[id];
+    if (!form) return;
+    await updateGuideMutation.mutateAsync({ id, data: form });
+    setEditingGuideId(null);
+  };
+
+  const pagesCount = pages.length;
+  const guidesCount = guides.length;
 
   return (
     <Tabs defaultValue="pages" className="w-full">
@@ -494,29 +443,31 @@ function CorporatePagesEditor() {
           </Button>
         </div>
 
-        {pages.map((page) => (
-          <div key={page.id} className="rounded-lg border bg-card overflow-hidden">
+        {pagesLoading ? (
+          <p className="text-sm text-muted-foreground">Loading corporate pages...</p>
+        ) : pages.map((page: any) => (
+          <div key={page._id} className="rounded-lg border bg-card overflow-hidden">
             <div className="flex items-center gap-4 p-4">
               <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                <page.icon className="w-5 h-5 text-muted-foreground" />
+                <FileText className="w-5 h-5 text-muted-foreground" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h4 className="font-medium">{page.title}</h4>
                   <Badge variant="outline" className="text-xs font-mono">
-                    {page.slug}
+                    /{page.slug}
                   </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground mt-0.5">{page.description}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{page.metaDescription}</p>
               </div>
 
               <div className="flex items-center gap-2">
-                <Switch checked={page.enabled} onCheckedChange={(checked) => updatePage(page.id, "enabled", checked)} />
+                <Switch checked={page.enabled} onCheckedChange={() => togglePageMutation.mutate(page._id)} />
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => setEditingId(editingId === page.id ? null : page.id)}
+                  onClick={() => (editingId === page._id ? setEditingId(null) : startPageEdit(page))}
                 >
                   <Edit3 className="w-4 h-4" />
                 </Button>
@@ -525,10 +476,7 @@ function CorporatePagesEditor() {
                   size="icon"
                   className="h-8 w-8"
                   onClick={() =>
-                    toast({
-                      title: "Preview",
-                      description: `Open ${page.slug} in a new tab (wire to router later).`,
-                    })
+                    window.open(page.slug.startsWith("/") ? page.slug : `/${page.slug}`, "_blank")
                   }
                 >
                   <Eye className="w-4 h-4" />
@@ -537,7 +485,7 @@ function CorporatePagesEditor() {
             </div>
 
             <AnimatePresence>
-              {editingId === page.id && (
+              {editingId === page._id && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
@@ -549,28 +497,43 @@ function CorporatePagesEditor() {
                       <div>
                         <Label className="text-xs">Page Title</Label>
                         <Input
-                          value={page.title}
-                          onChange={(e) => updatePage(page.id, "title", e.target.value)}
+                          value={pageForm[page._id]?.title || ""}
+                          onChange={(e) =>
+                            setPageForm((prev) => ({
+                              ...prev,
+                              [page._id]: { ...(prev[page._id] || {}), title: e.target.value },
+                            }))
+                          }
                           className="mt-1"
                         />
                       </div>
                       <div>
                         <Label className="text-xs">URL Slug</Label>
                         <Input
-                          value={page.slug}
-                          onChange={(e) => updatePage(page.id, "slug", e.target.value)}
+                          value={pageForm[page._id]?.slug || ""}
+                          onChange={(e) =>
+                            setPageForm((prev) => ({
+                              ...prev,
+                              [page._id]: { ...(prev[page._id] || {}), slug: e.target.value },
+                            }))
+                          }
                           className="mt-1 font-mono"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <Label className="text-xs">Description</Label>
+                      <Label className="text-xs">Meta Description</Label>
                       <Textarea
-                        placeholder="Enter page description..."
+                        placeholder="Enter meta description..."
                         className="mt-1"
-                        value={page.description || ""}
-                        onChange={(e) => updatePage(page.id, "description", e.target.value)}
+                        value={pageForm[page._id]?.metaDescription || ""}
+                        onChange={(e) =>
+                          setPageForm((prev) => ({
+                            ...prev,
+                            [page._id]: { ...(prev[page._id] || {}), metaDescription: e.target.value },
+                          }))
+                        }
                       />
                     </div>
 
@@ -580,10 +543,8 @@ function CorporatePagesEditor() {
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => {
-                          setEditingId(null);
-                          toast({ title: "Saved", description: "Corporate page updated (local state)." });
-                        }}
+                        onClick={() => savePage(page._id)}
+                        disabled={updatePageMutation.isPending}
                       >
                         Save Changes
                       </Button>
@@ -698,14 +659,16 @@ function CorporatePagesEditor() {
 
         {/* Guides List */}
         <div className="space-y-3">
-          {guides.length === 0 ? (
+          {guidesLoading ? (
+            <p className="text-sm text-muted-foreground">Loading guides...</p>
+          ) : guides.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No guides yet. Add your first guide above.</p>
             </div>
           ) : (
-            guides.map((guide) => (
-              <div key={guide.id} className="rounded-lg border bg-card overflow-hidden">
+            guides.map((guide: any) => (
+              <div key={guide._id} className="rounded-lg border bg-card overflow-hidden">
                 <div className="flex items-center gap-4 p-4">
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     {guide.fileType === "pdf" ? (
@@ -736,12 +699,15 @@ function CorporatePagesEditor() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Switch checked={guide.published} onCheckedChange={(checked) => updateGuide(guide.id, "published", checked)} />
+                    <Switch
+                      checked={guide.published}
+                      onCheckedChange={() => toggleGuideMutation.mutate(guide._id)}
+                    />
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => setEditingGuideId(editingGuideId === guide.id ? null : guide.id)}
+                      onClick={() => (editingGuideId === guide._id ? setEditingGuideId(null) : startGuideEdit(guide))}
                     >
                       <Edit3 className="w-4 h-4" />
                     </Button>
@@ -760,7 +726,7 @@ function CorporatePagesEditor() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => deleteGuide(guide.id)}
+                      onClick={() => deleteGuideMutation.mutate(guide._id)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -769,7 +735,7 @@ function CorporatePagesEditor() {
 
                 {/* Edit Guide Form */}
                 <AnimatePresence>
-                  {editingGuideId === guide.id && (
+                  {editingGuideId === guide._id && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
@@ -781,8 +747,13 @@ function CorporatePagesEditor() {
                           <div>
                             <Label className="text-xs">Guide Title</Label>
                             <Input
-                              value={guide.title}
-                              onChange={(e) => updateGuide(guide.id, "title", e.target.value)}
+                              value={guideForm[guide._id]?.title || ""}
+                              onChange={(e) =>
+                                setGuideForm((prev) => ({
+                                  ...prev,
+                                  [guide._id]: { ...(prev[guide._id] || {}), title: e.target.value },
+                                }))
+                              }
                               className="mt-1"
                             />
                           </div>
@@ -793,7 +764,7 @@ function CorporatePagesEditor() {
                                 <Input
                                   type="file"
                                   accept="image/*,.pdf"
-                                  onChange={(e) => handleFileUpload(e, false, guide.id)}
+                                  onChange={(e) => handleFileUpload(e, false, guide._id)}
                                   className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                 />
                                 <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-input bg-background text-sm">
@@ -817,8 +788,13 @@ function CorporatePagesEditor() {
                         <div>
                           <Label className="text-xs">Description</Label>
                           <Textarea
-                            value={guide.description}
-                            onChange={(e) => updateGuide(guide.id, "description", e.target.value)}
+                            value={guideForm[guide._id]?.description || ""}
+                            onChange={(e) =>
+                              setGuideForm((prev) => ({
+                                ...prev,
+                                [guide._id]: { ...(prev[guide._id] || {}), description: e.target.value },
+                              }))
+                            }
                             className="mt-1 min-h-[100px]"
                           />
                         </div>
@@ -829,10 +805,8 @@ function CorporatePagesEditor() {
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => {
-                              setEditingGuideId(null);
-                              toast({ title: "Guide Updated", description: "Changes have been saved (local state)." });
-                            }}
+                            onClick={() => saveGuide(guide._id)}
+                            disabled={updateGuideMutation.isPending}
                           >
                             Save Changes
                           </Button>
@@ -1357,7 +1331,7 @@ export default function PageEditor() {
           title="Corporate Pages"
           description="Manage corporate and business information pages"
           icon={Building2}
-          badge={`${initialCorporatePages.length} pages`}
+          badge="API managed"
         >
           <CorporatePagesEditor />
         </EditorSection>

@@ -35,7 +35,7 @@ export interface ReorderFaqDto {
 }
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('accessToken');
   return {
     headers: {
       Authorization: `Bearer ${token}`,

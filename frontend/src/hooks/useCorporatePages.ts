@@ -4,10 +4,13 @@ import {
   CreateCorporatePageDto,
   UpdateCorporatePageDto,
   CorporatePageType,
+  CreateGuideDto,
+  UpdateGuideDto,
 } from '../api/services/corporate-pages.service';
 import { useToast } from './use-toast';
 
 const CORPORATE_PAGES_QUERY_KEY = ['corporate-pages'];
+const GUIDES_QUERY_KEY = ['corporate-guides'];
 
 export const useCorporatePages = (params?: { enabledOnly?: boolean }) => {
   return useQuery({
@@ -174,6 +177,95 @@ export const useInitializeCorporatePages = () => {
       toast({
         title: 'Error',
         description: error.response?.data?.message || 'Failed to initialize corporate pages',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useGuides = (params?: { publishedOnly?: boolean }) => {
+  return useQuery({
+    queryKey: [...GUIDES_QUERY_KEY, params],
+    queryFn: () => corporatePagesService.getAllGuides(params),
+    staleTime: 1000 * 60 * 5,
+  });
+};
+
+export const useCreateGuide = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (data: CreateGuideDto) => corporatePagesService.createGuide(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: GUIDES_QUERY_KEY });
+      toast({ title: 'Success', description: 'Guide created successfully' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to create guide',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useUpdateGuide = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateGuideDto }) =>
+      corporatePagesService.updateGuide(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: GUIDES_QUERY_KEY });
+      toast({ title: 'Success', description: 'Guide updated successfully' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to update guide',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useToggleGuidePublished = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => corporatePagesService.toggleGuidePublished(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: GUIDES_QUERY_KEY });
+      toast({ title: 'Success', description: 'Guide status updated successfully' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to update guide status',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useDeleteGuide = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => corporatePagesService.deleteGuide(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: GUIDES_QUERY_KEY });
+      toast({ title: 'Success', description: 'Guide deleted successfully' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to delete guide',
         variant: 'destructive',
       });
     },

@@ -14,10 +14,6 @@ import {
 } from "lucide-react";
 import { KPICard } from "@/components/super-admin/KPICard";
 import { 
-  dashboardKPIs, 
-  planDistributionData,
-} from "@/data/mockData";
-import { 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -33,8 +29,9 @@ import {
 import { formatCurrency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useGetSubscribers, useGetSubscriberStats } from "@/hooks/api/useSubscribers";
+import { useGetSubscribers } from "@/hooks/api/useSubscribers";
 import { useGetActivities } from "@/hooks/api/useActivities";
+import { useSuperAdminOverviewStats } from "@/hooks/api/useSuperAdminOverview";
 
 const activityIcons: Record<string, React.ReactNode> = {
   new_subscriber: <Users className="w-4 h-4 text-blue-500" />,
@@ -65,29 +62,19 @@ function formatTimeAgo(timestamp: string) {
   return `${diffDays}d ago`;
 }
 
-// Support tickets data
-const supportTicketsData = [
-  { name: "Open", value: 24, color: "hsl(217, 91%, 60%)" },
-  { name: "Pending", value: 18, color: "hsl(45, 93%, 47%)" },
-  { name: "In Progress", value: 12, color: "hsl(262, 83%, 58%)" },
-];
-
-// Revenue by plan type
-const revenueByPlanData = [
-  { plan: "Free", revenue: 0, subscribers: 582 },
-  { plan: "Basic", revenue: 8450, subscribers: 845 },
-  { plan: "Pro", revenue: 24750, subscribers: 825 },
-  { plan: "Enterprise", revenue: 47600, subscribers: 238 },
-];
-
 export default function Overview() {
   // Fetch real subscriber data
   const { data: subscribersData } = useGetSubscribers(undefined, undefined, undefined, 5, 0);
-  const { data: stats } = useGetSubscriberStats();
   const { data: activitiesData, isLoading: activitiesLoading } = useGetActivities(6, 0);
+  const { data: overviewStats } = useSuperAdminOverviewStats();
 
   const recentSubscribers = subscribersData?.items || [];
   const activities = activitiesData?.data || [];
+  const supportTicketsData = overviewStats?.supportTicketsData || [];
+  const revenueByPlanData = overviewStats?.revenueByPlanData || [];
+  const planDistributionData = overviewStats?.planDistributionData || [];
+  const ticketStats = overviewStats?.ticketsByStatus;
+  const kpis = overviewStats?.kpis;
 
   return (
     <div className="space-y-6">
@@ -100,31 +87,31 @@ export default function Overview() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
           title="Total Registered" 
-          value={dashboardKPIs.totalRegistered.toLocaleString()} 
-          change="+12% from last month"
+          value={(kpis?.totalRegistered || 0).toLocaleString()} 
+          change="All registered users"
           changeType="positive"
           icon={Users}
         />
         <KPICard 
           title="Canceled This Month" 
-          value="12" 
-          change="+3 from last month"
+          value={`${kpis?.canceledThisMonth || 0}`} 
+          change="Current month cancellations"
           changeType="negative"
           icon={UserX}
           iconColor="bg-red-100 text-red-600"
         />
         <KPICard 
           title="Total Revenue" 
-          value={formatCurrency(dashboardKPIs.totalRevenue)} 
-          change="+15.2% from last month"
+          value={formatCurrency(kpis?.totalRevenue || 0)} 
+          change="Succeeded subscription payments"
           changeType="positive"
           icon={DollarSign}
           iconColor="bg-green-100 text-green-600"
         />
         <KPICard 
           title="Open Tickets" 
-          value="54" 
-          change="-8 from last week"
+          value={`${kpis?.openTickets || 0}`} 
+          change="Open + pending + in progress"
           changeType="positive"
           icon={Ticket}
           iconColor="bg-orange-100 text-orange-600"
@@ -169,21 +156,21 @@ export default function Overview() {
                   <Clock className="w-5 h-5 text-blue-600" />
                   <span className="font-medium text-blue-900">Open</span>
                 </div>
-                <Badge className="bg-blue-600">24</Badge>
+                <Badge className="bg-blue-600">{ticketStats?.open || 0}</Badge>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-50">
                 <div className="flex items-center gap-3">
                   <Loader2 className="w-5 h-5 text-yellow-600" />
                   <span className="font-medium text-yellow-900">Pending</span>
                 </div>
-                <Badge className="bg-yellow-600">18</Badge>
+                <Badge className="bg-yellow-600">{ticketStats?.pending || 0}</Badge>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-purple-50">
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="w-5 h-5 text-purple-600" />
                   <span className="font-medium text-purple-900">In Progress</span>
                 </div>
-                <Badge className="bg-purple-600">12</Badge>
+                <Badge className="bg-purple-600">{ticketStats?.inProgress || 0}</Badge>
               </div>
             </div>
           </div>
