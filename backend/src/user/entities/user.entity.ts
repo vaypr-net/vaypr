@@ -44,6 +44,13 @@ export class User extends BaseEntity {
   @Prop({ required: false })
   brandingDomain: string; // Verified Brevo domain (e.g., "example.com") - used as sender for invoices, receipts, quotes
 
+  // Track all user's domains
+  @Prop({ type: [String], default: [] })
+  verifiedDomains: string[]; // All verified domains owned by user
+
+  @Prop({ type: [String], default: [] })
+  pendingDomains: string[]; // Domains pending verification
+
   // ==================== STRIPE SUBSCRIPTION FIELDS ====================
   @Prop({ required: false, sparse: true })
   stripeCustomerId: string; // Stripe customer ID

@@ -41,6 +41,9 @@ export class BrevoDomain extends Document {
   @Prop({ required: true, unique: true, lowercase: true })
   domain: string;
 
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  userId: Types.ObjectId; // User who owns this domain
+
   @Prop({ type: String, enum: ['NOT_STARTED', 'DNS_PENDING', 'VERIFIED', 'FAILED'], default: 'NOT_STARTED' })
   status: BrevoStatus;
 

@@ -33,6 +33,8 @@ export class BillingPlan extends Document {
     recurringInvoices: number; // -1 = unlimited
     expenseTracking: boolean;
     invoiceTemplates: string; // "Basic", "All", "Custom"
+    domains: number; // -1 = unlimited, 0 = not allowed, 1-N = limit
+    customEmailDomain: boolean; // Can use custom domain for sending emails
   };
 
   @Prop({ default: false })

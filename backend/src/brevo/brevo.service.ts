@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import * as dns from 'dns';
@@ -9,6 +9,8 @@ import { promisify } from 'util';
 import { BrevoDomain, DNSRecord, DomainChecks } from './entities/brevo.entity';
 import { CreateBrevoDomainDto } from './dto/create-brevo-domain.dto';
 import { ActivityService } from '../activity/activity.service';
+import { User } from '../user/entities/user.entity';
+import { BillingPlan } from '../billing-plan/entities/billing-plan.entity';
 
 const resolveTxt = promisify(dns.resolveTxt);
 const resolveCname = promisify(dns.resolveCname);
@@ -20,6 +22,8 @@ export class BrevoService {
 
   constructor(
     @InjectModel(BrevoDomain.name) private brevioDomainModel: Model<BrevoDomain>,
+    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(BillingPlan.name) private billingPlanModel: Model<BillingPlan>,
     private configService: ConfigService,
     private httpService: HttpService,
     private activityService: ActivityService,
@@ -49,7 +53,199 @@ export class BrevoService {
   }
 
   /**
-   * Create new domain via Brevo API
+   * Create domain by user - WITH SUBSCRIPTION LIMIT CHECK
+   */
+  async createDomainByUser(userId: string, createDto: CreateBrevoDomainDto): Promise<BrevoDomain> {
+    // 1. Get user with subscription plan
+    const user = await this.userModel.findById(userId).populate('planId');
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const plan = user.planId as any;
+    const domainLimit = plan?.limits?.domains ?? 0;
+    const canUseCustomDomain = plan?.limits?.customEmailDomain ?? false;
+
+    // 2. Check if plan allows custom domains
+    if (domainLimit === 0 || !canUseCustomDomain) {
+      throw new BadRequestException(
+        `Your ${plan?.name || 'plan'} does not support custom domains. Upgrade to Pro or higher to add custom domains.`
+      );
+    }
+
+    // 3. Check if user reached domain limit
+    const verifiedCount = (user.verifiedDomains || []).length;
+    const pendingCount = (user.pendingDomains || []).length;
+    const totalCount = verifiedCount + pendingCount;
+
+    if (domainLimit > 0 && totalCount >= domainLimit) {
+      throw new BadRequestException(
+        `You have reached your domain limit (${domainLimit}). Upgrade your plan to add more domains.`
+      );
+    }
+
+    // 4. Create domain via Brevo API
+    const domain = await this.createDomainCore(createDto, userId);
+
+    // 5. Track domain as pending for user
+    await this.userModel.findByIdAndUpdate(userId, {
+      $push: { pendingDomains: domain.domain }
+    });
+
+    // 6. Log activity
+    await this.activityService.create({
+      type: 'domain_created',
+      title: `Custom domain added: ${domain.domain}`,
+      description: `Domain ${domain.domain} added by ${user.fullName}. Awaiting DNS verification.`,
+      relatedEntityId: userId,
+    });
+
+    return domain;
+  }
+
+  /**
+   * Core domain creation logic (used by both admin and user paths)
+   */
+  private async createDomainCore(createDto: CreateBrevoDomainDto, userId?: string): Promise<BrevoDomain> {
+    const { domain } = createDto;
+
+    // Validate Brevo API key is set
+    if (!this.brevoApiKey) {
+      throw new InternalServerErrorException('Brevo API key is not configured in environment variables');
+    }
+
+    // Validate domain format
+    if (domain.includes('http://') || domain.includes('https://')) {
+      throw new BadRequestException('Domain must not include protocol');
+    }
+    if (domain.includes('/')) {
+      throw new BadRequestException('Domain must not include path');
+    }
+    if (!domain.includes('.')) {
+      throw new BadRequestException('Domain must be a valid base domain (e.g., example.com)');
+    }
+
+    // Check if domain already exists in our database
+    const existing = await this.brevioDomainModel.findOne({ domain: domain.toLowerCase() }).exec();
+    if (existing) {
+      throw new ConflictException(`Domain ${domain} is already in use. Please choose a different domain.`);
+    }
+
+    try {
+      // Call Brevo API to create domain
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.brevoApiUrl}/senders/domains`,
+          { name: domain.toLowerCase() },
+          {
+            headers: {
+              'api-key': this.brevoApiKey,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      );
+
+      console.log('[Brevo] API Response:', JSON.stringify((response as any).data, null, 2));
+
+      // Extract DNS records from Brevo API response
+      const dnsRecords = this.mapBrevoDNSRecords((response as any).data, domain);
+
+      // Create domain document in our database
+      const newDomain = new this.brevioDomainModel({
+        domain: domain.toLowerCase(),
+        userId: userId ? new Types.ObjectId(userId) : undefined,
+        status: 'DNS_PENDING',
+        checks: {
+          brevo_code: 'PENDING',
+          dkim: 'PENDING',
+          dmarc: 'PENDING',
+        },
+        dnsRecords,
+        lastCheckedAt: null,
+        errorMessage: null,
+      });
+
+      return newDomain.save();
+    } catch (error) {
+      if (error.response?.status === 409) {
+        throw new ConflictException(`Domain ${domain} already exists in Brevo`);
+      }
+      throw new InternalServerErrorException(
+        `Failed to create domain in Brevo: ${error.response?.data?.message || error.message}`
+      );
+    }
+  }
+
+  /**
+   * Get domain usage for user
+   */
+  async getUserDomainUsage(userId: string): Promise<any> {
+    const user = await this.userModel.findById(userId).populate('planId', 'limits name');
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const plan = user.planId as any;
+    const limit = plan?.limits?.domains ?? 0;
+    const verifiedCount = (user.verifiedDomains || []).length;
+    const pendingCount = (user.pendingDomains || []).length;
+
+    return {
+      planName: plan?.name,
+      limit: limit === -1 ? 'Unlimited' : limit,
+      verified: verifiedCount,
+      pending: pendingCount,
+      total: verifiedCount + pendingCount,
+      canAddMore: limit === -1 || (verifiedCount + pendingCount < limit),
+      message: this.getDomainLimitMessage(limit, verifiedCount, pendingCount),
+      verifiedDomains: user.verifiedDomains || [],
+      pendingDomains: user.pendingDomains || [],
+    };
+  }
+
+  private getDomainLimitMessage(limit: number, verified: number, pending: number): string {
+    if (limit === 0) {
+      return 'Your plan does not support custom domains. Upgrade to add domains.';
+    }
+    if (limit === -1) {
+      return `Unlimited domains (${verified} verified, ${pending} pending)`;
+    }
+    if (verified + pending >= limit) {
+      return `Domain limit reached (${limit}). Upgrade to add more.`;
+    }
+    return `${limit - (verified + pending)} domain(s) remaining`;
+  }
+
+  /**
+   * Get all domains for a user
+   */
+  async getUserDomains(userId: string): Promise<BrevoDomain[]> {
+    return this.brevioDomainModel
+      .find({ userId: new Types.ObjectId(userId) })
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  /**
+   * Verify domain and move from pending to verified
+   */
+  async verifyDomainAndMoveToVerified(userId: string, domainId: string): Promise<void> {
+    const domain = await this.brevioDomainModel.findById(domainId);
+    if (!domain) {
+      throw new NotFoundException('Domain not found');
+    }
+
+    if (domain.status === 'VERIFIED') {
+      await this.userModel.findByIdAndUpdate(userId, {
+        $pull: { pendingDomains: domain.domain },
+        $push: { verifiedDomains: domain.domain }
+      });
+    }
+  }
+
+  /**
+   * Original createDomain method (kept for backward compatibility, used only by admin)
    */
   async createDomain(createDto: CreateBrevoDomainDto): Promise<BrevoDomain> {
     const { domain } = createDto;
