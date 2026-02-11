@@ -4,16 +4,7 @@ import axiosInstance from '@/api/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
 import {
   Table,
   TableBody,
@@ -22,15 +13,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Progress } from '@/components/ui/progress';
 import { Globe, Plus, Trash2, CheckCircle, Clock, AlertCircle, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { DomainWizard } from './DomainWizard';
 
 export function DomainManagement() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const [newDomain, setNewDomain] = useState('');
 
   // Fetch domain usage
   const { data: usage, isLoading: usageLoading, refetch: refetchUsage } = useQuery({
@@ -47,26 +37,6 @@ export function DomainManagement() {
     queryFn: async () => {
       const res = await axiosInstance.get('/brevo/domains');
       return res.data || [];
-    },
-  });
-
-  // Create domain mutation
-  const createMutation = useMutation({
-    mutationFn: async (domainName: string) => {
-      const res = await axiosInstance.post('/brevo/domains', {
-        domain: domainName,
-      });
-      return res.data;
-    },
-    onSuccess: () => {
-      toast.success('Domain added! Please configure DNS records.');
-      setNewDomain('');
-      setIsOpen(false);
-      refetchDomains();
-      refetchUsage();
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to add domain');
     },
   });
 
@@ -237,45 +207,15 @@ export function DomainManagement() {
         </Card>
       )}
 
-      {/* Add Domain Dialog */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Custom Domain</DialogTitle>
-            <DialogDescription>
-              Enter your domain name. You'll need to configure DNS records after.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="domain">Domain</Label>
-              <Input
-                id="domain"
-                placeholder="example.com"
-                value={newDomain}
-                onChange={(e) => setNewDomain(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => createMutation.mutate(newDomain)}
-              disabled={!newDomain || createMutation.isPending}
-            >
-              {createMutation.isPending ? 'Adding...' : 'Add Domain'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Add Domain Dialog - Using Wizard */}
+      <DomainWizard
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        onDomainAdded={() => {
+          refetchDomains();
+          refetchUsage();
+        }}
+      />
     </div>
   );
 }

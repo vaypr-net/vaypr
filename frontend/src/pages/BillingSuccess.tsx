@@ -26,8 +26,13 @@ export default function BillingSuccessPage() {
         // Wait for webhook to process (Stripe is fast but not instant)
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Invalidate subscription cache so dashboard gets fresh data
+        // Invalidate ALL related caches after subscription update
+        // This ensures user data, plan limits, and domain access are all refreshed
         await queryClient.invalidateQueries({ queryKey: ['subscription'] });
+        await queryClient.invalidateQueries({ queryKey: ['user'] });
+        await queryClient.invalidateQueries({ queryKey: ['auth'] });
+        await queryClient.invalidateQueries({ queryKey: ['domain-usage'] });
+        await queryClient.invalidateQueries({ queryKey: ['user-domains'] });
 
         // Navigate to dashboard - it will fetch the updated subscription
         navigate('/dashboard');
