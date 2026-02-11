@@ -89,3 +89,31 @@ export function useDeleteClient() {
     },
   });
 }
+
+export function useBulkImportClients() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (clients: Array<{
+      clientType: 'individual' | 'company';
+      name: string;
+      email: string;
+      phone: string;
+      company?: string;
+      address: string;
+      notes?: string;
+      rowNumber?: number;
+    }>) => ClientService.bulkImport({ clients }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Bulk import failed',
+        description: error.response?.data?.message || 'Failed to import clients.',
+        variant: 'destructive',
+      });
+    },
+  });
+}

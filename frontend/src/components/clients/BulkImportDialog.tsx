@@ -34,6 +34,7 @@ interface ImportedClient {
   company?: string;
   address: string;
   notes?: string;
+  rowNumber?: number;
 }
 
 interface ParsedRow {
@@ -46,7 +47,7 @@ interface ParsedRow {
 interface BulkImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (clients: ImportedClient[]) => void;
+  onImport: (clients: ImportedClient[]) => Promise<void> | void;
 }
 
 export function BulkImportDialog({ open, onOpenChange, onImport }: BulkImportDialogProps) {
@@ -54,19 +55,20 @@ export function BulkImportDialog({ open, onOpenChange, onImport }: BulkImportDia
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
 
   const requiredFields = [
     { field: 'name', label: 'Name', required: true, description: 'Client full name or company name' },
     { field: 'email', label: 'Email', required: true, description: 'Valid email address' },
+    { field: 'phone', label: 'Phone', required: true, description: 'Contact phone number' },
+    { field: 'address', label: 'Address', required: true, description: 'Full address' },
   ];
 
   const optionalFields = [
     { field: 'type', label: 'Type', required: false, description: 'Either "individual" or "company" (defaults to individual)' },
-    { field: 'phone', label: 'Phone', required: false, description: 'Contact phone number' },
     { field: 'company', label: 'Company', required: false, description: 'Company/organization name' },
-    { field: 'address', label: 'Address', required: false, description: 'Full address' },
     { field: 'notes', label: 'Notes', required: false, description: 'Additional notes about the client' },
   ];
 
@@ -106,6 +108,7 @@ export function BulkImportDialog({ open, onOpenChange, onImport }: BulkImportDia
         company: company || undefined,
         address: address || '',
         notes: notes || undefined,
+        rowNumber,
       },
       isValid: errors.length === 0,
       errors,
@@ -208,7 +211,7 @@ export function BulkImportDialog({ open, onOpenChange, onImport }: BulkImportDia
     link.click();
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     const validClients = parsedData.filter(r => r.isValid).map(r => r.data);
     if (validClients.length === 0) {
       toast({
@@ -219,9 +222,14 @@ export function BulkImportDialog({ open, onOpenChange, onImport }: BulkImportDia
       return;
     }
     
-    onImport(validClients);
-    handleReset();
-    onOpenChange(false);
+    try {
+      setIsImporting(true);
+      await onImport(validClients);
+      handleReset();
+      onOpenChange(false);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleReset = () => {
@@ -396,12 +404,19 @@ export function BulkImportDialog({ open, onOpenChange, onImport }: BulkImportDia
         </div>
 
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isImporting}>
             Cancel
           </Button>
           {parsedData.length > 0 && (
-            <Button onClick={handleImport} disabled={validCount === 0}>
-              Import {validCount} Client{validCount !== 1 ? 's' : ''}
+            <Button onClick={handleImport} disabled={validCount === 0 || isImporting}>
+              {isImporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>Import {validCount} Client{validCount !== 1 ? 's' : ''}</>
+              )}
             </Button>
           )}
         </DialogFooter>

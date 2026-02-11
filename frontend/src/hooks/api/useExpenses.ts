@@ -10,6 +10,30 @@ interface ExpenseFilters {
   endDate?: string;
 }
 
+type ExpenseRecord = {
+  _id: string;
+  category: string;
+  date: string;
+  amount: number;
+};
+
+const isWithinDateRange = (expenseDate: string, filters?: ExpenseFilters) => {
+  if (!filters?.startDate && !filters?.endDate) return true;
+  const value = new Date(expenseDate).getTime();
+
+  if (filters?.startDate) {
+    const start = new Date(filters.startDate).getTime();
+    if (value < start) return false;
+  }
+
+  if (filters?.endDate) {
+    const end = new Date(filters.endDate).getTime();
+    if (value > end) return false;
+  }
+
+  return true;
+};
+
 export function useExpenses(filters?: ExpenseFilters) {
   return useQuery({
     queryKey: [QUERY_KEY, filters],
@@ -41,8 +65,33 @@ export function useCreateExpense() {
   return useMutation({
     mutationFn: ({ data, receipt }: { data: any; receipt?: File }) =>
       ExpenseService.create(data, receipt),
-    onSuccess: () => {
+    onSuccess: (createdExpense: ExpenseRecord) => {
+      // Ensure visible list updates instantly for all active expense list filters.
+      const queries = queryClient.getQueriesData<ExpenseRecord[]>({
+        queryKey: [QUERY_KEY],
+      });
+
+      for (const [key, value] of queries) {
+        if (!Array.isArray(value)) continue;
+
+        const second = key[1];
+        if (second === 'stats') continue;
+        if (typeof second === 'string') continue; // skip detail query keys like [expenses, id]
+
+        const filters = (second ?? undefined) as ExpenseFilters | undefined;
+        if (filters?.category && filters.category !== createdExpense.category) continue;
+        if (!isWithinDateRange(createdExpense.date, filters)) continue;
+
+        if (value.some((item) => item._id === createdExpense._id)) continue;
+
+        queryClient.setQueryData<ExpenseRecord[]>(key, [
+          createdExpense,
+          ...value,
+        ]);
+      }
+
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, 'stats'] });
       toast({
         title: 'Expense created',
         description: 'The expense has been recorded successfully.',

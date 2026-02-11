@@ -3,6 +3,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { 
   useClients as useClientsAPI, 
   useCreateClient, 
+  useBulkImportClients,
   useUpdateClient, 
   useDeleteClient 
 } from '@/hooks/api/useClients';
@@ -96,6 +97,7 @@ export default function Clients() {
   // API hooks - fetch clients with stats included
   const { data: clients = [], isLoading } = useClientsAPI(true); // Pass true to include stats
   const createMutation = useCreateClient();
+  const bulkImportMutation = useBulkImportClients();
   const updateMutation = useUpdateClient();
   const deleteMutation = useDeleteClient();
   
@@ -280,22 +282,18 @@ export default function Clients() {
     company?: string;
     address: string;
     notes?: string;
+    rowNumber?: number;
   }>) => {
-    let imported = 0;
-    let failed = 0;
-    
-    for (const client of clients) {
-      try {
-        await createMutation.mutateAsync(client);
-        imported++;
-      } catch (error) {
-        failed++;
-      }
-    }
-    
+    const result = await bulkImportMutation.mutateAsync(clients);
+    const extraFailureInfo =
+      result.failures.length > 0
+        ? ` First issue: row ${result.failures[0].rowNumber} (${result.failures[0].email}) - ${result.failures[0].reason}`
+        : '';
+
     toast({
       title: 'Bulk import complete',
-      description: `Successfully imported ${imported} client${imported !== 1 ? 's' : ''}${failed > 0 ? `. ${failed} failed.` : ''}`,
+      description: `Successfully imported ${result.imported} client${result.imported !== 1 ? 's' : ''}${result.failed > 0 ? `. ${result.failed} failed.` : ''}${extraFailureInfo}`,
+      variant: result.failed > 0 ? 'destructive' : 'default',
     });
   };
 

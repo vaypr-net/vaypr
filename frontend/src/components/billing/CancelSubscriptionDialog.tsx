@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -30,6 +30,10 @@ import {
 import { billingService } from '@/api/services/billing.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import type {
+  CancellationReason,
+  CancellationConfirmationResponse,
+} from '@/api/services/billing.service';
 
 interface CancellationStep {
   step: 'initial' | 'method' | 'preview' | 'feedback' | 'processing' | 'confirmation';
@@ -44,15 +48,6 @@ interface CancellationPreview {
   currency: string;
   refundMessage: string;
 }
-
-const CANCELLATION_REASONS = [
-  { value: 'too_expensive', label: 'Too expensive' },
-  { value: 'switching_to_competitor', label: 'Switching to competitor' },
-  { value: 'missing_features', label: 'Missing features' },
-  { value: 'poor_quality', label: 'Poor quality' },
-  { value: 'not_using', label: 'Not using it' },
-  { value: 'other', label: 'Other' },
-];
 
 /**
  * CancelSubscriptionDialog - Professional subscription cancellation flow
@@ -82,8 +77,22 @@ export default function CancelSubscriptionDialog({
   const [reason, setReason] = useState<string>('');
   const [feedback, setFeedback] = useState<string>('');
   const [preview, setPreview] = useState<CancellationPreview | null>(null);
+  const [confirmation, setConfirmation] = useState<CancellationConfirmationResponse | null>(null);
+  const [reasons, setReasons] = useState<CancellationReason[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    (async () => {
+      try {
+        const response = await billingService.getCancellationReasons();
+        setReasons(response.reasons || []);
+      } catch (err: any) {
+        setError(err?.response?.data?.message || 'Failed to load cancellation reasons');
+      }
+    })();
+  }, [isOpen]);
 
   /**
    * Step 1: Initial screen - Ask why they're canceling
@@ -138,13 +147,14 @@ export default function CancelSubscriptionDialog({
         reason: reason || undefined,
         feedback: feedback || undefined,
       });
+      setConfirmation(response);
 
       // Invalidate subscription cache
       await queryClient.invalidateQueries({ queryKey: ['subscription'] });
 
       setCurrentStep('confirmation');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel subscription');
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to cancel subscription');
       setCurrentStep('feedback');
     } finally {
       setIsLoading(false);
@@ -165,6 +175,8 @@ export default function CancelSubscriptionDialog({
       setCurrentStep('initial');
       setReason('');
       setFeedback('');
+      setConfirmation(null);
+      setPreview(null);
       setError(null);
     }
   };
@@ -205,7 +217,7 @@ export default function CancelSubscriptionDialog({
               </p>
               <RadioGroup value={reason} onValueChange={setReason}>
                 <div className="space-y-3">
-                  {CANCELLATION_REASONS.map((option) => (
+                  {reasons.map((option) => (
                     <div key={option.value} className="flex items-center gap-3">
                       <RadioGroupItem value={option.value} id={option.value} />
                       <Label htmlFor={option.value} className="cursor-pointer flex-1">
@@ -498,7 +510,7 @@ export default function CancelSubscriptionDialog({
       )}
 
       {/* ==================== STEP 6: CONFIRMATION ==================== */}
-      {currentStep === 'confirmation' && (
+      {currentStep === 'confirmation' && confirmation && (
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle className="text-2xl text-center">✓ Subscription Canceled</DialogTitle>
@@ -507,15 +519,20 @@ export default function CancelSubscriptionDialog({
           <div className="space-y-6 py-6">
             <Card className="border-green-200 bg-green-50">
               <CardHeader>
-                <CardTitle className="text-green-900">Cancellation Confirmed</CardTitle>
+              <CardTitle className="text-green-900">Cancellation Confirmed</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-green-800">
-                <p>Your subscription has been successfully canceled.</p>
+                <p>{confirmation.message}</p>
                 <p>
                   {cancellationMethod === 'immediate'
                     ? 'Your access has ended immediately.'
-                    : 'You will have access until the end of your billing period.'}
+                    : `You will have access until ${confirmation.accessUntilDate ? new Date(confirmation.accessUntilDate).toLocaleDateString() : 'the end of your billing period'}.`}
                 </p>
+                {typeof confirmation.refundAmount === 'number' && confirmation.refundAmount > 0 && (
+                  <p>
+                    Refund: {confirmation.refundAmount.toFixed(2)} {confirmation.refundCurrency} ({confirmation.refundStatus})
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -549,13 +566,6 @@ export default function CancelSubscriptionDialog({
               </CardContent>
             </Card>
 
-            <Card className="bg-blue-50 border-blue-200">
-              <CardContent className="pt-4">
-                <p className="text-sm text-blue-900">
-                  📧 We've sent a confirmation email to <strong>{user?.email}</strong>
-                </p>
-              </CardContent>
-            </Card>
           </div>
 
           <DialogFooter>
