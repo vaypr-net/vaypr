@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -72,6 +72,7 @@ import {
   Wallet,
   Palette,
   Headphones,
+  Loader2,
 } from 'lucide-react';
 
 const TIMEZONES = [
@@ -233,6 +234,9 @@ export default function Profile() {
     confirmPassword: '',
   });
 
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const subscription = user?.subscription || DEFAULT_SUBSCRIPTION;
   const currentPlanInfo = SUBSCRIPTION_PLANS[subscription.plan];
 
@@ -268,6 +272,96 @@ export default function Profile() {
     });
     setIsChangingPassword(false);
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid File Type',
+        description: 'Please select an image file.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File Too Large',
+        description: 'Image must be less than 5MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      // Create FormData for Cloudinary upload
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'vayper_avatar'); // You may need to adjust this
+
+      // Upload to Cloudinary
+      const cloudinaryResponse = await fetch(
+        'https://api.cloudinary.com/v1_1/da378hbeu/image/upload',
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      if (!cloudinaryResponse.ok) {
+        throw new Error('Failed to upload image to Cloudinary');
+      }
+
+      const cloudinaryData = await cloudinaryResponse.json();
+      const imageUrl = cloudinaryData.secure_url;
+
+      // Update user avatar in database via API
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/user/${user?.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+          },
+          body: JSON.stringify({ avatar: imageUrl }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      // Update local state to show new image
+      if (user) {
+        user.avatar = imageUrl;
+      }
+
+      toast({
+        title: 'Avatar Updated',
+        description: 'Your profile picture has been updated successfully.',
+      });
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast({
+        title: 'Upload Failed',
+        description: error instanceof Error ? error.message : 'Failed to upload image. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleUpgradePlan = () => {
@@ -363,13 +457,28 @@ export default function Profile() {
                       </AvatarFallback>
                     </Avatar>
                     {isEditingProfile && (
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
-                      >
-                        <Camera className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingImage}
+                        >
+                          {isUploadingImage ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Camera className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </>
                     )}
                   </div>
                   <div>
