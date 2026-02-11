@@ -120,7 +120,8 @@ export default function Signup() {
    * 5. Redirect to frontend callback
    */
   const handleGoogleSignup = () => {
-    window.location.href = 'http://localhost:8081/auth/google';
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+    window.location.href = `${apiUrl}/auth/google`;
   };
 
   return (
