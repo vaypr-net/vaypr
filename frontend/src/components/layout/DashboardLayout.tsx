@@ -16,7 +16,8 @@ import {
   X,
   RefreshCw,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -39,6 +40,7 @@ const navItems = [
   { href: '/dashboard/receipts', label: 'Receipts', icon: Receipt },
   { href: '/dashboard/clients', label: 'Clients', icon: Users },
   { href: '/dashboard/recurring', label: 'Subscriptions', icon: RefreshCw },
+  { href: '/dashboard/domains', label: 'Domains', icon: Globe },
   { href: '/dashboard/expenses', label: 'Expenses', icon: Wallet },
 ];
 

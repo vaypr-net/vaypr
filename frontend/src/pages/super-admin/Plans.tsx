@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/super-admin/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdminDomainLimits } from "@/components/admin/AdminDomainLimits";
 import {
   useGetPlans,
   useCreatePlan,
@@ -611,6 +612,7 @@ export default function Plans() {
       <Tabs defaultValue="plans">
         <TabsList>
           <TabsTrigger value="plans">Subscription Plans</TabsTrigger>
+          <TabsTrigger value="domains">Domain Limits</TabsTrigger>
           <TabsTrigger value="billing">Billing Configuration</TabsTrigger>
         </TabsList>
 
@@ -648,6 +650,10 @@ export default function Plans() {
               </AnimatePresence>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="domains" className="mt-6">
+          <AdminDomainLimits />
         </TabsContent>
 
         <TabsContent value="billing" className="mt-6">

@@ -19,6 +19,7 @@ import Receipts from "./pages/Receipts";
 import Clients from "./pages/Clients";
 import Recurring from "./pages/Recurring";
 import Expenses from "./pages/Expenses";
+import Domains from "./pages/Domains";
 import QuoteView from "./pages/QuoteView";
 import Profile from "./pages/Profile";
 import Notifications from "./pages/Notifications";
@@ -80,6 +81,7 @@ function AppRoutes() {
       <Route path="/dashboard/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
       <Route path="/dashboard/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
       <Route path="/dashboard/recurring" element={<ProtectedRoute><Recurring /></ProtectedRoute>} />
+      <Route path="/dashboard/domains" element={<ProtectedRoute><Domains /></ProtectedRoute>} />
       <Route path="/dashboard/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
       <Route path="/dashboard/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/dashboard/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
