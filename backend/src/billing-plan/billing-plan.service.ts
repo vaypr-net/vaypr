@@ -128,6 +128,66 @@ export class BillingPlanService {
     return plan;
   }
 
+  /**
+   * Set Stripe price ID for a specific currency and billing cycle
+   * Supports multi-currency pricing
+   */
+  async setStripePriceByCurrency(
+    planId: string,
+    currency: string,
+    billingCycle: 'monthly' | 'yearly',
+    priceId: string,
+  ): Promise<BillingPlan> {
+    const key = `${currency.toUpperCase()}-${billingCycle}`;
+    const update = {
+      $set: {
+        [`stripePrices.${key}`]: priceId,
+      },
+    };
+
+    const plan = await this.billingPlanModel.findByIdAndUpdate(planId, update, {
+      new: true,
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Billing plan not found');
+    }
+
+    return plan;
+  }
+
+  /**
+   * Set multiple Stripe prices for a plan
+   * Example: { 'USD-monthly': 'price_xxx', 'USD-yearly': 'price_yyy', 'AED-monthly': 'price_zzz', ... }
+   */
+  async setStripePrices(
+    planId: string,
+    stripePrices: Record<string, string>,
+  ): Promise<BillingPlan> {
+    const plan = await this.billingPlanModel.findByIdAndUpdate(
+      planId,
+      { stripePrices },
+      { new: true },
+    );
+
+    if (!plan) {
+      throw new NotFoundException('Billing plan not found');
+    }
+
+    return plan;
+  }
+
+  /**
+   * Get all Stripe prices for a plan
+   */
+  async getStripePricesForPlan(planId: string): Promise<Record<string, string>> {
+    const plan = await this.billingPlanModel.findById(planId);
+    if (!plan) {
+      throw new NotFoundException('Billing plan not found');
+    }
+    return plan.stripePrices || {};
+  }
+
   async getStats(): Promise<{
     totalPlans: number;
     activePlans: number;

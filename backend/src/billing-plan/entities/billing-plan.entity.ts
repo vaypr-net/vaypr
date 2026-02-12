@@ -44,6 +44,12 @@ export class BillingPlan extends Document {
   subscriberCount: number;
 
   // ==================== STRIPE INTEGRATION ====================
+  // NEW: Store Stripe price IDs by currency and billing cycle
+  // Example: { 'USD-monthly': 'price_xxx', 'USD-yearly': 'price_yyy', 'AED-monthly': 'price_zzz', ... }
+  @Prop({ type: Object, default: {} })
+  stripePrices: Record<string, string>;
+
+  // DEPRECATED: Keeping for backward compatibility, migrate to stripePrices
   @Prop({ required: false })
   stripeMonthlyPriceId: string; // Stripe price ID for monthly billing
 

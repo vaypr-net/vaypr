@@ -14,6 +14,12 @@ export class LoginController {
     private readonly configService: ConfigService,
   ) {}
 
+  private getFrontendUrl(): string {
+    const raw = this.configService.get<string>('FRONTEND_URL') ?? '';
+    const firstUrl = raw.split(',')[0]?.trim();
+    return (firstUrl || 'http://localhost:8080').replace(/\/+$/, '');
+  }
+
   /**
    * Manual login (email/password)
    * Endpoint: POST /auth/login
@@ -57,7 +63,7 @@ export class LoginController {
     // req.user contains validated Google user data from GoogleStrategy
     const result = await this.loginService.validateGoogleUser(req.user);
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const frontendUrl = this.getFrontendUrl();
 
     // Redirect to frontend with JWT token
     // Frontend should extract token from URL and store it
@@ -99,7 +105,7 @@ export class LoginController {
               <li>Grant all permissions (including Gmail)</li>
               <li>Check database - googleRefreshToken should now exist!</li>
             </ol>
-            <a href="${this.configService.get<string>('FRONTEND_URL')}" 
+            <a href="${this.getFrontendUrl()}" 
                style="display: inline-block; margin-top: 20px; padding: 10px 20px; background: #4285f4; color: white; text-decoration: none; border-radius: 4px;">
               Go to App
             </a>
@@ -118,4 +124,3 @@ export class LoginController {
     }
   }
 }
-

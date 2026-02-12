@@ -7,6 +7,7 @@ import { User } from '../user/entities/user.entity';
 import { BillingPlan } from '../billing-plan/entities/billing-plan.entity';
 import { Transaction } from '../transcations/entities/transcation.entity';
 import { ActivityService } from '../activity/activity.service';
+import { CurrencyService } from '../common/services/currency.service';
 
 /**
  * StripeService - Handles all Stripe Checkout subscription operations
@@ -36,6 +37,7 @@ export class StripeService {
     @InjectModel(BillingPlan.name) private billingPlanModel: Model<BillingPlan>,
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
     private activityService: ActivityService,
+    private currencyService: CurrencyService,
   ) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
@@ -114,12 +116,42 @@ export class StripeService {
   }
 
   /**
+   * Get Stripe price ID for a plan by currency and billing cycle
+   * Supports new multi-currency structure and falls back to old single-currency format
+   */
+  private getPriceIdForCurrency(
+    plan: any,
+    billingCycle: 'monthly' | 'yearly',
+    currency: string = 'USD',
+  ): string {
+    const key = `${currency.toUpperCase()}-${billingCycle}`;
+    
+    // Try new stripePrices structure first
+    if (plan.stripePrices && plan.stripePrices[key]) {
+      return plan.stripePrices[key];
+    }
+    
+    // Fallback to old single-currency fields for backward compatibility
+    const priceId =
+      billingCycle === 'monthly'
+        ? plan.stripeMonthlyPriceId
+        : plan.stripeYearlyPriceId;
+    
+    return priceId;
+  }
+
+  /**
    * Create Stripe checkout session for plan subscription
+   * @param userId - User ID
+   * @param planId - Plan ID
+   * @param billingCycle - 'monthly' or 'yearly'
+   * @param currency - Currency code (e.g., 'USD', 'AED', 'QAR'). Defaults to 'USD'
    */
   async createCheckoutSession(
     userId: string,
     planId: string,
     billingCycle: 'monthly' | 'yearly',
+    currency: string = 'USD',
   ): Promise<{ url: string }> {
     // Validate plan exists
     const plan = await this.billingPlanModel.findById(planId);
@@ -132,15 +164,13 @@ export class StripeService {
       throw new BadRequestException('Invalid billing cycle');
     }
 
-    // Get Stripe price ID based on cycle
-    const priceId =
-      billingCycle === 'monthly'
-        ? plan.stripeMonthlyPriceId
-        : plan.stripeYearlyPriceId;
+    // Validate currency is supported
+    currency = currency.toUpperCase();
+    const priceId = this.getPriceIdForCurrency(plan, billingCycle, currency);
 
     if (!priceId) {
       throw new BadRequestException(
-        `Plan ${plan.name} does not have Stripe price configured for ${billingCycle} billing`,
+        `Plan ${plan.name} does not have Stripe price configured for ${currency} ${billingCycle} billing`,
       );
     }
 
@@ -179,6 +209,7 @@ export class StripeService {
         userId: userId,
         planId: planId,
         billingCycle: billingCycle,
+        currency: currency,
       },
     });
 
@@ -187,7 +218,7 @@ export class StripeService {
     }
 
     this.logger.log(
-      `Created checkout session ${session.id} for user ${userId}, plan ${planId}`,
+      `Created checkout session ${session.id} for user ${userId}, plan ${planId} (${currency})`,
     );
 
     return { url: session.url };
@@ -219,6 +250,7 @@ export class StripeService {
 
   /**
    * Get subscription details including current plan and renewal date
+   * Also includes display currency (KWD) equivalent
    */
   async getSubscriptionInfo(userId: string): Promise<any> {
     const user = await this.userModel
@@ -278,10 +310,17 @@ export class StripeService {
 
     const planObject = (plan?.toObject?.() || plan) || { price: actualPrice };
     
+    // Convert USD price to display currency (KWD)
+    const displayCurrency = this.currencyService.getDisplayCurrency();
+    const priceInDisplayCurrency = this.currencyService.convertToDisplayCurrency(actualPrice);
+    
     return {
       plan: {
         ...planObject,
-        price: actualPrice, // Override with actual charged price
+        price: actualPrice, // Override with actual charged price in USD
+        priceInUSD: actualPrice,
+        priceInDisplayCurrency: priceInDisplayCurrency,
+        displayCurrency: displayCurrency,
       },
       status: user.subscriptionStatus,
       billingCycle: user.billingCycle,

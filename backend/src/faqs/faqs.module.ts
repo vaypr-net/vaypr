@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { FaqsService } from './faqs.service';
 import { FaqsController } from './faqs.controller';
+import { FaqsPublicController } from './faqs-public.controller';
 import { Faq, FaqSchema } from './entities/faq.entity';
 
 @Module({
@@ -20,7 +21,7 @@ import { Faq, FaqSchema } from './entities/faq.entity';
       }),
     }),
   ],
-  controllers: [FaqsController],
+  controllers: [FaqsController, FaqsPublicController],
   providers: [FaqsService],
 })
 export class FaqsModule {}

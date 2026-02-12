@@ -15,21 +15,12 @@ async function bootstrap() {
   app.use(bodyParser.json({ limit: '10mb' }));
   app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
-  // Enable CORS for frontend
-  const corsOrigins = [
-    'http://localhost:5173',
-    'http://localhost:8080',
-    'http://localhost:3000',
-    'https://invoicesoftwareforage.up.railway.app', 
-  ];
-  
-  // Add FRONTEND_URL from env if provided
-  if (process.env.FRONTEND_URL) {
-    corsOrigins.push(...process.env.FRONTEND_URL.split(','));
-  }
+  // Temporary: allow all origins by reflecting request origin.
+  // NOTE: Using "*" does not work with credentials: true.
+  console.log('🌐 CORS mode: allow all origins (temporary)');
 
   app.enableCors({
-    origin: corsOrigins,
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],

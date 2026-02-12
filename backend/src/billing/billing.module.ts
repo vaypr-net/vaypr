@@ -10,6 +10,8 @@ import { BillingPlan, BillingPlanSchema } from '../billing-plan/entities/billing
 import { Transaction, TransactionSchema } from '../transcations/entities/transcation.entity';
 import { ActivityModule } from '../activity/activity.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CommonModule } from '../common/common.module';
+import { CurrencyService } from '../common/services/currency.service';
 
 /**
  * BillingModule - Stripe Checkout subscriptions
@@ -43,6 +45,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 @Module({
   imports: [
     ConfigModule,
+    CommonModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -59,7 +62,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
     ActivityModule,
   ],
   controllers: [BillingController, BillingWebhookController],
-  providers: [StripeService, JwtAuthGuard],
+  providers: [StripeService, JwtAuthGuard, CurrencyService],
   exports: [StripeService],
 })
 export class BillingModule {}

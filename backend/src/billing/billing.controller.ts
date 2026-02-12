@@ -47,7 +47,7 @@ export class BillingController {
     @Body() body: CreateCheckoutSessionDto,
     @Request() req: any,
   ) {
-    const { planId, billingCycle } = body;
+    const { planId, billingCycle, currency = 'USD' } = body;
 
     if (!planId || !billingCycle) {
       throw new BadRequestException('planId and billingCycle are required');
@@ -58,6 +58,7 @@ export class BillingController {
         req.user.sub, // userId from JWT
         planId,
         billingCycle,
+        currency,
       );
       return result;
     } catch (error) {
