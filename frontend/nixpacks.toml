@@ -1,5 +1,5 @@
-# Nixpacks configuration for Backend service
-# For Railway service deployed at /backend root
+# Nixpacks configuration for Frontend service
+# For Railway service deployed at /frontend root
 # No cd commands needed
 
 [phases.setup]
@@ -16,4 +16,4 @@ cmds = [
 ]
 
 [start]
-cmd = "npm run start:prod"
+cmd = "npm run preview -- --port $PORT --host 0.0.0.0"
