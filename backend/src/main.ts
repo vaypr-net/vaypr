@@ -15,14 +15,15 @@ async function bootstrap() {
   app.use(bodyParser.json({ limit: '10mb' }));
   app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
-  // CORS Configuration - Allow specific origins
+  // CORS Configuration - Read from environment or use defaults
   const allowedOrigins = [
-    'https://invoicesoftwareforage.up.railway.app',
-    'http://localhost:8080',
+    process.env.FRONTEND_URL || 'http://localhost:8080',
+    'https://vayper-production.up.railway.app', // Remove trailing slash
     'http://localhost:5173', // Vite dev server
-  ];
+  ].filter(Boolean); // Remove empty/undefined values
   
   console.log('🌐 CORS: Allowed origins:', allowedOrigins);
+  console.log('🌐 CORS: Using FRONTEND_URL from env:', process.env.FRONTEND_URL);
 
   app.enableCors({
     origin: (origin, callback) => {
