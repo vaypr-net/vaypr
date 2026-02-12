@@ -37,6 +37,7 @@ Thumbs.db
 *.tmp
 .cache/
 
-# Workspace root lock file (only backend manages its own lock)
+# All lock files - let Railway generate platform-specific ones
 /package-lock.json
 /frontend/package-lock.json
+/backend/package-lock.json
