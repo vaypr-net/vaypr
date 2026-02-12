@@ -15,25 +15,16 @@ async function bootstrap() {
   app.use(bodyParser.json({ limit: '10mb' }));
   app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
-  // CORS Configuration - Allow requests from frontend
-  const allowedOrigins = [
-    // Local development
-    'http://localhost:8080',
-    //allow the origin of the frontend deployed on railway
-    'https://invoicesoftwareforage.up.railway.app',
-   
-    process.env.FRONTEND_URL,
-  ].filter(Boolean); // Remove undefined values
-
-  console.log('🌐 CORS Allowed Origins:', allowedOrigins);
+  // CORS Configuration - Allow ALL origins for now
+  console.log('🌐 CORS: Allowing all origins (*)');
 
   app.enableCors({
-    origin: allowedOrigins,
-    credentials: true,
+    origin: '*', // Allow all origins
+    credentials: false, // Must be false when origin is '*'
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     exposedHeaders: ['Content-Length', 'X-JSON-Response'],
-    maxAge: 3600, // Cache preflight for 1 hour
+    maxAge: 3600,
   });
 
   app.useGlobalPipes(
