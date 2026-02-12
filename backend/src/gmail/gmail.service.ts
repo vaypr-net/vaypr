@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, UnauthorizedException, InternalServerE
 import { ConfigService } from '@nestjs/config';
 import { google } from 'googleapis';
 import { UserService } from '../user/user.service';
+import { BrevoService } from '../brevo/brevo.service';
 
 /**
  * Gmail Service
@@ -31,6 +32,7 @@ export class GmailService {
   constructor(
     private readonly configService: ConfigService,
     private readonly userService: UserService,
+    private readonly brevoService: BrevoService,
   ) {
     // Initialize Google OAuth2 client
     this.oauth2Client = new google.auth.OAuth2(
@@ -195,13 +197,13 @@ export class GmailService {
   }
 
   /**
-   * Send email from user's Gmail account
+   * Send email from user's account
    * 
-   * CRITICAL: Email is sent as the authenticated user (from their Gmail)
-   * - User MUST have granted gmail.send permission
-   * - Email sender will be: user's Gmail address
-   * - No spoofing, no SMTP
-   * - Passes SPF/DKIM/DMARC automatically via Google
+   * Supports two methods:
+   * 1. Gmail API (if user has connected Google account)
+   * 2. Brevo API (if user has verified custom domain)
+   * 
+   * Tries Gmail first if available, falls back to Brevo for users without Google connection
    * 
    * @param userId - User ID from JWT token
    * @param to - Recipient email address
@@ -212,6 +214,71 @@ export class GmailService {
    * @returns Success message
    */
   async sendEmailFromUser(
+    userId: string,
+    to: string,
+    subject: string,
+    htmlBody: string,
+    attachmentData?: string,
+    attachmentFilename?: string,
+  ): Promise<{ success: boolean; message: string; messageId?: string }> {
+    // Get user data
+    const user = await this.userService.findOne(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Try Gmail API first if user has Google connection
+    if (user.googleAccessToken) {
+      try {
+        return await this.sendViaGmail(
+          userId,
+          to,
+          subject,
+          htmlBody,
+          attachmentData,
+          attachmentFilename,
+        );
+      } catch (error) {
+        // If Gmail fails with auth error, fallback to Brevo
+        if (error instanceof UnauthorizedException) {
+          console.log('[Email] Gmail auth failed, attempting Brevo fallback');
+          // Continue to Brevo fallback logic below
+        } else {
+          // Other errors (not auth) should be thrown
+          throw error;
+        }
+      }
+    }
+
+    // Fallback to Brevo if user has verified domains
+    if (user.verifiedDomains && user.verifiedDomains.length > 0) {
+      try {
+        return await this.sendViaBrevo(
+          user.verifiedDomains[0], // Use first verified domain as sender
+          to,
+          subject,
+          htmlBody,
+          attachmentData,
+          attachmentFilename,
+        );
+      } catch (brevoError) {
+        console.error('[Email] Brevo send failed:', brevoError);
+        throw new InternalServerErrorException(
+          'Failed to send email via Brevo. Please ensure your domain is verified.',
+        );
+      }
+    }
+
+    // No Gmail connection and no verified domains
+    throw new UnauthorizedException(
+      'Cannot send email: Please either connect your Google account or add a verified custom domain.',
+    );
+  }
+
+  /**
+   * Send email via Gmail API
+   */
+  private async sendViaGmail(
     userId: string,
     to: string,
     subject: string,
@@ -255,9 +322,9 @@ export class GmailService {
         messageId: response.data.id || undefined,
       };
     } catch (error) {
-      // Handle different error scenarios
+      // Re-throw auth errors so fallback can be attempted
       if (error instanceof UnauthorizedException) {
-        throw error; // Re-throw auth errors
+        throw error;
       }
 
       // Gmail API error
@@ -265,6 +332,42 @@ export class GmailService {
       throw new InternalServerErrorException(
         'Failed to send email via Gmail API. Please try again later.',
       );
+    }
+  }
+
+  /**
+   * Send email via Brevo API
+   */
+  private async sendViaBrevo(
+    senderDomain: string,
+    to: string,
+    subject: string,
+    htmlBody: string,
+    attachmentData?: string,
+    attachmentFilename?: string,
+  ): Promise<{ success: boolean; message: string; messageId?: string }> {
+    try {
+      // Use a default sender like noreply@domain.com for custom domains
+      const fromEmail = `noreply@${senderDomain}`;
+      
+      const result = await this.brevoService.sendEmail(
+        fromEmail,
+        to,
+        subject,
+        htmlBody,
+        attachmentData,
+        attachmentFilename,
+      );
+
+      const attachmentMsg = attachmentFilename ? ` with attachment (${attachmentFilename})` : '';
+      return {
+        success: result.success,
+        message: `Email sent successfully from ${senderDomain}${attachmentMsg}`,
+        messageId: result.messageId,
+      };
+    } catch (error) {
+      console.error('Brevo API error:', error);
+      throw error;
     }
   }
 

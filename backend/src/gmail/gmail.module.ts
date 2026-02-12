@@ -4,11 +4,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { GmailService } from './gmail.service';
 import { GmailController } from './gmail.controller';
 import { UserModule } from '../user/user.module';
+import { BrevoModule } from '../brevo/brevo.module';
 
 @Module({
   imports: [
     ConfigModule,
     UserModule,
+    BrevoModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

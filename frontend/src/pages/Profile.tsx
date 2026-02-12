@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,6 +42,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import axios from '@/api/axios';
 import {
   User,
   Mail,
@@ -186,7 +187,7 @@ const DEFAULT_SUBSCRIPTION: Subscription = {
 };
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { toast } = useToast();
   
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -195,6 +196,7 @@ export default function Profile() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   
   // Notification preferences
   const [notifications, setNotifications] = useState({
@@ -240,13 +242,100 @@ export default function Profile() {
   const subscription = user?.subscription || DEFAULT_SUBSCRIPTION;
   const currentPlanInfo = SUBSCRIPTION_PLANS[subscription.plan];
 
-  const handleUpdateProfile = () => {
-    // In a real app, this would call an API
-    toast({
-      title: 'Profile Updated',
-      description: 'Your profile information has been saved successfully.',
-    });
-    setIsEditingProfile(false);
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user?.id) return;
+      try {
+        const response = await axios.get('/userprofile');
+        const profile = response.data;
+
+        setProfileForm((prev) => ({
+          ...prev,
+          name: profile?.fullName || user.fullName || user.name || '',
+          email: profile?.email || user.email || '',
+          phone: profile?.phoneNumber || '',
+          company: profile?.companyName || '',
+          address: profile?.businessAddress || '',
+          timezone: profile?.timeZone || 'UTC',
+        }));
+
+        updateUser({
+          ...user,
+          fullName: profile?.fullName || user.fullName,
+          name: profile?.fullName || user.name || user.fullName,
+          email: profile?.email || user.email,
+          avatar: user.avatar || profile?.profileImage,
+        } as any);
+      } catch {
+        // No userprofile yet is valid for some manual users; keep current form defaults.
+      }
+    };
+
+    loadProfile();
+  }, [user?.id]);
+
+  const handleUpdateProfile = async () => {
+    if (!user?.id) {
+      toast({
+        title: 'Update Failed',
+        description: 'User not found. Please log in again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Prevent multiple submissions
+    if (isSavingProfile) return;
+    setIsSavingProfile(true);
+
+    try {
+      // Keep core user record in sync for auth/sidebar display.
+      await axios.patch(`/user/${user.id}`, {
+        fullName: profileForm.name,
+        email: profileForm.email,
+      });
+
+      const profilePayload = {
+        fullName: profileForm.name,
+        email: profileForm.email,
+        phoneNumber: profileForm.phone,
+        companyName: profileForm.company,
+        businessAddress: profileForm.address,
+        timeZone: profileForm.timezone,
+      };
+
+      // Update profile document; create it if it does not exist.
+      try {
+        await axios.patch('/userprofile', profilePayload);
+      } catch (profileError: any) {
+        if (profileError?.response?.status === 404) {
+          await axios.post('/userprofile', profilePayload);
+        } else {
+          throw profileError;
+        }
+      }
+
+      updateUser({
+        ...user,
+        fullName: profileForm.name,
+        name: profileForm.name,
+        email: profileForm.email,
+      } as any);
+
+      toast({
+        title: 'Profile Updated',
+        description: 'Your profile information has been saved successfully.',
+      });
+      setIsEditingProfile(false);
+    } catch (error: any) {
+      toast({
+        title: 'Update Failed',
+        description: error?.response?.data?.message || 'Could not update profile.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const handleChangePassword = () => {
@@ -338,9 +427,12 @@ export default function Profile() {
         throw new Error('Failed to update profile');
       }
 
-      // Update local state to show new image
+      // Sync avatar into auth context/localStorage
       if (user) {
-        user.avatar = imageUrl;
+        updateUser({
+          ...user,
+          avatar: imageUrl,
+        } as any);
       }
 
       toast({
@@ -431,8 +523,14 @@ export default function Profile() {
                   <Button
                     variant={isEditingProfile ? 'default' : 'outline'}
                     onClick={() => isEditingProfile ? handleUpdateProfile() : setIsEditingProfile(true)}
+                    disabled={isSavingProfile}
                   >
-                    {isEditingProfile ? (
+                    {isSavingProfile ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : isEditingProfile ? (
                       <>
                         <Check className="h-4 w-4 mr-2" />
                         Save Changes
