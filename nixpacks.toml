@@ -1,7 +1,7 @@
 # Nixpacks configuration for Vayper Frontend
 
 [phases.setup]
-nixPkgs = ["nodejs-20_19"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = [
