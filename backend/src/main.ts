@@ -61,8 +61,8 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, documentFactory);
 
   const port = process.env.PORT ?? 8081;
-  await app.listen(port);
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`🚀 Backend API is running on: http://0.0.0.0:${port}`);
 
   console.log(`📚 Swagger API docs available at: http://localhost:${port}/api`);
   console.log(`⚡ Deployment Version: ${new Date().toISOString()}`);
