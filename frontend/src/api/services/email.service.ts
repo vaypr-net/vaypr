@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 export interface SendEmailRequest {
   to: string;
@@ -52,7 +52,7 @@ class EmailServiceClass {
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 401) {
-        throw new Error('Email permission not granted. Please log in with Gmail.');
+        throw new Error(error.response?.data?.message || 'Email permission not granted.');
       }
       
       throw new Error(error.response?.data?.message || 'Failed to send email');

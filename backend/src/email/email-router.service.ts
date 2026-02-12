@@ -18,6 +18,14 @@ export class EmailRouterService {
     private readonly userService: UserService,
   ) {}
 
+  private getDomainFromEmail(email: string): string | null {
+    const parts = (email || '').toLowerCase().split('@');
+    if (parts.length !== 2 || !parts[1]) {
+      return null;
+    }
+    return parts[1].trim();
+  }
+
   /**
    * Send email via appropriate service (Gmail or Brevo)
    * 
@@ -43,18 +51,24 @@ export class EmailRouterService {
       throw new BadRequestException('User not found');
     }
 
-    console.log(`[EmailRouter] User email: ${user.email}, brandingDomain: ${user.brandingDomain || 'NONE'}`);
+    const emailDomain = this.getDomainFromEmail(user.email);
+    const brandingDomain = user.brandingDomain?.trim().toLowerCase() || '';
+    const verifiedDomains = (user.verifiedDomains || []).map((d) => d.trim().toLowerCase());
 
-    // If user has a verified branding domain → use Brevo ONLY (no Gmail fallback)
-    if (user.brandingDomain && user.brandingDomain.trim() !== '') {
-      console.log(`[EmailRouter] ✓ Sending via Brevo domain: ${user.brandingDomain}`);
+    const shouldTryBrevo =
+      !!brandingDomain ||
+      (!!emailDomain && verifiedDomains.includes(emailDomain)) ||
+      !!emailDomain;
 
-      // Use user's own email address as sender (e.g., "ali@softwareforge.tech")
-      const senderEmail = user.email;
+    console.log(
+      `[EmailRouter] User email: ${user.email}, brandingDomain: ${brandingDomain || 'NONE'}, emailDomain: ${emailDomain || 'NONE'}`,
+    );
 
+    // Prefer Brevo for custom-domain style users.
+    if (shouldTryBrevo) {
       try {
         const result = await this.brevoService.sendEmail(
-          senderEmail,
+          user.email,
           toEmail,
           subject,
           htmlBody,
@@ -67,13 +81,18 @@ export class EmailRouterService {
           sentVia: 'brevo',
         };
       } catch (error) {
-        console.error(`[EmailRouter] Brevo send failed:`, error.message);
-        throw error; // Don't fallback to Gmail - fail if Brevo fails
+        console.error(`[EmailRouter] Brevo send failed for ${user.email}:`, error.message);
+        // If Brevo fails but user has Gmail connected, fallback to Gmail.
+        if (!user.googleAccessToken) {
+          throw new BadRequestException(
+            'Failed to send via custom domain. Verify your Brevo domain DNS/authentication or connect Google account.',
+          );
+        }
       }
     }
 
-    // No branding domain → use Gmail
-    console.log(`[EmailRouter] ✗ No branding domain. Sending via Gmail`);
+    // Fallback to Gmail
+    console.log(`[EmailRouter] Sending via Gmail fallback`);
 
     const result = await this.gmailService.sendEmailFromUser(
       userId,
