@@ -36,5 +36,7 @@ Thumbs.db
 # Temp files
 *.tmp
 .cache/
-# Workspace root lock file (each workspace manages its own)
-/package-lock.json/frontend/package-lock.json
+
+# Workspace root lock file (only backend manages its own lock)
+/package-lock.json
+/frontend/package-lock.json
