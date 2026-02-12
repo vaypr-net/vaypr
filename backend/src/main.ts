@@ -15,15 +15,28 @@ async function bootstrap() {
   app.use(bodyParser.json({ limit: '10mb' }));
   app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
-  // Temporary: allow all origins by reflecting request origin.
-  // NOTE: Using "*" does not work with credentials: true.
-  console.log('🌐 CORS mode: allow all origins (temporary)');
+  // CORS Configuration - Allow requests from frontend
+  const allowedOrigins = [
+    // Local development
+    'http://localhost:8080',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    // Production
+    'https://invoicesoftwareforage.up.railway.app',
+    // Add environment variable for dynamic frontend URL
+    process.env.FRONTEND_URL,
+  ].filter(Boolean); // Remove undefined values
+
+  console.log('🌐 CORS Allowed Origins:', allowedOrigins);
 
   app.enableCors({
-    origin: true,
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    exposedHeaders: ['Content-Length', 'X-JSON-Response'],
+    maxAge: 3600, // Cache preflight for 1 hour
   });
 
   app.useGlobalPipes(
@@ -48,6 +61,7 @@ async function bootstrap() {
   const port = process.env.PORT ?? 8081;
   await app.listen(port);
   console.log(`🚀 Application is running on: http://localhost:${port}`);
+
   console.log(`📚 Swagger API docs available at: http://localhost:${port}/api`);
 }
 bootstrap();
