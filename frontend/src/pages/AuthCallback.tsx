@@ -38,7 +38,8 @@ export default function AuthCallback() {
         const payload = JSON.parse(atob(token.split('.')[1]));
         
         // Fetch user data from backend using token
-        const response = await fetch('http://localhost:8081/userprofile', {
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+        const response = await fetch(`${apiBaseUrl}/userprofile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
