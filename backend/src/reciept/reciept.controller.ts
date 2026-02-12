@@ -38,11 +38,26 @@ export class RecieptController {
     @UploadedFile() logo: Express.Multer.File,
     @Request() req,
   ) {
-    if (logo) {
-      const result = await this.cloudinaryService.uploadImage(logo);
-      createReceiptDto.logo = result.secure_url;
+    try {
+      if (logo) {
+        // Validate file size (max 5MB)
+        if (logo.size > 5 * 1024 * 1024) {
+          throw new Error('Image file too large. Maximum size is 5MB');
+        }
+
+        // Validate file type
+        if (!logo.mimetype.startsWith('image/')) {
+          throw new Error('Invalid file type. Only images are allowed');
+        }
+
+        const result = await this.cloudinaryService.uploadImage(logo, 'receipts');
+        createReceiptDto.logo = result.secure_url;
+      }
+      return this.recieptService.create(createReceiptDto, req.user.userId);
+    } catch (error) {
+      console.error('[Receipt Create] Error:', error);
+      throw error;
     }
-    return this.recieptService.create(createReceiptDto, req.user.userId);
   }
 
   @Get()
@@ -77,11 +92,26 @@ export class RecieptController {
     @UploadedFile() logo: Express.Multer.File,
     @Request() req,
   ) {
-    if (logo) {
-      const result = await this.cloudinaryService.uploadImage(logo);
-      updateReceiptDto.logo = result.secure_url;
+    try {
+      if (logo) {
+        // Validate file size (max 5MB)
+        if (logo.size > 5 * 1024 * 1024) {
+          throw new Error('Image file too large. Maximum size is 5MB');
+        }
+
+        // Validate file type
+        if (!logo.mimetype.startsWith('image/')) {
+          throw new Error('Invalid file type. Only images are allowed');
+        }
+
+        const result = await this.cloudinaryService.uploadImage(logo, 'receipts');
+        updateReceiptDto.logo = result.secure_url;
+      }
+      return this.recieptService.update(id, updateReceiptDto, req.user.userId);
+    } catch (error) {
+      console.error('[Receipt Update] Error:', error);
+      throw error;
     }
-    return this.recieptService.update(id, updateReceiptDto, req.user.userId);
   }
 
   @Delete(':id')

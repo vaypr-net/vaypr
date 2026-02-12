@@ -38,11 +38,26 @@ export class InvoiceController {
     @UploadedFile() logo: Express.Multer.File,
     @Request() req,
   ) {
-    if (logo) {
-      const result = await this.cloudinaryService.uploadImage(logo);
-      createInvoiceDto.logo = result.secure_url;
+    try {
+      if (logo) {
+        // Validate file size (max 5MB)
+        if (logo.size > 5 * 1024 * 1024) {
+          throw new Error('Image file too large. Maximum size is 5MB');
+        }
+
+        // Validate file type
+        if (!logo.mimetype.startsWith('image/')) {
+          throw new Error('Invalid file type. Only images are allowed');
+        }
+
+        const result = await this.cloudinaryService.uploadImage(logo, 'invoices');
+        createInvoiceDto.logo = result.secure_url;
+      }
+      return this.invoiceService.create(createInvoiceDto, req.user.userId);
+    } catch (error) {
+      console.error('[Invoice Create] Error:', error);
+      throw error;
     }
-    return this.invoiceService.create(createInvoiceDto, req.user.userId);
   }
 
   @Get()
@@ -72,11 +87,26 @@ export class InvoiceController {
     @UploadedFile() logo: Express.Multer.File,
     @Request() req,
   ) {
-    if (logo) {
-      const result = await this.cloudinaryService.uploadImage(logo);
-      updateInvoiceDto.logo = result.secure_url;
+    try {
+      if (logo) {
+        // Validate file size (max 5MB)
+        if (logo.size > 5 * 1024 * 1024) {
+          throw new Error('Image file too large. Maximum size is 5MB');
+        }
+
+        // Validate file type
+        if (!logo.mimetype.startsWith('image/')) {
+          throw new Error('Invalid file type. Only images are allowed');
+        }
+
+        const result = await this.cloudinaryService.uploadImage(logo, 'invoices');
+        updateInvoiceDto.logo = result.secure_url;
+      }
+      return this.invoiceService.update(id, updateInvoiceDto, req.user.userId);
+    } catch (error) {
+      console.error('[Invoice Update] Error:', error);
+      throw error;
     }
-    return this.invoiceService.update(id, updateInvoiceDto, req.user.userId);
   }
 
   @Delete(':id')
