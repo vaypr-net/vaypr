@@ -19,12 +19,9 @@ async function bootstrap() {
   const allowedOrigins = [
     // Local development
     'http://localhost:8080',
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    // Production
+    //allow the origin of the frontend deployed on railway
     'https://invoicesoftwareforage.up.railway.app',
-    // Add environment variable for dynamic frontend URL
+   
     process.env.FRONTEND_URL,
   ].filter(Boolean); // Remove undefined values
 
@@ -63,5 +60,6 @@ async function bootstrap() {
   console.log(`🚀 Application is running on: http://localhost:${port}`);
 
   console.log(`📚 Swagger API docs available at: http://localhost:${port}/api`);
+  console.log(`⚡ Deployment Version: ${new Date().toISOString()}`);
 }
 bootstrap();
