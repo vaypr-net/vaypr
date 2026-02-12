@@ -1,0 +1,41 @@
+# Exclude local node_modules to prevent darwin packages in Docker build
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+build/
+*/dist/
+*/build/
+
+# Environment files (load from Railway secrets instead)
+.env
+.env.local
+.env.*.local
+*/.env
+*/.env.local
+
+# Git and VCS
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+coverage/
+*.test.*
+*.spec.*
+
+# Temp
+.cache/
+.turbo/
