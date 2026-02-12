@@ -24,7 +24,7 @@ import {
 import { Globe, Save, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
 
 interface BillingPlan {
   _id: string;
