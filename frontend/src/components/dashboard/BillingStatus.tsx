@@ -7,6 +7,7 @@ import { billingService } from '@/api/services/billing.service';
 import { Check, AlertCircle, ArrowRight, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import CancelSubscriptionDialog from '@/components/billing/CancelSubscriptionDialog';
+import { CURRENCY_CONFIG } from '@/config/currency.config';
 
 interface BillingPlan {
   _id: string;
@@ -134,14 +135,14 @@ export function BillingStatus() {
                 {currentPlan && currentPlan.price > 0 && (
                   <div className="flex items-baseline gap-2">
                     <div className="text-3xl font-bold text-primary">
-                      KWD {currentPlan.price.toFixed(2)}
+                      {currentPlan.displayCurrency || CURRENCY_CONFIG.displayCurrency} {(currentPlan.priceInDisplayCurrency || currentPlan.price).toFixed(2)}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       /{subscription?.billingCycle === 'yearly' ? 'year' : 'month'}
                     </div>
                     {subscription?.billingCycle === 'yearly' && (
                       <div className="text-xs text-muted-foreground ml-2 px-2 py-1 bg-muted rounded">
-                        ~KWD {(currentPlan.price / 12).toFixed(2)}/mo
+                        ~{currentPlan.displayCurrency || CURRENCY_CONFIG.displayCurrency} {((currentPlan.priceInDisplayCurrency || currentPlan.price) / 12).toFixed(2)}/mo
                       </div>
                     )}
                   </div>

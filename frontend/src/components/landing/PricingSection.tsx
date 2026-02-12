@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { CURRENCY_CONFIG, convertToDisplayCurrency } from "@/config/currency.config";
 
 interface Plan {
   _id: string;
@@ -46,12 +47,15 @@ const staticEnterprisePlan = {
 
 export function PricingSection() {
   const [isYearly, setIsYearly] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState(CURRENCY_CONFIG.displayCurrency); // Default to KWD
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null); // Track which plan is being checked out
   const { user, token } = useAuth();
   const navigate = useNavigate();
+
+  const supportedCurrencies = CURRENCY_CONFIG.supportedCurrencies;
 
   // Fetch plans from API
   useEffect(() => {
@@ -127,6 +131,7 @@ export function PricingSection() {
         body: JSON.stringify({
           planId: plan._id,
           billingCycle: isYearly ? 'yearly' : 'monthly',
+          currency: selectedCurrency,
         }),
       });
 
@@ -250,6 +255,24 @@ export function PricingSection() {
           </div>
         </div>
 
+        {/* Currency Selector */}
+        <div className="flex justify-center mt-8 mb-12">
+          <div className="inline-flex items-center gap-3 bg-muted rounded-full p-2">
+            <span className="text-sm font-medium text-foreground px-3">Currency:</span>
+            <select
+              value={selectedCurrency}
+              onChange={(e) => setSelectedCurrency(e.target.value)}
+              className="px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-foreground border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              {supportedCurrencies.map((curr) => (
+                <option key={curr} value={curr}>
+                  {curr}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {displayPlans.map((plan, index) => (
@@ -285,15 +308,27 @@ export function PricingSection() {
                   </div>
                 ) : (
                   <div>
-                    <div className="flex items-baseline gap-1 mb-2">
+                    {/* Show KWD Price (default) or other currency */}
+                    <div className="flex items-baseline gap-2 mb-2">
                       <span className="text-4xl font-bold text-foreground">
-                        {plan.currency.toUpperCase()}
-                        {getDisplayPrice(plan).toFixed(2)}
+                        {selectedCurrency === 'KWD' || selectedCurrency === CURRENCY_CONFIG.displayCurrency
+                          ? `${convertToDisplayCurrency(plan.price).toFixed(2)}`
+                          : `~${convertToDisplayCurrency(plan.price).toFixed(2)}`}
                       </span>
-                      <span className="text-muted-foreground">/{isYearly ? "year" : "month"}</span>
+                      <span className="text-lg font-semibold text-foreground">
+                        {selectedCurrency}
+                      </span>
                     </div>
+                    <span className="text-xs text-muted-foreground">
+                      /{isYearly ? "year" : "month"}
+                    </span>
+                    {selectedCurrency !== CURRENCY_CONFIG.displayCurrency && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        (Billing in {selectedCurrency} at checkout)
+                      </p>
+                    )}
                     {isYearly && (
-                      <p className="text-xs text-green-600 font-medium">
+                      <p className="text-xs text-green-600 font-medium mt-2">
                         Save 15% annually
                       </p>
                     )}

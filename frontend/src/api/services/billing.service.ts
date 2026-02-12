@@ -72,16 +72,21 @@ export const billingService = {
   /**
    * Create a checkout session for subscription upgrade
    * Returns URL to redirect user to Stripe Checkout
+   * @param planId - The billing plan ID
+   * @param billingCycle - 'monthly' or 'yearly'
+   * @param currency - Optional currency code (USD, AED, QAR, etc.). Defaults to USD
    */
   async createCheckoutSession(
     planId: string,
     billingCycle: 'monthly' | 'yearly',
+    currency: string = 'USD',
   ): Promise<CheckoutSessionResponse> {
     const response = await axios.post<CheckoutSessionResponse>(
       `${BASE_URL}/checkout-session`,
       {
         planId,
         billingCycle,
+        currency,
       },
     );
     return response.data;
