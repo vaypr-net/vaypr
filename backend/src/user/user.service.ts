@@ -355,4 +355,39 @@ export class UserService {
 
     return user;
   }
+
+  /**
+   * Change user password
+   * 
+   * Verifies current password before allowing password change
+   * @param userId - User ID
+   * @param changePasswordDto - Current password and new password
+   * @returns Success message
+   */
+  async changePassword(userId: string, changePasswordDto: any): Promise<{ message: string }> {
+    // Validate password match
+    if (changePasswordDto.newPassword !== changePasswordDto.confirmPassword) {
+      throw new BadRequestException('New password and confirm password do not match');
+    }
+
+    // Get user from database
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(changePasswordDto.currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
+
+    // Update password in database
+    await this.userModel.findByIdAndUpdate(userId, { password: hashedPassword });
+
+    return { message: 'Password changed successfully' };
+  }
 }

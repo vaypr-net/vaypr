@@ -194,6 +194,8 @@ export default function Profile() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordLastChanged, setPasswordLastChanged] = useState<Date | null>(null);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -338,7 +340,7 @@ export default function Profile() {
     }
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast({
         title: 'Password Mismatch',
@@ -347,20 +349,44 @@ export default function Profile() {
       });
       return;
     }
-    if (passwordForm.newPassword.length < 8) {
+    if (passwordForm.newPassword.length < 6) {
       toast({
         title: 'Password Too Short',
-        description: 'Password must be at least 8 characters.',
+        description: 'Password must be at least 6 characters.',
         variant: 'destructive',
       });
       return;
     }
-    toast({
-      title: 'Password Changed',
-      description: 'Your password has been updated successfully.',
-    });
-    setIsChangingPassword(false);
-    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    if (!passwordForm.currentPassword) {
+      toast({
+        title: 'Current Password Required',
+        description: 'Please enter your current password.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await axios.patch('/user/change-password/self', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword,
+      });
+
+      setPasswordLastChanged(new Date());
+      toast({
+        title: 'Password Changed',
+        description: 'Your password has been updated successfully.',
+      });
+      setIsChangingPassword(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      toast({
+        title: 'Password Change Failed',
+        description: error?.response?.data?.message || 'Could not change password. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1017,11 +1043,14 @@ export default function Profile() {
                 <CardDescription>Manage your password and security settings</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50">
                   <div>
-                    <h4 className="font-medium">Password</h4>
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Check className="h-4 w-4 text-green-600" />
+                      Password
+                    </h4>
                     <p className="text-sm text-muted-foreground">
-                      Last changed: Never
+                      Last changed: {passwordLastChanged ? format(passwordLastChanged, 'MMM dd, yyyy \'at\' HH:mm') : 'Never'}
                     </p>
                   </div>
                   <Dialog open={isChangingPassword} onOpenChange={setIsChangingPassword}>
@@ -1078,12 +1107,23 @@ export default function Profile() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="confirm-password">Confirm New Password</Label>
-                          <Input
-                            id="confirm-password"
-                            type="password"
-                            value={passwordForm.confirmPassword}
-                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                          />
+                          <div className="relative">
+                            <Input
+                              id="confirm-password"
+                              type={showConfirmPassword ? 'text' : 'password'}
+                              value={passwordForm.confirmPassword}
+                              onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-full"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            >
+                              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                       <DialogFooter>
