@@ -1,0 +1,31 @@
+# Root Nixpacks - Detects backend vs frontend based on RAILWAY_SERVICE_NAME
+# If using separate services, each should have its own nixpacks.toml in /backend and /frontend
+
+# FOR BACKEND SERVICE (Set RAILWAY_SERVICE_NAME=backend or use /backend/nixpacks.toml):
+# - Install from backend/package.json
+# - Build backend
+# - Start NestJS server
+
+# FOR FRONTEND SERVICE (Set RAILWAY_SERVICE_NAME=frontend or use /frontend/nixpacks.toml):
+# - Install from frontend/package.json  
+# - Build frontend with Vite
+# - Start Vite preview server
+
+# DEFAULT: Assume this is the frontend service
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = [
+  "cd frontend",
+  "npm install"
+]
+
+[phases.build]
+cmds = [
+  "cd frontend",
+  "npm run build"
+]
+
+[start]
+cmd = "cd frontend && npm run preview -- --port $PORT --host 0.0.0.0"
