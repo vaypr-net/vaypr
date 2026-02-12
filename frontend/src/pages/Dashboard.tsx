@@ -126,7 +126,7 @@ export default function Dashboard() {
                   <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>No invoices yet</p>
                   <Button variant="link" asChild className="mt-2">
-                    <Link to="/dashboard/invoices/new">Create your first invoice</Link>
+                    <Link to="/generator?tab=invoice">Create your first invoice</Link>
                   </Button>
                 </div>
               ) : (
@@ -170,7 +170,7 @@ export default function Dashboard() {
                   <FileCheck className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>No quotes yet</p>
                   <Button variant="link" asChild className="mt-2">
-                    <Link to="/dashboard/quotes">Create your first quote</Link>
+                    <Link to="/generator?tab=quote">Create your first quote</Link>
                   </Button>
                 </div>
               ) : (

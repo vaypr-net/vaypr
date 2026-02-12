@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useSignup } from '@/hooks/api/useAuth';
 
@@ -14,6 +14,8 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<{
     fullName?: string;
     email?: string;
@@ -278,7 +280,7 @@ export default function Signup() {
                   <div className="relative">
                     <Input
                       id="password"
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => {
@@ -290,8 +292,20 @@ export default function Signup() {
                       }}
                       onBlur={handlePasswordBlur}
                       required
-                      className={`h-11 pr-10 ${errors.password ? 'border-destructive' : password && !errors.password ? 'border-green-500' : ''}`}
+                      className={`h-11 pl-10 pr-10 ${errors.password ? 'border-destructive' : password && !errors.password ? 'border-green-500' : ''}`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
                     {password && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         {errors.password ? (
@@ -315,7 +329,7 @@ export default function Signup() {
                   <div className="relative">
                     <Input
                       id="confirmPassword"
-                      type="password"
+                      type={showConfirmPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={confirmPassword}
                       onChange={(e) => {
@@ -324,8 +338,20 @@ export default function Signup() {
                       }}
                       onBlur={handleConfirmPasswordBlur}
                       required
-                      className={`h-11 pr-10 ${errors.confirmPassword ? 'border-destructive' : confirmPassword && !errors.confirmPassword && password === confirmPassword ? 'border-green-500' : ''}`}
+                      className={`h-11 pl-10 pr-10 ${errors.confirmPassword ? 'border-destructive' : confirmPassword && !errors.confirmPassword && password === confirmPassword ? 'border-green-500' : ''}`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
                     {confirmPassword && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         {errors.confirmPassword ? (
