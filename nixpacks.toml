@@ -12,7 +12,7 @@ cmds = [
 [phases.build]
 cmds = [
   "cd frontend",
-  "NODE_ENV=production npm run build"
+  "npm run build"
 ]
 
 [start]

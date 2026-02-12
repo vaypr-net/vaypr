@@ -4,6 +4,7 @@
   "description": "Vayper - Invoice, Quote, and Receipt Management System",
   "private": true,
   "scripts": {
+    "build": "cd frontend && npm run build",
     "frontend": "cd frontend && npm run dev",
     "backend": "cd backend && npm run start:dev",
     "build:frontend": "cd frontend && npm run build",
