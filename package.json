@@ -3,10 +3,6 @@
   "version": "1.0.0",
   "description": "Vayper - Invoice, Quote, and Receipt Management System",
   "private": true,
-  "engines": {
-    "node": ">=20.19.0",
-    "npm": ">=10.0.0"
-  },
   "scripts": {
     "frontend": "cd frontend && npm run dev",
     "backend": "cd backend && npm run start:dev",
