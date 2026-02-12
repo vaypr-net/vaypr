@@ -199,6 +199,7 @@ export default function Profile() {
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   
   // Notification preferences
   const [notifications, setNotifications] = useState({
@@ -239,6 +240,7 @@ export default function Profile() {
   });
 
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const subscription = user?.subscription || DEFAULT_SUBSCRIPTION;
@@ -260,6 +262,26 @@ export default function Profile() {
           address: profile?.businessAddress || '',
           timezone: profile?.timeZone || 'UTC',
         }));
+
+        // Load notification preferences
+        setNotifications((prev) => ({
+          invoiceDueSoon: profile?.invoiceDueSoon !== false,
+          invoiceOverdue: profile?.invoiceOverdue !== false,
+          quoteViewed: profile?.quoteViewed !== false,
+          quoteAccepted: profile?.quoteAccepted !== false,
+          quoteRejected: profile?.quoteRejected !== false,
+          quoteExpired: profile?.quoteExpired !== false,
+          upcomingRenewal: profile?.upcomingRenewal !== false,
+          renewalSuccessful: profile?.renewalSuccessful !== false,
+          renewalPaymentFailed: profile?.renewalPaymentFailed !== false,
+          subscriptionChanged: profile?.subscriptionChanged !== false,
+          supportAgentReplied: profile?.supportAgentReplied !== false,
+          ticketResolved: profile?.ticketResolved !== false,
+          pushNotifications: profile?.pushNotifications !== false,
+        }));
+
+        // Set superadmin flag
+        setIsSuperAdmin(profile?.isSuperAdmin || false);
 
         updateUser({
           ...user,
@@ -386,6 +408,29 @@ export default function Profile() {
         description: error?.response?.data?.message || 'Could not change password. Please try again.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleSaveNotifications = async (notificationsToSave?: typeof notifications) => {
+    const prefsToSave = notificationsToSave || notifications;
+    
+    if (isSavingNotifications) return;
+    setIsSavingNotifications(true);
+
+    try {
+      await axios.patch('/userprofile', prefsToSave);
+      toast({
+        title: 'Preferences Saved',
+        description: 'Your notification preferences have been updated.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Save Failed',
+        description: error?.response?.data?.message || 'Could not save preferences. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingNotifications(false);
     }
   };
 
@@ -518,7 +563,7 @@ export default function Profile() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full lg:w-auto lg:inline-grid" style={{ gridTemplateColumns: isSuperAdmin ? 'repeat(3, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))' }}>
             <TabsTrigger value="profile" className="gap-2">
               <User className="h-4 w-4 hidden sm:inline" />
               Profile
@@ -531,10 +576,12 @@ export default function Profile() {
               <Shield className="h-4 w-4 hidden sm:inline" />
               Security
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="h-4 w-4 hidden sm:inline" />
-              Notifications
-            </TabsTrigger>
+            {!isSuperAdmin && (
+              <TabsTrigger value="notifications" className="gap-2">
+                <Bell className="h-4 w-4 hidden sm:inline" />
+                Notifications
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Profile Tab */}
@@ -1200,8 +1247,9 @@ export default function Profile() {
             </Card>
           </TabsContent>
 
-          {/* Notifications Tab */}
-          <TabsContent value="notifications" className="space-y-6">
+          {/* Notifications Tab - Only for Regular Users */}
+          {!isSuperAdmin && (
+            <TabsContent value="notifications" className="space-y-6">
             {/* Email Notifications */}
             <Card>
               <CardHeader>
@@ -1229,9 +1277,12 @@ export default function Profile() {
                       </div>
                       <Switch
                         checked={notifications[item.key as keyof typeof notifications]}
-                        onCheckedChange={(checked) => 
-                          setNotifications({ ...notifications, [item.key]: checked })
-                        }
+                        disabled={isSavingNotifications}
+                        onCheckedChange={(checked) => {
+                          const updated = { ...notifications, [item.key]: checked };
+                          setNotifications(updated);
+                          handleSaveNotifications(updated);
+                        }}
                       />
                     </div>
                   ))}
@@ -1256,9 +1307,12 @@ export default function Profile() {
                       </div>
                       <Switch
                         checked={notifications[item.key as keyof typeof notifications]}
-                        onCheckedChange={(checked) => 
-                          setNotifications({ ...notifications, [item.key]: checked })
-                        }
+                        disabled={isSavingNotifications}
+                        onCheckedChange={(checked) => {
+                          const updated = { ...notifications, [item.key]: checked };
+                          setNotifications(updated);
+                          handleSaveNotifications(updated);
+                        }}
                       />
                     </div>
                   ))}
@@ -1283,9 +1337,12 @@ export default function Profile() {
                       </div>
                       <Switch
                         checked={notifications[item.key as keyof typeof notifications]}
-                        onCheckedChange={(checked) => 
-                          setNotifications({ ...notifications, [item.key]: checked })
-                        }
+                        disabled={isSavingNotifications}
+                        onCheckedChange={(checked) => {
+                          const updated = { ...notifications, [item.key]: checked };
+                          setNotifications(updated);
+                          handleSaveNotifications(updated);
+                        }}
                       />
                     </div>
                   ))}
@@ -1308,9 +1365,12 @@ export default function Profile() {
                       </div>
                       <Switch
                         checked={notifications[item.key as keyof typeof notifications]}
-                        onCheckedChange={(checked) => 
-                          setNotifications({ ...notifications, [item.key]: checked })
-                        }
+                        disabled={isSavingNotifications}
+                        onCheckedChange={(checked) => {
+                          const updated = { ...notifications, [item.key]: checked };
+                          setNotifications(updated);
+                          handleSaveNotifications(updated);
+                        }}
                       />
                     </div>
                   ))}
@@ -1338,9 +1398,12 @@ export default function Profile() {
                   </div>
                   <Switch
                     checked={notifications.pushNotifications}
-                    onCheckedChange={(checked) => 
-                      setNotifications({ ...notifications, pushNotifications: checked })
-                    }
+                    disabled={isSavingNotifications}
+                    onCheckedChange={(checked) => {
+                      const updated = { ...notifications, pushNotifications: checked };
+                      setNotifications(updated);
+                      handleSaveNotifications(updated);
+                    }}
                   />
                 </div>
 
@@ -1442,6 +1505,7 @@ export default function Profile() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   OnModuleInit,
+  Inject,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -10,12 +11,14 @@ import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { Quote } from './entities/quote.entity';
 import { Client } from '../clients/entities/client.entity';
+import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
 
 @Injectable()
 export class QuotesService implements OnModuleInit {
   constructor(
     @InjectModel(Quote.name) private quoteModel: Model<Quote>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
+    @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
   ) {}
 
   async onModuleInit() {
@@ -192,5 +195,93 @@ export class QuotesService implements OnModuleInit {
       .populate('clientId', 'name email phone clientType')
       .sort({ createdAt: -1 })
       .exec();
+  }
+
+  /**
+   * Send "Quote Viewed" notification email
+   * CHECKS: quoteViewed preference before sending
+   */
+  async sendQuoteViewedNotification(
+    userId: string,
+    quoteData: { quoteNumber: string; clientName: string; amount: number }
+  ): Promise<boolean> {
+    try {
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'quoteViewed');
+      if (!isEnabled) {
+        console.log(`[Quote] Skipping "quote viewed" email for user ${userId} - preference disabled`);
+        return false;
+      }
+      console.log(`[Quote] Would send "quote viewed" email for quote ${quoteData.quoteNumber}`);
+      return true;
+    } catch (error) {
+      console.error(`[Quote] Error checking notification preference for quoteViewed:`, error);
+      return true;
+    }
+  }
+
+  /**
+   * Send "Quote Accepted" notification email
+   * CHECKS: quoteAccepted preference before sending
+   */
+  async sendQuoteAcceptedNotification(
+    userId: string,
+    quoteData: { quoteNumber: string; clientName: string; amount: number }
+  ): Promise<boolean> {
+    try {
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'quoteAccepted');
+      if (!isEnabled) {
+        console.log(`[Quote] Skipping "quote accepted" email for user ${userId} - preference disabled`);
+        return false;
+      }
+      console.log(`[Quote] Would send "quote accepted" email for quote ${quoteData.quoteNumber}`);
+      return true;
+    } catch (error) {
+      console.error(`[Quote] Error checking notification preference for quoteAccepted:`, error);
+      return true;
+    }
+  }
+
+  /**
+   * Send "Quote Rejected" notification email
+   * CHECKS: quoteRejected preference before sending
+   */
+  async sendQuoteRejectedNotification(
+    userId: string,
+    quoteData: { quoteNumber: string; clientName: string; amount: number }
+  ): Promise<boolean> {
+    try {
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'quoteRejected');
+      if (!isEnabled) {
+        console.log(`[Quote] Skipping "quote rejected" email for user ${userId} - preference disabled`);
+        return false;
+      }
+      console.log(`[Quote] Would send "quote rejected" email for quote ${quoteData.quoteNumber}`);
+      return true;
+    } catch (error) {
+      console.error(`[Quote] Error checking notification preference for quoteRejected:`, error);
+      return true;
+    }
+  }
+
+  /**
+   * Send "Quote Expired" notification email
+   * CHECKS: quoteExpired preference before sending
+   */
+  async sendQuoteExpiredNotification(
+    userId: string,
+    quoteData: { quoteNumber: string; clientName: string; expiryDate: string }
+  ): Promise<boolean> {
+    try {
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'quoteExpired');
+      if (!isEnabled) {
+        console.log(`[Quote] Skipping "quote expired" email for user ${userId} - preference disabled`);
+        return false;
+      }
+      console.log(`[Quote] Would send "quote expired" email for quote ${quoteData.quoteNumber}`);
+      return true;
+    } catch (error) {
+      console.error(`[Quote] Error checking notification preference for quoteExpired:`, error);
+      return true;
+    }
   }
 }

@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TicketsService } from './tickets.service';
 import { TicketsController } from './tickets.controller';
 import { Ticket, TicketSchema } from './entities/ticket.entity';
+import { UserprofileModule } from '../userprofile/userprofile.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { Ticket, TicketSchema } from './entities/ticket.entity';
         },
       }),
     }),
+    UserprofileModule,  // Import to access NotificationPreferencesHelper
   ],
   controllers: [TicketsController],
   providers: [TicketsService],

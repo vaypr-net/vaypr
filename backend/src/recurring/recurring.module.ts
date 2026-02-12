@@ -9,6 +9,7 @@ import { Client, ClientSchema } from '../clients/entities/client.entity';
 import { Invoice, InvoiceSchema } from '../invoice/entities/invoice.entity';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { UserprofileModule } from '../userprofile/userprofile.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
       }),
     }),
     CloudinaryModule,
+    UserprofileModule,
   ],
   controllers: [RecurringController],
   providers: [RecurringService, JwtAuthGuard],

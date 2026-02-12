@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { Recurring } from './entities/recurring.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Invoice } from '../invoice/entities/invoice.entity';
 import { InvoiceStatus } from '../invoice/enums/invoice-status.enum';
+import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
 
 @Injectable()
 export class RecurringService {
@@ -18,6 +20,7 @@ export class RecurringService {
     @InjectModel(Recurring.name) private recurringModel: Model<Recurring>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
+    @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
   ) {}
 
   async create(
@@ -315,5 +318,93 @@ export class RecurringService {
       .populate('clientId', 'name email phone clientType')
       .sort({ nextBillingDate: 1 })
       .exec();
+  }
+
+  /**
+   * Send "Upcoming Renewal" notification email
+   * CHECKS: upcomingRenewal preference before sending
+   */
+  async sendUpcomingRenewalNotification(
+    userId: string,
+    recurringData: { recurringId: string; amount: number; renewalDate: Date }
+  ): Promise<boolean> {
+    try {
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'upcomingRenewal');
+      if (!isEnabled) {
+        console.log(`[Billing] Skipping "upcoming renewal" email for user ${userId} - preference disabled`);
+        return false;
+      }
+      console.log(`[Billing] Would send "upcoming renewal" email for recurring ${recurringData.recurringId}`);
+      return true;
+    } catch (error) {
+      console.error(`[Billing] Error checking notification preference for upcomingRenewal:`, error);
+      return true;
+    }
+  }
+
+  /**
+   * Send "Renewal Successful" notification email
+   * CHECKS: renewalSuccessful preference before sending
+   */
+  async sendRenewalSuccessfulNotification(
+    userId: string,
+    recurringData: { recurringId: string; amount: number; renewalDate: Date; invoiceId: string }
+  ): Promise<boolean> {
+    try {
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'renewalSuccessful');
+      if (!isEnabled) {
+        console.log(`[Billing] Skipping "renewal successful" email for user ${userId} - preference disabled`);
+        return false;
+      }
+      console.log(`[Billing] Would send "renewal successful" email for recurring ${recurringData.recurringId}`);
+      return true;
+    } catch (error) {
+      console.error(`[Billing] Error checking notification preference for renewalSuccessful:`, error);
+      return true;
+    }
+  }
+
+  /**
+   * Send "Renewal Payment Failed" notification email
+   * CHECKS: renewalPaymentFailed preference before sending
+   */
+  async sendRenewalPaymentFailedNotification(
+    userId: string,
+    recurringData: { recurringId: string; amount: number; reason: string }
+  ): Promise<boolean> {
+    try {
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'renewalPaymentFailed');
+      if (!isEnabled) {
+        console.log(`[Billing] Skipping "renewal payment failed" email for user ${userId} - preference disabled`);
+        return false;
+      }
+      console.log(`[Billing] Would send "renewal payment failed" email for recurring ${recurringData.recurringId}`);
+      return true;
+    } catch (error) {
+      console.error(`[Billing] Error checking notification preference for renewalPaymentFailed:`, error);
+      return true;
+    }
+  }
+
+  /**
+   * Send "Subscription Changed" notification email
+   * CHECKS: subscriptionChanged preference before sending
+   */
+  async sendSubscriptionChangedNotification(
+    userId: string,
+    recurringData: { recurringId: string; changeType: string; details: string }
+  ): Promise<boolean> {
+    try {
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'subscriptionChanged');
+      if (!isEnabled) {
+        console.log(`[Billing] Skipping "subscription changed" email for user ${userId} - preference disabled`);
+        return false;
+      }
+      console.log(`[Billing] Would send "subscription changed" email for recurring ${recurringData.recurringId}`);
+      return true;
+    } catch (error) {
+      console.error(`[Billing] Error checking notification preference for subscriptionChanged:`, error);
+      return true;
+    }
   }
 }

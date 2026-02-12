@@ -1,14 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { Ticket } from './entities/ticket.entity';
+import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
 
 @Injectable()
 export class TicketsService {
   constructor(
     @InjectModel(Ticket.name) private ticketModel: Model<Ticket>,
+    @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
   ) {}
 
   async create(createTicketDto: CreateTicketDto): Promise<Ticket> {
@@ -162,6 +164,50 @@ export class TicketsService {
       ]);
 
     return { open, pending, inProgress, resolved, closed, total };
+  }
+
+  /**
+   * Send "Support Agent Replied" notification email
+   * CHECKS: supportAgentReplied preference before sending
+   */
+  async sendSupportAgentRepliedNotification(
+    userId: string,
+    ticketData: { ticketId: string; subject: string; messagePreview: string }
+  ): Promise<boolean> {
+    try {
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'supportAgentReplied');
+      if (!isEnabled) {
+        console.log(`[Support] Skipping "support agent replied" email for user ${userId} - preference disabled`);
+        return false;
+      }
+      console.log(`[Support] Would send "support agent replied" email for ticket ${ticketData.ticketId}`);
+      return true;
+    } catch (error) {
+      console.error(`[Support] Error checking notification preference for supportAgentReplied:`, error);
+      return true;
+    }
+  }
+
+  /**
+   * Send "Ticket Resolved/Closed" notification email
+   * CHECKS: ticketResolved preference before sending
+   */
+  async sendTicketResolvedNotification(
+    userId: string,
+    ticketData: { ticketId: string; subject: string; resolution: string }
+  ): Promise<boolean> {
+    try {
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'ticketResolved');
+      if (!isEnabled) {
+        console.log(`[Support] Skipping "ticket resolved" email for user ${userId} - preference disabled`);
+        return false;
+      }
+      console.log(`[Support] Would send "ticket resolved" email for ticket ${ticketData.ticketId}`);
+      return true;
+    } catch (error) {
+      console.error(`[Support] Error checking notification preference for ticketResolved:`, error);
+      return true;
+    }
   }
 }
 

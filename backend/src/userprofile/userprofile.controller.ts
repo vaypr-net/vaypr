@@ -17,15 +17,20 @@ export class UserprofileController {
     private readonly userService: UserService,
   ) {}
 
+  private getAuthUserId(req: any): string {
+    return req?.user?.userId || req?.user?.sub;
+  }
+
   @Post()
   async create(@Request() req, @Body() createUserprofileDto: CreateUserprofileDto) {
-    return this.userprofileService.create(req.user.sub, createUserprofileDto);
+    return this.userprofileService.create(this.getAuthUserId(req), createUserprofileDto);
   }
 
   @Get()
   async findOne(@Request() req) {
-    const profile = await this.userprofileService.findByUserId(req.user.sub);
-    const user = await this.userService.findOne(req.user.sub);
+    const userId = this.getAuthUserId(req);
+    const profile = await this.userprofileService.findByUserId(userId);
+    const user = await this.userService.findOne(userId);
     
     // Merge user profile with isSuperAdmin flag
     return {
@@ -36,18 +41,18 @@ export class UserprofileController {
 
   @Patch()
   async update(@Request() req, @Body() updateUserprofileDto: UpdateUserprofileDto) {
-    return this.userprofileService.update(req.user.sub, updateUserprofileDto);
+    return this.userprofileService.update(this.getAuthUserId(req), updateUserprofileDto);
   }
 
   @Patch('upload-image')
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(@Request() req, @UploadedFile() file: Express.Multer.File) {
-    return this.userprofileService.uploadProfileImage(req.user.sub, file);
+    return this.userprofileService.uploadProfileImage(this.getAuthUserId(req), file);
   }
 
   @Delete()
   async remove(@Request() req) {
-    return this.userprofileService.remove(req.user.sub);
+    return this.userprofileService.remove(this.getAuthUserId(req));
   }
 }

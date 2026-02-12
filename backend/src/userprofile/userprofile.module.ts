@@ -7,6 +7,7 @@ import { UserprofileController } from './userprofile.controller';
 import { UserProfile, UserProfileSchema } from './entities/userprofile.entity';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { UserModule } from '../user/user.module';
+import { NotificationPreferencesHelper } from './notification-preferences.helper';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { UserModule } from '../user/user.module';
     }),
   ],
   controllers: [UserprofileController],
-  providers: [UserprofileService],
+  providers: [UserprofileService, NotificationPreferencesHelper],
+  exports: [NotificationPreferencesHelper], // Export to use in other modules
 })
 export class UserprofileModule {}

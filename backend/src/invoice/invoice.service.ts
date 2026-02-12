@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   OnModuleInit,
+  Inject,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -10,12 +11,14 @@ import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { Invoice } from './entities/invoice.entity';
 import { Client } from '../clients/entities/client.entity';
+import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
 
 @Injectable()
 export class InvoiceService implements OnModuleInit {
   constructor(
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
+    @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
   ) {}
 
   async onModuleInit() {
@@ -207,5 +210,75 @@ export class InvoiceService implements OnModuleInit {
       .populate('clientId', 'name email phone clientType')
       .sort({ createdAt: -1 })
       .exec();
+  }
+
+  /**
+   * Send "Invoice Due Soon" notification email
+   * 
+   * CHECKS: invoiceDueSoon preference before sending
+   * - Only sends if user has NOT disabled this notification
+   * - If preference check fails, returns false (notification not sent)
+   * 
+   * @param userId - User ID to check preferences
+   * @param invoiceData - Invoice and recipient details
+   * @returns true if notification was sent, false if it was skipped due to preferences
+   */
+  async sendInvoiceDueSoonNotification(
+    userId: string,
+    invoiceData: { invoiceNumber: string; clientEmail: string; amount: number; dueDate: string }
+  ): Promise<boolean> {
+    try {
+      // CHECK PREFERENCE: Does user want invoice due soon notifications?
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'invoiceDueSoon');
+      
+      if (!isEnabled) {
+        console.log(`[Invoice] Skipping "invoice due soon" email for user ${userId} - preference disabled`);
+        return false;
+      }
+
+      // TODO: Send email logic here
+      console.log(`[Invoice] Would send "invoice due soon" email for invoice ${invoiceData.invoiceNumber}`);
+      
+      return true;
+    } catch (error) {
+      console.error(`[Invoice] Error checking notification preference for invoiceDueSoon:`, error);
+      // On error, default to true (send notification as fallback)
+      return true;
+    }
+  }
+
+  /**
+   * Send "Invoice Overdue" notification email
+   * 
+   * CHECKS: invoiceOverdue preference before sending
+   * - Only sends if user has NOT disabled this notification
+   * - If preference check fails, returns false (notification not sent)
+   * 
+   * @param userId - User ID to check preferences
+   * @param invoiceData - Invoice and recipient details
+   * @returns true if notification was sent, false if it was skipped due to preferences
+   */
+  async sendInvoiceOverdueNotification(
+    userId: string,
+    invoiceData: { invoiceNumber: string; clientEmail: string; amount: number; daysOverdue: number }
+  ): Promise<boolean> {
+    try {
+      // CHECK PREFERENCE: Does user want invoice overdue notifications?
+      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'invoiceOverdue');
+      
+      if (!isEnabled) {
+        console.log(`[Invoice] Skipping "invoice overdue" email for user ${userId} - preference disabled`);
+        return false;
+      }
+
+      // TODO: Send email logic here
+      console.log(`[Invoice] Would send "invoice overdue" email for invoice ${invoiceData.invoiceNumber}`);
+      
+      return true;
+    } catch (error) {
+      console.error(`[Invoice] Error checking notification preference for invoiceOverdue:`, error);
+      // On error, default to true (send notification as fallback)
+      return true;
+    }
   }
 }

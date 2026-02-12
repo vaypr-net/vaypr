@@ -7,6 +7,7 @@ import { InvoiceController } from './invoice.controller';
 import { Invoice, InvoiceSchema } from './entities/invoice.entity';
 import { Client, ClientSchema } from '../clients/entities/client.entity';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { UserprofileModule } from '../userprofile/userprofile.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @Module({
@@ -25,6 +26,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
       },
     }),
     CloudinaryModule,
+    UserprofileModule,  // Import to access NotificationPreferencesHelper
   ],
   controllers: [InvoiceController],
   providers: [InvoiceService, JwtAuthGuard],

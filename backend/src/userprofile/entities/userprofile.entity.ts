@@ -27,6 +27,46 @@ export class UserProfile extends BaseEntity {
 
   @Prop()
   profileImage: string;
+
+  // Notification Preferences
+  @Prop({ type: Boolean, default: true })
+  invoiceDueSoon: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  invoiceOverdue: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  quoteViewed: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  quoteAccepted: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  quoteRejected: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  quoteExpired: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  upcomingRenewal: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  renewalSuccessful: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  renewalPaymentFailed: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  subscriptionChanged: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  supportAgentReplied: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  ticketResolved: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  pushNotifications: boolean;
 }
 
 export const UserProfileSchema = SchemaFactory.createForClass(UserProfile);

@@ -7,6 +7,7 @@ import { QuotesController } from './quotes.controller';
 import { Quote, QuoteSchema } from './entities/quote.entity';
 import { Client, ClientSchema } from '../clients/entities/client.entity';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { UserprofileModule } from '../userprofile/userprofile.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @Module({
@@ -25,6 +26,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
       },
     }),
     CloudinaryModule,
+    UserprofileModule,  // Import to access NotificationPreferencesHelper
   ],
   controllers: [QuotesController],
   providers: [QuotesService, JwtAuthGuard],
