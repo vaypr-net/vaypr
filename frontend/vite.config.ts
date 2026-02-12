@@ -21,4 +21,14 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      external: ['canvg'], // Mark canvg as external - loaded at runtime by jsPDF
+      output: {
+        globals: {
+          canvg: 'canvg',
+        },
+      },
+    },
+  },
 }));
