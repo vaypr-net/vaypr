@@ -11,6 +11,7 @@ import {
   IsString,
   Min,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { InvoiceStatus } from '../enums/invoice-status.enum';
 import { PaymentMethodType } from '../enums/payment-method.enum';
@@ -151,7 +152,8 @@ export class CreateInvoiceDto {
   showPaymentMethod?: boolean;
 
   @IsEnum(PaymentMethodType)
-  @IsOptional()
+  @ValidateIf((o) => o.showPaymentMethod === true)
+  @IsNotEmpty()
   paymentMethodType?: PaymentMethodType;
 
   @IsBoolean()
@@ -172,7 +174,8 @@ export class CreateInvoiceDto {
   })
   @ValidateNested()
   @Type(() => BankAccountDto)
-  @IsOptional()
+  @ValidateIf((o) => o.showBankAccount === true)
+  @IsNotEmpty()
   bankAccount?: BankAccountDto;
 
   @IsBoolean()
@@ -181,7 +184,8 @@ export class CreateInvoiceDto {
   showPaymentTerms?: boolean;
 
   @IsString()
-  @IsOptional()
+  @ValidateIf((o) => o.showPaymentTerms === true)
+  @IsNotEmpty()
   paymentTerms?: string;
 
   @IsBoolean()
