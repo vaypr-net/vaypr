@@ -159,15 +159,26 @@ export function FAQsEditor() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
+              <SelectItem value="General">General</SelectItem>
+              <SelectItem value="Getting Started">Getting Started</SelectItem>
+              <SelectItem value="Billing">Billing</SelectItem>
+              <SelectItem value="Features">Features</SelectItem>
+              <SelectItem value="Technical">Technical</SelectItem>
+              <SelectItem value="Account">Account</SelectItem>
             </SelectContent>
           </Select>
 
-          <Button onClick={() => setShowAddForm(true)} className="gap-2">
+          <Button onClick={() => {
+            setEditingId(null);
+            setSelectedCategory("all");
+            setFormData({
+              question: "",
+              answer: "",
+              category: "General",
+              published: true,
+            });
+            setShowAddForm(true);
+          }} className="gap-2">
             <Plus className="w-4 h-4" />
             Add FAQ
           </Button>
@@ -215,6 +226,7 @@ export function FAQsEditor() {
                 <div>
                   <Label className="text-xs">Category</Label>
                   <Select
+                    key={`category-${showAddForm}-${editingId}`}
                     value={formData.category}
                     onValueChange={(value) =>
                       setFormData({ ...formData, category: value })
@@ -224,22 +236,12 @@ export function FAQsEditor() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.length > 0 ? (
-                        categories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <>
-                          <SelectItem value="General">General</SelectItem>
-                          <SelectItem value="Getting Started">Getting Started</SelectItem>
-                          <SelectItem value="Billing">Billing</SelectItem>
-                          <SelectItem value="Features">Features</SelectItem>
-                          <SelectItem value="Technical">Technical</SelectItem>
-                          <SelectItem value="Account">Account</SelectItem>
-                        </>
-                      )}
+                      <SelectItem value="General">General</SelectItem>
+                      <SelectItem value="Getting Started">Getting Started</SelectItem>
+                      <SelectItem value="Billing">Billing</SelectItem>
+                      <SelectItem value="Features">Features</SelectItem>
+                      <SelectItem value="Technical">Technical</SelectItem>
+                      <SelectItem value="Account">Account</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

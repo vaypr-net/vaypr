@@ -41,3 +41,7 @@ Thumbs.db
 /package-lock.json
 /frontend/package-lock.json
 /backend/package-lock.json
+
+# NPM config files - platform-specific, not for version control
+.npmrc
+*/.npmrc
