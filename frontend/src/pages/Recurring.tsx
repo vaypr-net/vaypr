@@ -150,6 +150,22 @@ export default function Recurring() {
     }
   };
 
+  const filterPhoneInput = (value: string): string => {
+    return value.replace(/[^\d+]/g, '');
+  };
+
+  const filterEmailWebsiteInput = (value: string): string => {
+    // Allow alphanumeric, dots, hyphens, underscores, @, /, :, and ?
+    return value.replace(/[^a-zA-Z0-9._\-@/:?&=]/g, '');
+  };
+
+  const isValidEmailOrWebsite = (value: string): boolean => {
+    if (!value) return true; // Empty is valid (optional field)
+    const emailRegex = /^[a-zA-Z0-9._\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+    const websiteRegex = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(value) || websiteRegex.test(value);
+  };
+
   const calculateTotal = () => {
     return formData.grandTotal;
   };
@@ -789,7 +805,7 @@ export default function Recurring() {
                       value={formData.companyFooter.officePhone}
                       onChange={(e) => setFormData({ 
                         ...formData, 
-                        companyFooter: { ...formData.companyFooter, officePhone: e.target.value }
+                        companyFooter: { ...formData.companyFooter, officePhone: filterPhoneInput(e.target.value) }
                       })}
                     />
                   </div>
@@ -813,9 +829,13 @@ export default function Recurring() {
                       value={formData.companyFooter.websiteEmail}
                       onChange={(e) => setFormData({ 
                         ...formData, 
-                        companyFooter: { ...formData.companyFooter, websiteEmail: e.target.value }
+                        companyFooter: { ...formData.companyFooter, websiteEmail: filterEmailWebsiteInput(e.target.value) }
                       })}
+                      className={!isValidEmailOrWebsite(formData.companyFooter.websiteEmail) && formData.companyFooter.websiteEmail ? 'border-red-500' : ''}
                     />
+                    {!isValidEmailOrWebsite(formData.companyFooter.websiteEmail) && formData.companyFooter.websiteEmail && (
+                      <p className="text-xs text-red-500">Please enter a valid email or website</p>
+                    )}
                   </div>
                 </div>
               </div>
