@@ -334,6 +334,60 @@ const Index = () => {
   });
 
   const handlePrint = () => {
+    // Validate form data based on active tab - allow download if basic data exists
+    const errors: string[] = [];
+
+    if (activeTab === "invoice") {
+      if (!invoiceData.billTo.name.trim()) {
+        errors.push("Customer Name is required");
+      }
+      if (!invoiceData.invoiceNumber.trim()) {
+        errors.push("Invoice Number is required");
+      }
+      if (!invoiceData.items || invoiceData.items.length === 0) {
+        errors.push("At least one item is required");
+      } else {
+        const hasValidItem = invoiceData.items.some(
+          item => item.description.trim() !== "" || item.quantity > 0 || item.unitPrice > 0
+        );
+        if (!hasValidItem) {
+          errors.push("At least one item must have some data (description, quantity, or price)");
+        }
+      }
+    } else if (activeTab === "receipt") {
+      if (!receiptData.receiptNumber.trim()) {
+        errors.push("Receipt Number is required");
+      }
+      if (!receiptData.receivedFrom.trim()) {
+        errors.push("Received From is required");
+      }
+      if (receiptData.amount <= 0) {
+        errors.push("Amount must be greater than 0");
+      }
+    } else if (activeTab === "quote") {
+      if (!quoteData.billTo.name.trim()) {
+        errors.push("Customer Name is required");
+      }
+      if (!quoteData.quoteNumber.trim()) {
+        errors.push("Quote Number is required");
+      }
+      if (!quoteData.items || quoteData.items.length === 0) {
+        errors.push("At least one item is required");
+      } else {
+        const hasValidItem = quoteData.items.some(
+          item => item.description.trim() !== "" || item.quantity > 0 || item.unitPrice > 0
+        );
+        if (!hasValidItem) {
+          errors.push("At least one item must have some data (description, quantity, or price)");
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      toast.error("Cannot generate:\n" + errors.join("\n"));
+      return;
+    }
+
     window.print();
   };
 
@@ -346,6 +400,37 @@ const Index = () => {
       default:
         return "Invoice";
     }
+  };
+
+  const isDocumentValid = (): boolean => {
+    if (activeTab === "invoice") {
+      // Less strict: require at least some basic data
+      const hasCustomerName = invoiceData.billTo.name.trim() !== "";
+      const hasInvoiceNumber = invoiceData.invoiceNumber.trim() !== "";
+      const hasItems = invoiceData.items.length > 0;
+      const hasValidItem = invoiceData.items.some(
+        item => (item.description.trim() !== "" || item.quantity > 0 || item.unitPrice > 0)
+      );
+      
+      return hasCustomerName && hasInvoiceNumber && hasItems && hasValidItem;
+    } else if (activeTab === "receipt") {
+      const hasReceiptNumber = receiptData.receiptNumber.trim() !== "";
+      const hasReceivedFrom = receiptData.receivedFrom.trim() !== "";
+      const hasAmount = receiptData.amount > 0;
+      
+      return hasReceiptNumber && hasReceivedFrom && hasAmount;
+    } else if (activeTab === "quote") {
+      // Less strict: require at least some basic data
+      const hasCustomerName = quoteData.billTo.name.trim() !== "";
+      const hasQuoteNumber = quoteData.quoteNumber.trim() !== "";
+      const hasItems = quoteData.items.length > 0;
+      const hasValidItem = quoteData.items.some(
+        item => (item.description.trim() !== "" || item.quantity > 0 || item.unitPrice > 0)
+      );
+      
+      return hasCustomerName && hasQuoteNumber && hasItems && hasValidItem;
+    }
+    return false;
   };
 
   const getCurrentData = () => {
@@ -439,6 +524,70 @@ const Index = () => {
   };
 
   const handleSaveToDashboard = () => {
+    // Validate required fields first
+    const errors: string[] = [];
+
+    if (activeTab === "invoice") {
+      if (!invoiceData.billTo.name.trim()) {
+        errors.push("Customer Name is required");
+      }
+      if (!invoiceData.invoiceNumber.trim()) {
+        errors.push("Invoice Number is required");
+      }
+      if (!invoiceData.invoiceDate) {
+        errors.push("Invoice Date is required");
+      }
+      if (!invoiceData.paymentDate) {
+        errors.push("Payment Date is required");
+      }
+      if (!invoiceData.items || invoiceData.items.length === 0) {
+        errors.push("At least one item is required");
+      }
+      if (invoiceData.items.some(item => !item.description.trim() || item.quantity === 0 || item.unitPrice === 0)) {
+        errors.push("All items must have description, quantity, and unit price");
+      }
+    } else if (activeTab === "receipt") {
+      if (!receiptData.receiptNumber.trim()) {
+        errors.push("Receipt Number is required");
+      }
+      if (!receiptData.receiptDate) {
+        errors.push("Receipt Date is required");
+      }
+      if (!receiptData.receivedFrom.trim()) {
+        errors.push("Received From is required");
+      }
+      if (receiptData.amount <= 0) {
+        errors.push("Amount must be greater than 0");
+      }
+      if (!receiptData.paymentMethod.trim()) {
+        errors.push("Payment Method is required");
+      }
+    } else if (activeTab === "quote") {
+      if (!quoteData.billTo.name.trim()) {
+        errors.push("Customer Name is required");
+      }
+      if (!quoteData.quoteNumber.trim()) {
+        errors.push("Quote Number is required");
+      }
+      if (!quoteData.quoteDate) {
+        errors.push("Quote Date is required");
+      }
+      if (!quoteData.validUntil) {
+        errors.push("Valid Until date is required");
+      }
+      if (!quoteData.items || quoteData.items.length === 0) {
+        errors.push("At least one item is required");
+      }
+      if (quoteData.items.some(item => !item.description.trim() || item.quantity === 0 || item.unitPrice === 0)) {
+        errors.push("All items must have description, quantity, and unit price");
+      }
+    }
+
+    if (errors.length > 0) {
+      toast.error("Please fill all required fields:\n" + errors.join("\n"));
+      return;
+    }
+
     // Get customer name based on document type
     let customerName = "";
     if (activeTab === "invoice") {
@@ -661,7 +810,12 @@ const Index = () => {
                     Save to Dashboard
                   </Button>
                 )}
-                <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2">
+                <Button 
+                  onClick={handlePrint} 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                >
                   <Download className="w-4 h-4" />
                   Download PDF
                 </Button>
@@ -1043,7 +1197,11 @@ const Index = () => {
                     Save Template
                   </Button>
                 )}
-                <Button size="lg" onClick={handlePrint} className="gap-2 px-8">
+                <Button 
+                  size="lg" 
+                  onClick={handlePrint} 
+                  className="gap-2 px-8"
+                >
                   <Download className="w-4 h-4" />
                   Generate {getDocumentLabel()}
                 </Button>

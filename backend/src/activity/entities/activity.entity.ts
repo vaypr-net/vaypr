@@ -17,6 +17,9 @@ export class Activity {
   @Prop({ required: false })
   relatedEntityId?: string;
 
+  @Prop({ default: false })
+  isRead: boolean;
+
   @Prop({ default: () => new Date() })
   createdAt: Date;
 }

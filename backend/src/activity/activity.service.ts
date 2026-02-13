@@ -13,9 +13,26 @@ export class ActivityService {
     return createdActivity.save();
   }
 
-  async getActivities(limit: number = 10, skip: number = 0): Promise<{ data: Activity[]; total: number }> {
+  async getActivities(limit: number = 10, skip: number = 0): Promise<{ data: Activity[]; total: number; unreadCount: number }> {
     const data = await this.activityModel.find().sort({ createdAt: -1 }).limit(limit).skip(skip).lean();
     const total = await this.activityModel.countDocuments();
-    return { data, total };
+    const unreadCount = await this.activityModel.countDocuments({ isRead: false });
+    return { data, total, unreadCount };
+  }
+
+  async markAsRead(id: string): Promise<Activity | null> {
+    return this.activityModel.findByIdAndUpdate(
+      id,
+      { isRead: true },
+      { new: true }
+    ).exec();
+  }
+
+  async markAllAsRead(): Promise<any> {
+    return this.activityModel.updateMany({ isRead: false }, { isRead: true });
+  }
+
+  async getUnreadCount(): Promise<number> {
+    return this.activityModel.countDocuments({ isRead: false });
   }
 }
