@@ -537,9 +537,6 @@ const Index = () => {
       if (!invoiceData.invoiceDate) {
         errors.push("Invoice Date is required");
       }
-      if (!invoiceData.paymentDate) {
-        errors.push("Payment Date is required");
-      }
       if (!invoiceData.items || invoiceData.items.length === 0) {
         errors.push("At least one item is required");
       }
