@@ -226,11 +226,31 @@ export default function Clients() {
     setIsDeleteDialogOpen(true);
   };
 
+  // Filter phone input to only allow numbers and + symbol
+  const filterPhoneInput = (value: string): string => {
+    return value.replace(/[^\d+]/g, '');
+  };
+
   const handleSubmit = async () => {
-    if (!formData.name || !formData.email || !formData.phone || !formData.address) {
+    const missingFields: string[] = [];
+    
+    if (!formData.name.trim()) {
+      missingFields.push(formData.clientType === 'company' ? 'Company Name' : 'Name');
+    }
+    if (!formData.email.trim()) {
+      missingFields.push('Email');
+    }
+    if (!formData.phone.trim()) {
+      missingFields.push('Phone');
+    }
+    if (!formData.address.trim()) {
+      missingFields.push('Address');
+    }
+
+    if (missingFields.length > 0) {
       toast({
         title: 'Missing required fields',
-        description: 'Name, email, phone, and address are required.',
+        description: missingFields.join(', ') + (missingFields.length === 1 ? ' is required.' : ' are required.'),
         variant: 'destructive',
       });
       return;
@@ -753,7 +773,7 @@ export default function Clients() {
                   <Input
                     placeholder="+965 1234 5678"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, phone: filterPhoneInput(e.target.value) })}
                   />
                 </div>
                 {formData.clientType === 'individual' && (
