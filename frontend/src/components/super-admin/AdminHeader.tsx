@@ -65,23 +65,30 @@ export function AdminHeader() {
     
     return activitiesData.data
       .filter(activity => !deletedActivities.includes(activity._id))
-      .map((activity, index) => ({
+      .map((activity) => ({
         id: activity._id,
         type: activity.type,
         title: activity.title,
         description: activity.description,
         time: formatTimeAgo(activity.createdAt),
-        unread: false, // All API activities are considered "read" initially
+        unread: !activity.isRead,
       }));
   }, [activitiesData, deletedActivities]);
 
-  const markAsRead = (id: string) => {
-    // In a real app, this would send an API call to mark as read
-    // For now, it's just a UI action
+  const markAsRead = async (id: string) => {
+    try {
+      await fetch(`/activities/${id}/read`, { method: 'PATCH' });
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    // In a real app, this would send an API call to mark all as read
+  const markAllAsRead = async () => {
+    try {
+      await fetch('/activities/all/read', { method: 'PATCH' });
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
   };
 
   const deleteNotification = (id: string) => {
@@ -92,7 +99,7 @@ export function AdminHeader() {
     setDeletedActivities(activitiesData?.data?.map(a => a._id) || []);
   };
 
-  const unreadCount = 0; // All notifications from API are considered read
+  const unreadCount = activitiesData?.unreadCount || 0;
   const unreadNotifications = notifications.filter(n => n.unread);
 
   return (
@@ -141,14 +148,17 @@ export function AdminHeader() {
                   notifications.slice(0, 5).map((notification) => (
                     <div
                       key={notification.id}
-                      className={`flex gap-3 p-4 hover:bg-muted/50 cursor-pointer transition-colors`}
+                      className={`flex gap-3 p-4 hover:bg-muted/50 cursor-pointer transition-colors ${notification.unread ? 'bg-muted/30' : ''}`}
                       onClick={() => markAsRead(notification.id)}
                     >
+                      {notification.unread && (
+                        <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2" />
+                      )}
                       <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
                         {activityToNotificationIcon[notification.type] || <Bell className="w-4 h-4" />}
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
-                        <p className="text-sm font-medium leading-5 line-clamp-2">{notification.title}</p>
+                        <p className={`text-sm leading-5 line-clamp-2 ${notification.unread ? 'font-semibold' : 'font-medium'}`}>{notification.title}</p>
                         <p className="text-xs text-muted-foreground line-clamp-2 break-words">
                           {notification.description}
                         </p>

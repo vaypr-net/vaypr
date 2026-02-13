@@ -20,6 +20,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -39,6 +49,7 @@ import type { SocialLink } from "@/api/services/social-links.service";
 export function SocialMediaEditor() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingLink, setEditingLink] = useState<SocialLink | null>(null);
+  const [deletingLinkId, setDeletingLinkId] = useState<string | null>(null);
   const [newLink, setNewLink] = useState({
     platform: '',
     url: '',
@@ -67,8 +78,16 @@ export function SocialMediaEditor() {
 
   // Handle delete
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this social link?')) {
-      deleteMutation.mutate(id);
+    setDeletingLinkId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deletingLinkId) {
+      deleteMutation.mutate(deletingLinkId, {
+        onSuccess: () => {
+          setDeletingLinkId(null);
+        },
+      });
     }
   };
 
@@ -272,6 +291,31 @@ export function SocialMediaEditor() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingLinkId} onOpenChange={(open) => !open && setDeletingLinkId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Social Link</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this social link? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

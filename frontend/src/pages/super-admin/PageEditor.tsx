@@ -1237,9 +1237,9 @@ function LandingPageEditor() {
             <div className="space-y-3">
               <Label>Footer Links</Label>
               <p className="text-xs text-muted-foreground">
-                Social: {landingPage.footerSection.socialMediaLinks.length} links | 
-                Support: {landingPage.footerSection.supportLinks.length} links | 
-                Corporate: {landingPage.footerSection.corporateLinks.length} links
+                Social: {landingPage.footerSection?.socialMediaLinks?.length ?? 0} links | 
+                Support: {landingPage.footerSection?.supportLinks?.length ?? 0} links | 
+                Corporate: {landingPage.footerSection?.corporateLinks?.length ?? 0} links
               </p>
               <p className="text-xs text-muted-foreground">
                 Footer link management coming soon.

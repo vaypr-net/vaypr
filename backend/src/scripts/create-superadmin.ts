@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { UserService } from '../user/user.service';
 import * as readline from 'readline';
+import { URL } from 'url';
 
 /**
  * CLI Script to Create/Promote Super Admin
@@ -44,6 +45,10 @@ async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const userService = app.get(UserService);
 
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/vaypr';
+  console.log(`📂 CWD: ${process.cwd()}`);
+  console.log(`🗄️  MongoDB: ${formatMongoTarget(mongoUri)}\n`);
+
   try {
     const action = await question(
       'Choose action:\n' +
@@ -71,6 +76,16 @@ async function bootstrap() {
   } finally {
     rl.close();
     await app.close();
+  }
+}
+
+function formatMongoTarget(uri: string): string {
+  try {
+    const parsed = new URL(uri);
+    const dbName = parsed.pathname?.replace('/', '') || '(default)';
+    return `${parsed.hostname}/${dbName}`;
+  } catch {
+    return uri;
   }
 }
 
@@ -161,4 +176,3 @@ async function demoteSuperAdmin(userService: UserService) {
 }
 
 bootstrap();
-
