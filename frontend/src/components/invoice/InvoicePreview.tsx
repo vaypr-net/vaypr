@@ -3,9 +3,10 @@ import { InvoiceData } from "@/types/invoice";
 
 interface InvoicePreviewProps {
   data: InvoiceData;
+  previewId?: string;
 }
 
-export function InvoicePreview({ data }: InvoicePreviewProps) {
+export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoicePreviewProps) {
   const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const discountAmount = (subtotal * data.discount) / 100;
   const calculatedGrandTotal = subtotal - discountAmount + data.deliveryFee;
@@ -25,7 +26,7 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
   };
 
   return (
-    <div className="bg-background max-w-2xl mx-auto print:shadow-none" id="invoice-preview">
+    <div className="bg-background max-w-2xl mx-auto print:shadow-none" id={previewId}>
       {/* Document Container */}
       <div className="bg-card p-8">
         {/* Header - Logo left, Invoice info right */}

@@ -219,7 +219,7 @@ export default function Invoices() {
 
     try {
       // Step 1: Generate PDF from invoice preview
-      const element = document.getElementById('invoice-preview');
+      const element = document.getElementById('invoice-preview-email');
       if (!element) {
         throw new Error('Invoice preview not found. Please open the invoice first.');
       }
@@ -701,7 +701,7 @@ export default function Invoices() {
               </DialogTitle>
             </DialogHeader>
             {selectedInvoice && (
-              <div id="invoice-preview">
+              <div>
                 <InvoicePreview
                   data={{
                     logo: selectedInvoice.logo || null,
@@ -827,8 +827,9 @@ export default function Invoices() {
 
             {/* Hidden invoice preview for PDF generation */}
             {selectedInvoice && (
-              <div id="invoice-preview" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+              <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
                 <InvoicePreview
+                  previewId="invoice-preview-email"
                   data={{
                     logo: selectedInvoice.logo || null,
                     logoScale: selectedInvoice.logoScale || 1.0,

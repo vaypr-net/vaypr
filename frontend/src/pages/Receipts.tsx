@@ -110,6 +110,7 @@ export default function Receipts() {
     id: r._id,
     receiptNumber: r.receiptNumber,
     clientId: r.clientId || '',
+    invoiceId: r.invoiceId || undefined,
     receivedFrom: r.receivedFrom,
     status: r.status,
     receiptDate: r.receiptDate,
@@ -122,6 +123,10 @@ export default function Receipts() {
     companyName: r.companyName || '',
     companyAddress: r.companyAddress || '',
     companyPhone: r.companyPhone || '',
+    logo: r.logo || null,
+    logoScale: r.logoScale || 1.0,
+    titleColor: r.titleColor || '#000000',
+    amountColor: r.amountColor || '#000000',
     createdAt: r.createdAt || new Date().toISOString(),
   }));
   
@@ -253,7 +258,7 @@ export default function Receipts() {
 
     try {
       // Step 1: Generate PDF from receipt preview
-      const element = document.getElementById('receipt-preview');
+      const element = document.getElementById('receipt-preview-email');
       if (!element) {
         throw new Error('Receipt preview not found. Please open the receipt first.');
       }
@@ -834,8 +839,9 @@ export default function Receipts() {
 
           {/* Hidden receipt preview for PDF generation */}
           {selectedReceipt && (
-            <div id="receipt-preview" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+            <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
               <ReceiptPreview
+                previewId="receipt-preview-email"
                 data={{
                   logo: selectedReceipt.logo || null,
                   logoScale: selectedReceipt.logoScale || 1.0,

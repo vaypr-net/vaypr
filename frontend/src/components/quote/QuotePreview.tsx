@@ -3,9 +3,10 @@ import { QuoteData } from "@/types/quote";
 
 interface QuotePreviewProps {
   data: QuoteData;
+  previewId?: string;
 }
 
-export function QuotePreview({ data }: QuotePreviewProps) {
+export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreviewProps) {
   const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const discountAmount = (subtotal * data.discount) / 100;
   const calculatedGrandTotal = subtotal - discountAmount + data.deliveryFee;
@@ -21,7 +22,7 @@ export function QuotePreview({ data }: QuotePreviewProps) {
   };
 
   return (
-    <div className="bg-card rounded-xl shadow-card p-8 max-w-2xl mx-auto print:shadow-none" id="quote-preview">
+    <div className="bg-card rounded-xl shadow-card p-8 max-w-2xl mx-auto print:shadow-none" id={previewId}>
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>

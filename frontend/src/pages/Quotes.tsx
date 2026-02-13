@@ -126,6 +126,12 @@ export default function Quotes() {
     quoteNumber: q.quoteNumber,
     clientId: q.clientId || '',
     clientName: q.billTo?.name || '',
+    clientPhone: q.billTo?.phone || '',
+    clientEmail: q.billTo?.email || '',
+    clientArea: q.billTo?.area || '',
+    clientBlock: q.billTo?.block || '',
+    clientStreet: q.billTo?.street || '',
+    clientHouse: q.billTo?.house || '',
     status: q.status,
     quoteDate: q.quoteDate,
     validUntil: q.validUntil,
@@ -137,10 +143,32 @@ export default function Quotes() {
     })) || [],
     subtotal: q.subtotal || 0,
     discount: q.discount || 0,
+    deliveryFee: q.deliveryFee || 0,
     total: q.total || 0,
     currency: q.currency || 'KWD',
     currencySymbol: q.currencySymbol || 'KD',
     notes: q.notes || '',
+    companyName: q.companyFooter?.companyName || '',
+    companyAddress: q.companyFooter?.address || '',
+    companyPhone: q.companyFooter?.officePhone || '',
+    companyEmail: q.companyFooter?.websiteEmail || '',
+    logo: q.logo || null,
+    logoScale: q.logoScale || 1.0,
+    paymentDetails: q.paymentDetails || '',
+    showPaymentMethod: q.showPaymentMethod || false,
+    paymentMethodType: q.paymentMethodType || 'cash',
+    showBankAccount: q.showBankAccount || false,
+    bankAccount: q.bankAccount || { bankName: '', accountName: '', iban: '' },
+    showPaymentTerms: q.showPaymentTerms || false,
+    paymentTerms: q.paymentTerms || '',
+    hideQuantity: q.hideQuantity || false,
+    hideUnitPrice: q.hideUnitPrice || false,
+    hideTotalCost: q.hideTotalCost || false,
+    hideSubTotal: q.hideSubTotal || false,
+    useManualGrandTotal: q.useManualGrandTotal || false,
+    manualGrandTotal: q.manualGrandTotal || 0,
+    tableHeaderColor: q.tableHeaderColor || '#000000',
+    shareToken: q.shareToken,
     createdAt: q.createdAt || new Date().toISOString(),
     sentAt: q.sentAt,
     acceptedAt: q.acceptedAt,
@@ -554,7 +582,7 @@ export default function Quotes() {
 
     try {
       // Step 1: Generate PDF from quote preview
-      const element = document.getElementById('quote-preview');
+      const element = document.getElementById('quote-preview-email');
       if (!element) {
         throw new Error('Quote preview not found. Please open the quote first.');
       }
@@ -1553,8 +1581,9 @@ export default function Quotes() {
 
         {/* Hidden quote preview for PDF generation */}
         {selectedQuote && (
-          <div id="quote-preview" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+          <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
             <QuotePreview 
+              previewId="quote-preview-email"
               data={{
                 logo: selectedQuote.logo || null,
                 logoScale: selectedQuote.logoScale || 1.0,

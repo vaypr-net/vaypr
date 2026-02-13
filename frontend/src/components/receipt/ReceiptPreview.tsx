@@ -3,9 +3,10 @@ import { ReceiptData } from "@/types/receipt";
 
 interface ReceiptPreviewProps {
   data: ReceiptData;
+  previewId?: string;
 }
 
-export function ReceiptPreview({ data }: ReceiptPreviewProps) {
+export function ReceiptPreview({ data, previewId = "receipt-preview" }: ReceiptPreviewProps) {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "-";
     try {
@@ -16,7 +17,7 @@ export function ReceiptPreview({ data }: ReceiptPreviewProps) {
   };
 
   return (
-    <div className="bg-card rounded-xl shadow-card p-8 max-w-md mx-auto print:shadow-none" id="receipt-preview">
+    <div className="bg-card rounded-xl shadow-card p-8 max-w-md mx-auto print:shadow-none" id={previewId}>
       {/* Header */}
       <div className="text-center mb-6">
         {data.logo ? (
