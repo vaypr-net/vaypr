@@ -834,7 +834,7 @@ export default function Receipts() {
 
           {/* Hidden receipt preview for PDF generation */}
           {selectedReceipt && (
-            <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+            <div id="receipt-preview" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
               <ReceiptPreview
                 data={{
                   logo: selectedReceipt.logo || null,

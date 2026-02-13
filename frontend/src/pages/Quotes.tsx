@@ -1553,7 +1553,7 @@ export default function Quotes() {
 
         {/* Hidden quote preview for PDF generation */}
         {selectedQuote && (
-          <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+          <div id="quote-preview" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
             <QuotePreview 
               data={{
                 logo: selectedQuote.logo || null,
