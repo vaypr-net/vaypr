@@ -189,7 +189,8 @@ export class StripeService {
 
     if (!priceId) {
       throw new BadRequestException(
-        `Plan ${plan.name} does not have Stripe price configured for ${currency} ${billingCycle} billing`,
+        `Plan "${plan.name}" does not have Stripe price configured for ${currency} ${billingCycle} billing. ` +
+        `Please update the plan with stripePrices in format: { "AED-${billingCycle}": "price_xxxx" }`,
       );
     }
 

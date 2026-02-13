@@ -77,5 +77,9 @@ export class CreateBillingPlanDto {
   @IsOptional()
   @IsBoolean()
   isPopular?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  stripePrices?: Record<string, string>;
 }
 

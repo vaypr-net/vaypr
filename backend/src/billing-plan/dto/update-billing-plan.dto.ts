@@ -95,4 +95,8 @@ export class UpdateBillingPlanDto {
   @IsOptional()
   @IsNumber()
   subscriberCount?: number;
+
+  @IsOptional()
+  @IsObject()
+  stripePrices?: Record<string, string>;
 }

@@ -51,7 +51,15 @@ export class BillingPlanController {
   update(@Param('id') id: string, @Body() updateBillingPlanDto: UpdateBillingPlanDto) {
     return this.billingPlanService.update(id, updateBillingPlanDto);
   }
-
+  @Patch(':id/stripe-prices')
+  setStripePrices(
+    @Param('id') id: string,
+    @Body() body: { stripePrices: Record<string, string> },
+  ) {
+    return this.billingPlanService.update(id, {
+      stripePrices: body.stripePrices,
+    });
+  }
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.billingPlanService.remove(id);
