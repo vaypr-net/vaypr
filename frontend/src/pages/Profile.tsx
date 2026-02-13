@@ -246,6 +246,10 @@ export default function Profile() {
   const subscription = user?.subscription || DEFAULT_SUBSCRIPTION;
   const currentPlanInfo = SUBSCRIPTION_PLANS[subscription.plan];
 
+  const filterPhoneInput = (value: string): string => {
+    return value.replace(/[^\d+]/g, '');
+  };
+
   useEffect(() => {
     const loadProfile = async () => {
       if (!user?.id) return;
@@ -705,7 +709,7 @@ export default function Profile() {
                       id="phone"
                       type="tel"
                       value={profileForm.phone}
-                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                      onChange={(e) => setProfileForm({ ...profileForm, phone: filterPhoneInput(e.target.value) })}
                       disabled={!isEditingProfile}
                       placeholder="Enter phone number"
                     />
