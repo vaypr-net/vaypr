@@ -11,7 +11,7 @@ export class Client extends BaseEntity {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, lowercase: true, trim: true })
   email: string;
 
   @Prop({ required: true })
@@ -31,3 +31,6 @@ export class Client extends BaseEntity {
 }
 
 export const ClientSchema = SchemaFactory.createForClass(Client);
+
+// Create unique compound index on userId + email
+ClientSchema.index({ userId: 1, email: 1 }, { unique: true, sparse: true });

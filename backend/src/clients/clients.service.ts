@@ -19,8 +19,23 @@ export class ClientsService {
   ) {}
 
   async create(userId: string, createClientDto: CreateClientDto): Promise<Client> {
+    const normalizedEmail = createClientDto.email.toLowerCase().trim();
+    
+    // Check if client with same email already exists for this user
+    const existingClient = await this.clientModel.findOne({
+      userId: new Types.ObjectId(userId),
+      email: normalizedEmail,
+    });
+
+    if (existingClient) {
+      throw new BadRequestException(
+        `A client with email "${createClientDto.email}" already exists for this user`,
+      );
+    }
+
     const client = new this.clientModel({
       ...createClientDto,
+      email: normalizedEmail,
       userId: new Types.ObjectId(userId),
     });
     return client.save();
@@ -254,6 +269,27 @@ export class ClientsService {
 
   async update(userId: string, id: string, updateClientDto: UpdateClientDto): Promise<Client> {
     const client = await this.findOne(userId, id);
+
+    // If email is being updated, check for duplicates
+    if (updateClientDto.email && updateClientDto.email !== client.email) {
+      const normalizedEmail = updateClientDto.email.toLowerCase().trim();
+      const existingClient = await this.clientModel.findOne({
+        userId: new Types.ObjectId(userId),
+        email: normalizedEmail,
+        _id: { $ne: new Types.ObjectId(id) }, // Exclude current client
+      });
+
+      if (existingClient) {
+        throw new BadRequestException(
+          `A client with email "${updateClientDto.email}" already exists for this user`,
+        );
+      }
+    }
+
+    // Normalize email if provided
+    if (updateClientDto.email) {
+      updateClientDto.email = updateClientDto.email.toLowerCase().trim();
+    }
 
     Object.assign(client, updateClientDto);
     return client.save();
