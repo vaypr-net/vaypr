@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { CURRENCY_CONFIG, convertToDisplayCurrency } from "@/config/currency.config";
+import { CURRENCY_CONFIG } from "@/config/currency.config";
 
 interface Plan {
   _id: string;
@@ -308,12 +308,10 @@ export function PricingSection() {
                   </div>
                 ) : (
                   <div>
-                    {/* Show KWD Price (default) or other currency */}
+                    {/* Show KWD Price (plan.price is already in KWD from backend) */}
                     <div className="flex items-baseline gap-2 mb-2">
                       <span className="text-4xl font-bold text-foreground">
-                        {selectedCurrency === 'KWD' || selectedCurrency === CURRENCY_CONFIG.displayCurrency
-                          ? `${convertToDisplayCurrency(plan.price).toFixed(2)}`
-                          : `~${convertToDisplayCurrency(plan.price).toFixed(2)}`}
+                        {getDisplayPrice(plan).toFixed(2)}
                       </span>
                       <span className="text-lg font-semibold text-foreground">
                         {selectedCurrency}

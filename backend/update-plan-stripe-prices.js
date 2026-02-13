@@ -27,19 +27,26 @@ async function updateStripePrices() {
     }
 
     console.log('📋 Found plan:', plan.name);
+    console.log('📋 Current price:', plan.price, plan.currency);
     console.log('📋 Current stripePrices:', plan.stripePrices || 'Not set');
 
     // Update with Stripe prices
     // Using AED prices created by create-stripe-products.js
+    // 100 AED monthly ≈ 31 KWD, 1000 AED yearly ≈ 310 KWD
     const stripePrices = {
       'AED-monthly': 'price_1T0MDaIIR6aBzb6c71GzvEbk', // 100 AED monthly
       'AED-yearly': 'price_1T0MDaIIR6aBzb6cWOEbyvjc',  // 1000 AED yearly
     };
 
+    // Update plan price to match Stripe pricing (31 KWD = 100 AED)
     const result = await plansCollection.updateOne(
       { _id: plan._id },
       { 
-        $set: { stripePrices } 
+        $set: { 
+          stripePrices,
+          price: 31, // Update to match 100 AED Stripe price
+          currency: 'KWD',
+        } 
       }
     );
 
