@@ -17,6 +17,11 @@ export function BillToSection({ billTo, onChange }: BillToSectionProps) {
     onChange({ ...billTo, [field]: value });
   };
 
+  // Filter phone input to only allow numbers and phone formatting characters
+  const filterPhoneInput = (value: string): string => {
+    return value.replace(/[^\d+\s\-()]/g, '');
+  };
+
   const handleClientSelect = (client: any) => {
     // Auto-populate client details when a client is selected
     onChange({
@@ -61,7 +66,7 @@ export function BillToSection({ billTo, onChange }: BillToSectionProps) {
               id="billToPhone"
               placeholder="Phone number"
               value={billTo.phone}
-              onChange={(e) => handleChange("phone", e.target.value)}
+              onChange={(e) => handleChange("phone", filterPhoneInput(e.target.value))}
             />
           </div>
           <div className="space-y-2">
