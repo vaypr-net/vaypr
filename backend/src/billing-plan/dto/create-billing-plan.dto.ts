@@ -37,6 +37,14 @@ class PlanLimitsDto {
 
   @IsString()
   invoiceTemplates: string;
+
+  @IsOptional()
+  @IsNumber()
+  domains?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  customEmailDomain?: boolean;
 }
 
 export class CreateBillingPlanDto {
