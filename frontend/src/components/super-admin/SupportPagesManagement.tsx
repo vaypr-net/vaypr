@@ -219,7 +219,13 @@ export function SupportPagesManagement() {
                       >
                         {isEditing ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleToggleFooter(page._id)}
+                        disabled={toggleFooterMutation.isPending}
+                      >
                         <Eye className="w-4 h-4" />
                       </Button>
                     </div>

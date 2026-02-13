@@ -57,6 +57,7 @@ import {
   useCreateCorporatePage,
   useUpdateCorporatePage,
   useToggleCorporatePageEnabled,
+  useToggleCorporatePageFooter,
   useGuides,
   useCreateGuide,
   useUpdateGuide,
@@ -298,6 +299,7 @@ function CorporatePagesEditor() {
   const createPageMutation = useCreateCorporatePage();
   const updatePageMutation = useUpdateCorporatePage();
   const togglePageMutation = useToggleCorporatePageEnabled();
+  const toggleFooterMutation = useToggleCorporatePageFooter();
   const createGuideMutation = useCreateGuide();
   const updateGuideMutation = useUpdateGuide();
   const toggleGuideMutation = useToggleGuidePublished();
@@ -380,10 +382,19 @@ function CorporatePagesEditor() {
   };
 
   const addGuide = async () => {
-    if (!newGuide.title.trim() || !newGuide.description.trim() || !newGuide.fileName || !newGuide.fileUrl) {
+    const missingFields: string[] = [];
+    if (!newGuide.title.trim()) missingFields.push("Guide Title");
+    if (!newGuide.description.trim()) missingFields.push("Description");
+    if (!newGuide.fileName || !newGuide.fileUrl) missingFields.push("Upload File");
+
+    if (missingFields.length > 0) {
+      const fieldList =
+        missingFields.length === 1
+          ? missingFields[0]
+          : `${missingFields.slice(0, -1).join(", ")} and ${missingFields[missingFields.length - 1]}`;
       toast({
-        title: "Missing fields",
-        description: "Please add title, description, and upload a file.",
+        title: "Required fields missing",
+        description: `Please fill: ${fieldList}.`,
         variant: "destructive",
       });
       return;
@@ -475,9 +486,8 @@ function CorporatePagesEditor() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() =>
-                    window.open(page.slug.startsWith("/") ? page.slug : `/${page.slug}`, "_blank")
-                  }
+                  onClick={() => toggleFooterMutation.mutate(page._id)}
+                  disabled={toggleFooterMutation.isPending}
                 >
                   <Eye className="w-4 h-4" />
                 </Button>
@@ -599,13 +609,13 @@ function CorporatePagesEditor() {
                 <div>
                   <Label className="text-xs">Upload File (Image/PDF) *</Label>
                   <div className="mt-1 flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={(e) => handleFileUpload(e, true)}
-                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                      />
+                      <div className="relative flex-1">
+                        <Input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={(e) => handleFileUpload(e, true)}
+                          className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                        />
                       <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-input bg-background text-sm">
                         <Upload className="w-4 h-4 text-muted-foreground" />
                         <span className="text-muted-foreground truncate">

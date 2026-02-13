@@ -1,43 +1,84 @@
 import { Link } from "react-router-dom";
-const footerLinks = {
-  socialMedia: [{
-    label: "Facebook",
-    href: "#"
-  }, {
-    label: "Instagram",
-    href: "#"
-  }, {
-    label: "TikTok",
-    href: "#"
-  }, {
-    label: "LinkedIn",
-    href: "#"
-  }],
-  support: [{
-    label: "FAQs",
-    href: "/faqs"
-  }, {
-    label: "Contact Us",
-    href: "/contact"
-  }, {
-    label: "Privacy Policy",
-    href: "/privacy"
-  }, {
-    label: "Refund Policy",
-    href: "/refund"
-  }],
-  corporate: [{
-    label: "Guides",
-    href: "/guides"
-  }, {
-    label: "About Us",
-    href: "/about"
-  }, {
-    label: "B2B Services",
-    href: "/b2b"
-  }]
+import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
+import { useCorporatePages } from "@/hooks/useCorporatePages";
+import { useSupportPages } from "@/hooks/useSupportPages";
+import { useLandingPage } from "@/hooks/useLandingPage";
+import type { FooterLink as LandingFooterLink } from "@/api/services/landing-page.service";
+
+interface FooterLinkItem {
+  label: string;
+  href: string;
+}
+
+interface PublicSocialLink {
+  _id: string;
+  platform: string;
+  url: string;
+  enabled: boolean;
+  order: number;
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+const toHref = (slug: string): string => {
+  if (!slug) return "/";
+  if (/^https?:\/\//i.test(slug)) return slug;
+  if (slug.startsWith("/") || slug.startsWith("#")) return slug;
+  return `/${slug}`;
 };
+
+const isExternalHref = (href: string): boolean => /^https?:\/\//i.test(href);
+
+const mapPageLinks = (pages: Array<{ title: string; slug: string; showInFooter: boolean; order: number }>): FooterLinkItem[] =>
+  pages
+    .filter((page) => page.showInFooter)
+    .sort((a, b) => a.order - b.order)
+    .map((page) => ({
+      label: page.title,
+      href: toHref(page.slug),
+    }));
+
+const mapLandingLinks = (links: LandingFooterLink[] | undefined): FooterLinkItem[] =>
+  (links ?? [])
+    .filter((link) => Boolean(link?.label) && Boolean(link?.href))
+    .map((link) => ({
+      label: link.label,
+      href: toHref(link.href),
+    }));
+
 export function Footer() {
+  const { data: landingPage } = useLandingPage();
+  const { data: supportPages = [] } = useSupportPages({ enabledOnly: true });
+  const { data: corporatePages = [] } = useCorporatePages({ enabledOnly: true });
+  const { data: publicSocialLinks = [] } = useQuery({
+    queryKey: ["public-social-links"],
+    queryFn: async () => {
+      const response = await axios.get<PublicSocialLink[]>(`${API_BASE_URL}/social-links`);
+      return response.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const socialLinksFromPublicApi: FooterLinkItem[] = publicSocialLinks
+    .filter((link) => link.enabled)
+    .sort((a, b) => a.order - b.order)
+    .map((link) => ({
+      label: link.platform,
+      href: toHref(link.url),
+    }));
+  const socialLinksFromLanding = mapLandingLinks(landingPage?.footerSection?.socialMediaLinks);
+  const socialLinks = socialLinksFromPublicApi.length > 0 ? socialLinksFromPublicApi : socialLinksFromLanding;
+  const supportLinksFromPages = mapPageLinks(supportPages);
+  const corporateLinksFromPages = mapPageLinks(corporatePages);
+
+  const supportLinks = supportLinksFromPages.length > 0
+    ? supportLinksFromPages
+    : mapLandingLinks(landingPage?.footerSection?.supportLinks);
+  const corporateLinks = corporateLinksFromPages.length > 0
+    ? corporateLinksFromPages
+    : mapLandingLinks(landingPage?.footerSection?.corporateLinks);
+
   return <footer className="py-16 border-t border-border">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-12 mb-12">
@@ -47,33 +88,59 @@ export function Footer() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-lg font-display">V</span>
               </div>
-              <span className="font-display font-bold text-xl text-foreground">VAYPR</span>
+              <span className="font-display font-bold text-xl text-foreground">
+                {landingPage?.footerSection?.companyName}
+              </span>
             </Link>
             <p className="text-muted-foreground max-w-xs">
-              The modern financial management platform for businesses that want to grow.
+              {landingPage?.footerSection?.description}
             </p>
           </div>
 
           {/* Social Media Links */}
-          <div>
-            <h3 className="font-semibold text-foreground mb-4">Social Media</h3>
-            <ul className="space-y-3">
-              {footerLinks.socialMedia.map(link => <li key={link.label}>
-                  <a href={link.href} className="text-muted-foreground hover:text-foreground transition-colors text-sm">
-                    {link.label}
-                  </a>
-                </li>)}
-            </ul>
-          </div>
+          {landingPage?.footerSection?.showSocialLinks && (
+            <div>
+              <h3 className="font-semibold text-foreground mb-4">Social Media</h3>
+              <ul className="space-y-3">
+                {socialLinks.map(link => <li key={link.label}>
+                    {isExternalHref(link.href) ? (
+                      <a
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link to={link.href} className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                        {link.label}
+                      </Link>
+                    )}
+                  </li>)}
+              </ul>
+            </div>
+          )}
 
           {/* Support Links */}
           <div>
             <h3 className="font-semibold text-foreground mb-4">Support</h3>
             <ul className="space-y-3">
-              {footerLinks.support.map(link => <li key={link.label}>
-                  <Link to={link.href} className="text-muted-foreground hover:text-foreground transition-colors text-sm">
-                    {link.label}
-                  </Link>
+              {supportLinks.map(link => <li key={link.label}>
+                  {isExternalHref(link.href) ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+                    >
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link to={link.href} className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      {link.label}
+                    </Link>
+                  )}
                 </li>)}
             </ul>
           </div>
@@ -82,16 +149,22 @@ export function Footer() {
           <div>
             <h3 className="font-semibold text-foreground mb-4">Corporate</h3>
             <ul className="space-y-3">
-              {footerLinks.corporate.map(link => <li key={link.label}>
-                  <Link to={link.href} className="text-muted-foreground hover:text-foreground transition-colors text-sm">
-                    {link.label}
-                  </Link>
+              {corporateLinks.map(link => <li key={link.label}>
+                  {isExternalHref(link.href) ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+                    >
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link to={link.href} className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      {link.label}
+                    </Link>
+                  )}
                 </li>)}
-              <li>
-                <Link to="/login" className="inline-block px-4 py-2 border border-foreground rounded-md text-sm text-foreground hover:bg-foreground hover:text-background transition-colors">
-                  Corporate Login
-                </Link>
-              </li>
             </ul>
           </div>
         </div>
@@ -99,7 +172,7 @@ export function Footer() {
         {/* Bottom */}
         <div className="pt-8 border-t border-border flex justify-center">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} VAYPR. All rights reserved.
+            {landingPage?.footerSection?.copyright}
           </p>
         </div>
       </div>
