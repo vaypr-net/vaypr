@@ -43,6 +43,8 @@ import Settings from "./pages/super-admin/Settings";
 import BillingSuccess from "./pages/BillingSuccess";
 import BillingCancel from "./pages/BillingCancel";
 import Pricing from "./pages/Pricing";
+import PaymentSuccess from "./pages/payment/Success";
+import PaymentCancel from "./pages/payment/Cancel";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +78,8 @@ function AppRoutes() {
       <Route path="/signup" element={user ? <Navigate to="/dashboard" replace /> : <Signup />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/pricing" element={<Pricing />} />
+      <Route path="/payment/success" element={<PaymentSuccess />} />
+      <Route path="/payment/cancel" element={<PaymentCancel />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/dashboard/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
       <Route path="/dashboard/quotes" element={<ProtectedRoute><Quotes /></ProtectedRoute>} />

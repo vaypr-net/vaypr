@@ -214,7 +214,7 @@ export class StripeService {
 
     // Create checkout session
     // Use AED currency which is supported by Stripe and available for Middle Eastern users
-    const appUrl = this.configService.get<string>('APP_URL') || 'http://localhost:8081';
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
     const session = await this.stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: 'subscription',
@@ -225,8 +225,8 @@ export class StripeService {
           quantity: 1,
         },
       ],
-      success_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/billing/cancel`,
+      success_url: `${frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/payment/cancel`,
       metadata: {
         userId: userId,
         planId: planId,
@@ -268,6 +268,59 @@ export class StripeService {
     this.logger.log(`Created billing portal session for user ${userId}`);
 
     return { url: session.url };
+  }
+
+  /**
+   * Verify checkout session after successful payment
+   * Called by frontend after Stripe redirects to success page
+   */
+  async verifyCheckoutSession(sessionId: string, userId: string): Promise<any> {
+    try {
+      // Retrieve the checkout session from Stripe
+      const session = await this.stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['subscription', 'customer'],
+      });
+
+      // Verify the session belongs to this user
+      if (session.metadata?.userId !== userId) {
+        throw new BadRequestException('Session does not belong to this user');
+      }
+
+      // Check if payment was successful
+      if (session.payment_status !== 'paid') {
+        throw new BadRequestException('Payment was not successful');
+      }
+
+      // Get subscription details
+      const subscription = session.subscription as any;
+      
+      if (!subscription) {
+        throw new BadRequestException('No subscription found in session');
+      }
+
+      // Update user's subscription in database (this is usually done by webhook, but we do it here as backup)
+      const user = await this.userModel.findById(userId);
+      if (user) {
+        user.stripeSubscriptionId = subscription.id;
+        user.subscriptionStatus = 'active';
+        user.planId = session.metadata?.planId as any;
+        await user.save();
+        
+        this.logger.log(`Verified session ${sessionId} for user ${userId}, subscription ${subscription.id}`);
+      }
+
+      return {
+        success: true,
+        sessionId: session.id,
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        planName: session.metadata?.planId,
+        message: 'Payment successful! Your subscription is now active.',
+      };
+    } catch (error) {
+      this.logger.error(`Error verifying session ${sessionId}: ${error.message}`);
+      throw error;
+    }
   }
 
   /**

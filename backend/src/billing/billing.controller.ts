@@ -9,6 +9,7 @@ import {
   HttpStatus,
   BadRequestException,
   Logger,
+  Param,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { StripeService } from './stripe.service';
@@ -63,6 +64,35 @@ export class BillingController {
       return result;
     } catch (error) {
       this.logger.error(`Checkout session error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Verify checkout session after payment
+   * Called by frontend after Stripe redirects to success page
+   */
+  @Get('verify-session/:sessionId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Verify checkout session',
+    description: 'Verifies the Stripe checkout session and returns subscription details',
+  })
+  @ApiResponse({ status: 200, description: 'Session verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired session' })
+  async verifySession(
+    @Param('sessionId') sessionId: string,
+    @Request() req: any,
+  ) {
+    try {
+      if (!sessionId) {
+        throw new BadRequestException('Session ID is required');
+      }
+
+      const result = await this.stripeService.verifyCheckoutSession(sessionId, req.user.sub);
+      return result;
+    } catch (error) {
+      this.logger.error(`Session verification error: ${error.message}`);
       throw error;
     }
   }
