@@ -29,6 +29,7 @@ import {
   useUpdateTicketStatus 
 } from "@/hooks/api/useTickets";
 import { Ticket } from "@/api/services/ticket.service";
+import { toast } from "sonner";
 
 const priorityStyles: Record<string, string> = {
   low: "bg-gray-100 text-gray-600",
@@ -58,6 +59,68 @@ function formatTimeAgo(dateString: string) {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays === 1) return "Yesterday";
   return `${diffDays}d ago`;
+}
+
+// CSV Export utility for tickets
+function exportTicketsToCSV(tickets: Ticket[], filename: string = 'support_tickets.csv') {
+  if (!tickets || tickets.length === 0) {
+    toast.error('No tickets to export');
+    return;
+  }
+
+  try {
+    // Define CSV headers
+    const headers = [
+      'Ticket ID',
+      'Subject',
+      'Status',
+      'Priority',
+      'Category',
+      'Customer Name',
+      'Customer Email',
+      'Assigned To',
+      'Created Date',
+      'Updated Date'
+    ];
+
+    // Map data to CSV rows
+    const rows = tickets.map((ticket: Ticket) => [
+      ticket._id || '',
+      ticket.subject || '',
+      ticket.status || '',
+      ticket.priority || '',
+      ticket.category || '',
+      ticket.customerName || '',
+      ticket.customerEmail || '',
+      ticket.assignedTo || 'Unassigned',
+      formatDate(ticket.createdAt),
+      formatDate(ticket.updatedAt)
+    ]);
+
+    // Create CSV content
+    let csvContent = headers.join(',') + '\n';
+    rows.forEach((row) => {
+      csvContent += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Tickets exported successfully');
+  } catch (error) {
+    console.error('Error exporting CSV:', error);
+    toast.error('Failed to export tickets');
+  }
 }
 
 export default function Support() {
@@ -240,7 +303,7 @@ export default function Support() {
               onChange: setPriorityFilter,
             },
           ]}
-          onExport={() => console.log("Export CSV")}
+          onExport={() => exportTicketsToCSV(displayTickets, `support_tickets_${new Date().toISOString().split('T')[0]}.csv`)}
         />
 
         <DataTable

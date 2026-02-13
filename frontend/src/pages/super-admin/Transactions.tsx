@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/currency";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -23,6 +24,70 @@ function formatDate(dateString: string) {
     month: 'short',
     day: 'numeric'
   });
+}
+
+// CSV Export utility
+function exportToCSV(data: Transaction[], filename: string = 'transactions.csv') {
+  if (!data || data.length === 0) {
+    toast.error('No data to export');
+    return;
+  }
+
+  try {
+    // Define CSV headers
+    const headers = [
+      'Transaction ID',
+      'Type',
+      'Status',
+      'Amount',
+      'Currency',
+      'Subscriber Email',
+      'Plan Name',
+      'Payment Method',
+      'Provider Transaction ID',
+      'Created Date',
+      'Updated Date'
+    ];
+
+    // Map data to CSV rows
+    const rows = data.map((transaction: Transaction) => [
+      transaction.transactionId || '',
+      transaction.type || '',
+      transaction.status || '',
+      transaction.amount || '',
+      transaction.currency || '',
+      transaction.subscriberEmail || '',
+      transaction.planName || '',
+      transaction.paymentMethod || '',
+      transaction.providerTransactionId || '',
+      formatDate(transaction.createdAt),
+      formatDate(transaction.updatedAt)
+    ]);
+
+    // Create CSV content
+    let csvContent = headers.join(',') + '\n';
+    rows.forEach((row) => {
+      csvContent += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Transactions exported successfully');
+  } catch (error) {
+    console.error('Error exporting CSV:', error);
+    toast.error('Failed to export transactions');
+  }
 }
 
 export default function Transactions() {
@@ -228,7 +293,7 @@ export default function Transactions() {
               onChange: setTypeFilter,
             },
           ]}
-          onExport={() => console.log("Export CSV")}
+          onExport={() => exportToCSV(transactions, `transactions_${new Date().toISOString().split('T')[0]}.csv`)}
         />
 
         {loading && (

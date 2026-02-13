@@ -6,6 +6,7 @@ export interface ActivityItem {
   title: string;
   description: string;
   relatedEntityId?: string;
+  isRead?: boolean;
   createdAt: string;
 }
 
@@ -17,6 +18,16 @@ export interface ActivityResponse {
 class ActivityService {
   async getActivities(limit: number = 10, skip: number = 0): Promise<ActivityResponse> {
     const response = await axios.get(`/activities?limit=${limit}&skip=${skip}`);
+    return response.data;
+  }
+
+  async markAsRead(id: string) {
+    const response = await axios.patch(`/activities/${id}/read`);
+    return response.data;
+  }
+
+  async markAllAsRead() {
+    const response = await axios.patch('/activities/all/read');
     return response.data;
   }
 }

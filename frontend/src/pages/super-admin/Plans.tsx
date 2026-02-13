@@ -159,6 +159,8 @@ export default function Plans() {
     recurringInvoices: "",
     expenseTracking: false,
     invoiceTemplates: "Basic",
+    domains: "",
+    customEmailDomain: false,
     isPopular: false,
   });
 
@@ -177,6 +179,8 @@ export default function Plans() {
       recurringInvoices: "",
       expenseTracking: false,
       invoiceTemplates: "Basic",
+      domains: "",
+      customEmailDomain: false,
       isPopular: false,
     });
   };
@@ -196,14 +200,31 @@ export default function Plans() {
       recurringInvoices: plan.limits.recurringInvoices.toString(),
       expenseTracking: plan.limits.expenseTracking,
       invoiceTemplates: plan.limits.invoiceTemplates,
+      domains: (plan.limits.domains ?? 0).toString(),
+      customEmailDomain: plan.limits.customEmailDomain ?? false,
       isPopular: plan.isPopular || false,
     });
     setEditingPlan(plan);
   };
 
   const handleSave = async () => {
+    // Validation
+    const missingFields: string[] = [];
+    
+    if (!formData.name.trim()) missingFields.push("Plan Name");
+    if (!formData.price.trim()) missingFields.push("Price");
+    if (!formData.features.trim()) missingFields.push("Features");
+    if (!formData.storage.trim()) missingFields.push("Storage");
+    
+    if (missingFields.length > 0) {
+      toast.error("Missing Required Fields", {
+        description: `Please fill in: ${missingFields.join(", ")}`,
+      });
+      return;
+    }
+
     const planData: CreateBillingPlanDto | UpdateBillingPlanDto = {
-      name: formData.name,
+      name: formData.name.trim(),
       price: parseInt(formData.price) || 0,
       currency: "KWD",
       interval: formData.interval,
@@ -219,6 +240,8 @@ export default function Plans() {
         recurringInvoices: parseInt(formData.recurringInvoices) || -1,
         expenseTracking: formData.expenseTracking,
         invoiceTemplates: formData.invoiceTemplates,
+        domains: parseInt(formData.domains) || 0,
+        customEmailDomain: formData.customEmailDomain,
       },
       isPopular: formData.isPopular,
     };
@@ -416,6 +439,25 @@ export default function Plans() {
                   <Label htmlFor="expense-tracking">Expense Tracking</Label>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Custom Domains</Label>
+                  <Input 
+                    type="number" 
+                    placeholder="-1 for unlimited, 0 for none" 
+                    value={formData.domains}
+                    onChange={(e) => setFormData({ ...formData, domains: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <Switch 
+                    id="custom-email-domain" 
+                    checked={formData.customEmailDomain}
+                    onCheckedChange={(checked) => setFormData({ ...formData, customEmailDomain: checked })}
+                  />
+                  <Label htmlFor="custom-email-domain">Custom Email Domain</Label>
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 <Switch 
                   id="popular" 
@@ -568,6 +610,25 @@ export default function Plans() {
                   onCheckedChange={(checked) => setFormData({ ...formData, expenseTracking: checked })}
                 />
                 <Label htmlFor="expense-tracking-edit">Expense Tracking</Label>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Custom Domains</Label>
+                <Input 
+                  type="number" 
+                  placeholder="-1 for unlimited, 0 for none" 
+                  value={formData.domains}
+                  onChange={(e) => setFormData({ ...formData, domains: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-6">
+                <Switch 
+                  id="custom-email-domain-edit" 
+                  checked={formData.customEmailDomain}
+                  onCheckedChange={(checked) => setFormData({ ...formData, customEmailDomain: checked })}
+                />
+                <Label htmlFor="custom-email-domain-edit">Custom Email Domain</Label>
               </div>
             </div>
             <div className="flex items-center gap-2">

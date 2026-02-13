@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   User, 
@@ -10,7 +10,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Check,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from "lucide-react";
 import {
   Dialog,
@@ -77,6 +78,22 @@ const steps = [
   { id: 3, title: "Description", icon: MessageSquare },
 ];
 
+// Validation functions
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[a-zA-Z0-9._\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
+const validatePhone = (phone: string): boolean => {
+  if (!phone) return true; // Phone is optional
+  const phoneRegex = /^[\d+\s\-()]*$/;
+  return phoneRegex.test(phone);
+};
+
+const filterPhoneInput = (value: string): string => {
+  return value.replace(/[^\d+\s\-()]/g, "");
+};
+
 export function CreateTicketDialog({ open, onOpenChange, onSubmit }: CreateTicketDialogProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<TicketFormData>({
@@ -90,8 +107,34 @@ export function CreateTicketDialog({ open, onOpenChange, onSubmit }: CreateTicke
     assignedTo: "Support Team",
   });
 
+  const [errors, setErrors] = useState<{ email?: string; phone?: string }>({});
+
   const updateFormData = (field: keyof TicketFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+
+    // Validate email and phone on change
+    const newErrors = { ...errors };
+    
+    if (field === "customerEmail") {
+      if (value && !validateEmail(value)) {
+        newErrors.email = "Please enter a valid email address";
+      } else {
+        delete newErrors.email;
+      }
+    }
+
+    if (field === "customerPhone") {
+      const filteredValue = filterPhoneInput(value);
+      setFormData(prev => ({ ...prev, [field]: filteredValue }));
+      
+      if (!validatePhone(filteredValue)) {
+        newErrors.phone = "Phone can only contain numbers, +, spaces, hyphens, and parentheses";
+      } else {
+        delete newErrors.phone;
+      }
+    }
+
+    setErrors(newErrors);
   };
 
   const handleNext = () => {
@@ -116,10 +159,11 @@ export function CreateTicketDialog({ open, onOpenChange, onSubmit }: CreateTicke
       assignedTo: "Support Team",
     });
     setCurrentStep(1);
+    setErrors({});
     onOpenChange(false);
   };
 
-  const isStep1Valid = formData.customerName && formData.customerEmail;
+  const isStep1Valid = formData.customerName && formData.customerEmail && validateEmail(formData.customerEmail);
   const isStep2Valid = formData.subject && formData.category;
   const isStep3Valid = formData.description.length >= 10;
 
@@ -214,7 +258,17 @@ export function CreateTicketDialog({ open, onOpenChange, onSubmit }: CreateTicke
                     placeholder="customer@example.com"
                     value={formData.customerEmail}
                     onChange={(e) => updateFormData("customerEmail", e.target.value)}
+                    className={cn(
+                      "transition-colors",
+                      errors.email ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""
+                    )}
                   />
+                  {errors.email && (
+                    <div className="flex items-center gap-1 text-red-500 text-sm mt-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.email}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -227,7 +281,17 @@ export function CreateTicketDialog({ open, onOpenChange, onSubmit }: CreateTicke
                     placeholder="+1 (555) 000-0000"
                     value={formData.customerPhone}
                     onChange={(e) => updateFormData("customerPhone", e.target.value)}
+                    className={cn(
+                      "transition-colors",
+                      errors.phone ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""
+                    )}
                   />
+                  {errors.phone && (
+                    <div className="flex items-center gap-1 text-red-500 text-sm mt-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.phone}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}

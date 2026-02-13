@@ -13,6 +13,7 @@ import { CouponDialog } from "@/components/super-admin/affiliates/CouponDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { AffiliateService } from "@/api/services/affiliate.service";
 import {
   useGetAffiliates,
   useCreateAffiliate,
@@ -343,6 +344,99 @@ export default function Affiliates() {
   const totalPending = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.pending, 0) || 0;
   const totalReferrals = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.referrals, 0) || 0;
 
+  const handleExportCsv = async () => {
+    try {
+      const search = searchValue || undefined;
+      const status = statusFilter || undefined;
+      const tier = tierFilter || undefined;
+
+      const allAffiliates: Affiliate[] = [];
+      let offset = 0;
+      const limit = 500;
+      let hasMore = true;
+
+      while (hasMore) {
+        const page = await AffiliateService.getAffiliates(
+          search,
+          status,
+          tier,
+          limit,
+          offset
+        );
+
+        allAffiliates.push(...(page.items || []));
+        hasMore = page.hasMore;
+        offset += page.items.length;
+
+        if (!page.items.length) break;
+      }
+
+      if (!allAffiliates.length) {
+        toast.error("No affiliates to export");
+        return;
+      }
+
+      const escapeCsv = (value: unknown): string => {
+        if (value === null || value === undefined) return "";
+        const str = String(value);
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const headers = [
+        "Name",
+        "Email",
+        "Phone",
+        "Code",
+        "Tier",
+        "Status",
+        "Referrals",
+        "Earnings",
+        "Pending",
+        "Join Date",
+        "Last Payment Date",
+      ];
+
+      const rows = allAffiliates.map((affiliate) => [
+        affiliate.name,
+        affiliate.email,
+        affiliate.phone || "",
+        affiliate.code,
+        affiliate.tier,
+        affiliate.status,
+        affiliate.referrals,
+        affiliate.earnings,
+        affiliate.pending,
+        affiliate.joinDate ? new Date(affiliate.joinDate).toLocaleDateString() : "",
+        affiliate.lastPaymentDate
+          ? new Date(affiliate.lastPaymentDate).toLocaleDateString()
+          : "",
+      ]);
+
+      const csvContent = [
+        headers.map(escapeCsv).join(","),
+        ...rows.map((row) => row.map(escapeCsv).join(",")),
+      ].join("\n");
+
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      link.href = url;
+      link.setAttribute("download", `affiliates-${timestamp}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${allAffiliates.length} affiliates`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to export affiliates");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="page-header">
@@ -382,7 +476,12 @@ export default function Affiliates() {
         <TabsContent value="affiliates" className="mt-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card-admin">
             <div className="flex items-center justify-between mb-4">
-              <SearchFilter searchPlaceholder="Search affiliates..." searchValue={searchValue} onSearchChange={setSearchValue} onExport={() => {}} />
+              <SearchFilter
+                searchPlaceholder="Search affiliates..."
+                searchValue={searchValue}
+                onSearchChange={setSearchValue}
+                onExport={handleExportCsv}
+              />
               <Button onClick={() => { setEditingAffiliate(null); setAffiliateDialogOpen(true); }} className="gap-2">
                 <Plus className="w-4 h-4" /> Add Affiliate
               </Button>

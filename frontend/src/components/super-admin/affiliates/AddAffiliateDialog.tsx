@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles } from "lucide-react";
+import { Sparkles, AlertCircle } from "lucide-react";
 import { Affiliate } from "@/api/services/affiliate.service";
+import { cn } from "@/lib/utils";
 
 interface AddAffiliateDialogProps {
   open: boolean;
@@ -23,6 +24,22 @@ const generateCode = () => {
   return code;
 };
 
+// Validation functions
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[a-zA-Z0-9._\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
+const validatePhone = (phone: string): boolean => {
+  if (!phone) return true; // Phone is optional
+  const phoneRegex = /^[\d+\s\-()]*$/;
+  return phoneRegex.test(phone);
+};
+
+const filterPhoneInput = (value: string): string => {
+  return value.replace(/[^\d+\s\-()]/g, "");
+};
+
 export function AddAffiliateDialog({ open, onOpenChange, affiliate, onSave }: AddAffiliateDialogProps) {
   const [formData, setFormData] = useState({
     name: affiliate?.name || "",
@@ -33,13 +50,61 @@ export function AddAffiliateDialog({ open, onOpenChange, affiliate, onSave }: Ad
     status: affiliate?.status || "active",
   });
 
+  const [phoneError, setPhoneError] = useState("");
+  const [emailError, setEmailError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+
+    setFormData({
+      name: affiliate?.name || "",
+      email: affiliate?.email || "",
+      phone: affiliate?.phone || "",
+      code: affiliate?.code || "",
+      tier: affiliate?.tier || "Bronze",
+      status: affiliate?.status || "active",
+    });
+    setPhoneError("");
+    setEmailError("");
+  }, [affiliate, open]);
+
+  const handleEmailChange = (value: string) => {
+    const sanitizedValue = value.replace(/\s/g, "");
+    setFormData(prev => ({ ...prev, email: sanitizedValue }));
+    
+    if (sanitizedValue && !validateEmail(sanitizedValue)) {
+      setEmailError("Please enter a valid email address");
+    } else {
+      setEmailError("");
+    }
+  };
+
+  const handlePhoneChange = (value: string) => {
+    const filteredValue = filterPhoneInput(value);
+    setFormData(prev => ({ ...prev, phone: filteredValue }));
+
+    if (!validatePhone(filteredValue)) {
+      setPhoneError("Phone can only contain numbers, +, spaces, hyphens, and parentheses");
+    } else {
+      setPhoneError("");
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!validateEmail(formData.email)) {
+      setEmailError("Please enter a valid email address");
+      return;
+    }
+
     // Only send editable fields (name, email, phone, code, tier, status)
     // Backend manages referrals, earnings, pending automatically
     onSave(formData);
     onOpenChange(false);
     setFormData({ name: "", email: "", phone: "", code: "", tier: "Bronze", status: "active" });
+    setPhoneError("");
+    setEmailError("");
   };
 
   const handleGenerateCode = () => {
@@ -73,9 +138,19 @@ export function AddAffiliateDialog({ open, onOpenChange, affiliate, onSave }: Ad
               type="email"
               placeholder="Enter email address"
               value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              onChange={(e) => handleEmailChange(e.target.value)}
+              className={cn(
+                "transition-colors",
+                emailError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""
+              )}
               required
             />
+            {emailError && (
+              <div className="flex items-center gap-1 text-red-500 text-sm mt-1">
+                <AlertCircle className="w-4 h-4" />
+                {emailError}
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Mobile Number</Label>
@@ -83,8 +158,18 @@ export function AddAffiliateDialog({ open, onOpenChange, affiliate, onSave }: Ad
               id="phone"
               placeholder="+965 XXXX XXXX"
               value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              className={cn(
+                "transition-colors",
+                phoneError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""
+              )}
             />
+            {phoneError && (
+              <div className="flex items-center gap-1 text-red-500 text-sm mt-1">
+                <AlertCircle className="w-4 h-4" />
+                {phoneError}
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="code">Referral Code</Label>
@@ -134,7 +219,7 @@ export function AddAffiliateDialog({ open, onOpenChange, affiliate, onSave }: Ad
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" disabled={!formData.email || !!emailError}>
               {affiliate ? "Save Changes" : "Add Affiliate"}
             </Button>
           </div>

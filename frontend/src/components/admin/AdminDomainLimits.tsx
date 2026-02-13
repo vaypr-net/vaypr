@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import axios from 'axios';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { BillingPlanService } from '@/api/services/billing-plan.service';
+import { useGetPlans } from '@/hooks/api/useBillingPlans';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,38 +25,26 @@ import {
 import { Globe, Save, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
-
-interface BillingPlan {
-  _id: string;
-  name: string;
-  price: number;
-  limits: {
-    domains: number;
-    customEmailDomain: boolean;
-  };
-}
-
 export function AdminDomainLimits() {
+  const queryClient = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<string>('');
   const [domainLimit, setDomainLimit] = useState<string>('');
   const [customEmailDomain, setCustomEmailDomain] = useState<boolean>(false);
 
-  // Fetch all plans
-  const { data: plans = [], isLoading: plansLoading } = useQuery({
-    queryKey: ['billing-plans'],
-    queryFn: async () => {
-      const res = await axios.get(`${API_URL}/api/superadmin/billing-plans`);
-      return res.data || [];
-    },
-  });
+  // Fetch all plans using the existing hook
+  const { data: plansData, isLoading: plansLoading } = useGetPlans();
+  const plans = plansData?.items || [];
 
   // Update plan mutation
   const updateMutation = useMutation({
     mutationFn: async () => {
+      const plan = plans.find((p) => p._id === selectedPlan);
+      if (!plan) throw new Error('Plan not found');
+      
       const limit = domainLimit === 'unlimited' ? -1 : parseInt(domainLimit, 10);
-      await axios.patch(`${API_URL}/api/superadmin/billing-plans/${selectedPlan}`, {
+      await BillingPlanService.updatePlan(selectedPlan, {
         limits: {
+          ...plan.limits,
           domains: limit,
           customEmailDomain,
         },
@@ -63,6 +52,7 @@ export function AdminDomainLimits() {
     },
     onSuccess: () => {
       toast.success('Domain limits updated for plan');
+      queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to update limits');
@@ -71,10 +61,10 @@ export function AdminDomainLimits() {
 
   const handlePlanSelect = (planId: string) => {
     setSelectedPlan(planId);
-    const plan = plans.find((p: BillingPlan) => p._id === planId);
+    const plan = plans.find((p) => p._id === planId);
     if (plan) {
-      setDomainLimit(plan.limits.domains === -1 ? 'unlimited' : String(plan.limits.domains));
-      setCustomEmailDomain(plan.limits.customEmailDomain);
+      setDomainLimit(plan.limits.domains === -1 ? 'unlimited' : String(plan.limits.domains ?? 0));
+      setCustomEmailDomain(plan.limits.customEmailDomain ?? false);
     }
   };
 
@@ -110,7 +100,7 @@ export function AdminDomainLimits() {
                   <SelectValue placeholder="Choose a plan..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {plans.map((plan: BillingPlan) => (
+                  {plans.map((plan) => (
                     <SelectItem key={plan._id} value={plan._id}>
                       {plan.name} ({plan.price > 0 ? `KWD ${plan.price}` : 'Free'})
                     </SelectItem>
@@ -198,7 +188,7 @@ export function AdminDomainLimits() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  plans.map((plan: BillingPlan) => (
+                  plans.map((plan) => (
                     <TableRow key={plan._id}>
                       <TableCell className="font-medium">{plan.name}</TableCell>
                       <TableCell>

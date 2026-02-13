@@ -19,8 +19,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGetActivities } from "@/hooks/api/useActivities";
+import ActivityService from "@/api/services/activity.service";
+import { useQueryClient } from "@tanstack/react-query";
 
 function formatTimeAgo(timestamp: string) {
   const now = new Date();
@@ -53,11 +55,36 @@ const activityToNotificationIcon: Record<string, React.ReactNode> = {
   reactivated: <CheckCircle2 className="w-4 h-4 text-green-500" />,
 };
 
+const searchTargets = [
+  { title: "Overview", description: "Dashboard summary and KPI cards", path: "/super-admin", keywords: ["overview", "dashboard", "home", "stats"] },
+  { title: "Page Editor", description: "Hero, footer, support pages, and content", path: "/super-admin/page-editor", keywords: ["page", "editor", "hero", "footer", "support pages", "faqs", "corporate"] },
+  { title: "Subscribers", description: "Manage users and subscriptions", path: "/super-admin/subscribers", keywords: ["subscribers", "users", "customers", "plans", "billing"] },
+  { title: "Plans & Billing", description: "Manage pricing and limits", path: "/super-admin/plans", keywords: ["plans", "pricing", "billing", "upgrade", "domain limits"] },
+  { title: "Transactions", description: "Payments and transaction history", path: "/super-admin/transactions", keywords: ["transactions", "payments", "invoices", "receipts"] },
+  { title: "Reports & Analytics", description: "Performance reports and charts", path: "/super-admin/reports", keywords: ["reports", "analytics", "metrics", "charts"] },
+  { title: "Support Center", description: "Manage support tickets", path: "/super-admin/support", keywords: ["support", "tickets", "help", "issues"] },
+  { title: "Affiliate Program", description: "Affiliates, referrals, coupons", path: "/super-admin/affiliates", keywords: ["affiliate", "referral", "coupon", "commission"] },
+  { title: "Settings", description: "System settings and audit logs", path: "/super-admin/settings", keywords: ["settings", "configuration", "audit", "domains"] },
+];
+
 export function AdminHeader() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: activitiesData, isLoading } = useGetActivities(100, 0);
-  const [deletedActivities, setDeletedActivities] = useState<string[]>([]);
+  const [deletedActivities, setDeletedActivities] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("admin-dismissed-notifications") || "[]");
+    } catch {
+      return [];
+    }
+  });
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("admin-dismissed-notifications", JSON.stringify(deletedActivities));
+  }, [deletedActivities]);
   
   // Map API activities to notification format
   const notifications = useMemo(() => {
@@ -77,7 +104,8 @@ export function AdminHeader() {
 
   const markAsRead = async (id: string) => {
     try {
-      await fetch(`/activities/${id}/read`, { method: 'PATCH' });
+      await ActivityService.markAsRead(id);
+      await queryClient.invalidateQueries({ queryKey: ['activities'] });
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
@@ -85,7 +113,8 @@ export function AdminHeader() {
 
   const markAllAsRead = async () => {
     try {
-      await fetch('/activities/all/read', { method: 'PATCH' });
+      await ActivityService.markAllAsRead();
+      await queryClient.invalidateQueries({ queryKey: ['activities'] });
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
     }
@@ -95,12 +124,45 @@ export function AdminHeader() {
     setDeletedActivities(prev => [...prev, id]);
   };
 
-  const clearAllNotifications = () => {
-    setDeletedActivities(activitiesData?.data?.map(a => a._id) || []);
+  const clearAllNotifications = async () => {
+    const allIds = activitiesData?.data?.map((a) => a._id) || [];
+    setDeletedActivities((prev) => Array.from(new Set([...prev, ...allIds])));
+    try {
+      await ActivityService.markAllAsRead();
+      await queryClient.invalidateQueries({ queryKey: ['activities'] });
+    } catch (error) {
+      console.error('Failed to mark all notifications as read during clear-all:', error);
+    }
   };
 
-  const unreadCount = activitiesData?.unreadCount || 0;
+  const unreadCount = notifications.filter(n => n.unread).length;
   const unreadNotifications = notifications.filter(n => n.unread);
+  const searchResults = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return [];
+    return searchTargets
+      .filter((target) => {
+        const haystack = [target.title, target.description, ...target.keywords]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(query);
+      })
+      .slice(0, 6);
+  }, [searchTerm]);
+
+  const handleSearchNavigate = (path: string) => {
+    navigate(path);
+    setSearchOpen(false);
+    setSearchTerm("");
+  };
+
+  const handleSearchEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    if (searchResults.length > 0) {
+      handleSearchNavigate(searchResults[0].path);
+    }
+  };
 
   return (
     <header className="h-16 bg-card border-b border-border px-6 flex items-center justify-between sticky top-0 z-10">
@@ -109,8 +171,39 @@ export function AdminHeader() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
             placeholder="Search subscribers, plans, tickets..." 
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setSearchOpen(true);
+            }}
+            onFocus={() => setSearchOpen(true)}
+            onKeyDown={handleSearchEnter}
             className="pl-10 bg-background"
           />
+          {searchOpen && searchTerm.trim().length > 0 && (
+            <div className="absolute left-0 right-0 mt-2 bg-popover border border-border rounded-md shadow-lg z-50">
+              {searchResults.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  No matches found
+                </div>
+              ) : (
+                <div className="py-1">
+                  {searchResults.map((result) => (
+                    <button
+                      key={result.path}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSearchNavigate(result.path)}
+                      className="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+                    >
+                      <p className="text-sm font-medium">{result.title}</p>
+                      <p className="text-xs text-muted-foreground">{result.description}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
