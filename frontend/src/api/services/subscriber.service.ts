@@ -13,6 +13,28 @@ export interface Subscriber {
   status: 'active' | 'inactive' | 'free' | 'canceled';
   lifetimeSpend: number;
   lastPaymentDate: string;
+  nextRenewalDate?: string | null;
+  internalNotes?: string;
+  usage?: {
+    invoices: { used: number; limit: number };
+    quotes: { used: number; limit: number };
+    clients: { used: number; limit: number };
+    teamMembers: { used: number; limit: number };
+    receipts: { used: number; limit: number };
+    recurringInvoices: { used: number; limit: number };
+    storage: { used: number; limit: string; unit: 'GB' };
+  };
+  billing?: {
+    paymentMethod: string;
+    paymentMethodDetails: string;
+    recentInvoices: Array<{
+      id: string;
+      date: string;
+      amount: number;
+      currency: string;
+      status: 'succeeded' | 'failed' | 'refunded' | 'pending';
+    }>;
+  };
   createdAt: string;
 }
 
@@ -40,6 +62,8 @@ export interface UpdateSubscriberDto {
   company?: string;
   plan?: string;
   subscriptionType?: 'monthly' | 'yearly';
+  status?: 'active' | 'inactive' | 'free' | 'canceled';
+  internalNotes?: string;
 }
 
 // ==================== SERVICE ====================

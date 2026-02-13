@@ -113,6 +113,9 @@ export class User extends BaseEntity {
 
   @Prop({ required: false, sparse: true })
   stripeCreditNoteId?: string; // Stripe credit note ID for refund tracking
+
+  @Prop({ required: false, default: '' })
+  internalNotes?: string; // Super admin internal notes for subscriber management
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

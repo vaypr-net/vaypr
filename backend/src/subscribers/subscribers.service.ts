@@ -1,8 +1,28 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User } from '../user/entities/user.entity';
+import { BillingPlan } from '../billing-plan/entities/billing-plan.entity';
+import { Invoice } from '../invoice/entities/invoice.entity';
+import { Quote } from '../quotes/entities/quote.entity';
+import { Client } from '../clients/entities/client.entity';
+import { Receipt } from '../reciept/entities/reciept.entity';
+import { Recurring } from '../recurring/entities/recurring.entity';
+import { Transaction } from '../transcations/entities/transcation.entity';
 import { UpdateSubscriberDto } from './dto/update-subscriber.dto';
+
+type UiStatus = 'active' | 'inactive' | 'free' | 'canceled';
+type UiBillingCycle = 'monthly' | 'yearly';
+
+export interface SubscriberUsage {
+  invoices: { used: number; limit: number };
+  quotes: { used: number; limit: number };
+  clients: { used: number; limit: number };
+  teamMembers: { used: number; limit: number };
+  receipts: { used: number; limit: number };
+  recurringInvoices: { used: number; limit: number };
+  storage: { used: number; limit: string; unit: 'GB' };
+}
 
 export interface SubscriberResponse {
   _id: string;
@@ -10,11 +30,25 @@ export interface SubscriberResponse {
   email: string;
   company: string;
   plan: string;
-  subscriptionType: 'monthly' | 'yearly';
+  subscriptionType: UiBillingCycle;
   subscriptionDate: string;
-  status: 'active' | 'inactive' | 'free' | 'canceled';
+  status: UiStatus;
   lifetimeSpend: number;
   lastPaymentDate: string;
+  nextRenewalDate: string | null;
+  internalNotes?: string;
+  usage?: SubscriberUsage;
+  billing?: {
+    paymentMethod: string;
+    paymentMethodDetails: string;
+    recentInvoices: Array<{
+      id: string;
+      date: string;
+      amount: number;
+      currency: string;
+      status: 'succeeded' | 'failed' | 'refunded' | 'pending';
+    }>;
+  };
   createdAt: string;
 }
 
@@ -32,7 +66,75 @@ export interface SubscriberStats {
 export class SubscribersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(BillingPlan.name) private billingPlanModel: Model<BillingPlan>,
+    @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
+    @InjectModel(Quote.name) private quoteModel: Model<Quote>,
+    @InjectModel(Client.name) private clientModel: Model<Client>,
+    @InjectModel(Receipt.name) private receiptModel: Model<Receipt>,
+    @InjectModel(Recurring.name) private recurringModel: Model<Recurring>,
+    @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
   ) {}
+
+  private mapStatus(status: string | undefined): UiStatus {
+    switch (status) {
+      case 'active':
+      case 'trialing':
+      case 'past_due':
+        return 'active';
+      case 'canceled':
+        return 'canceled';
+      case 'free':
+        return 'free';
+      default:
+        return 'inactive';
+    }
+  }
+
+  private mapStatusToSubscriptionStatus(status: UiStatus): string {
+    switch (status) {
+      case 'active':
+        return 'active';
+      case 'canceled':
+        return 'canceled';
+      case 'free':
+        return 'free';
+      default:
+        return 'incomplete';
+    }
+  }
+
+  private getCompanyFromEmail(email: string): string {
+    return email?.split('@')?.[1] || 'N/A';
+  }
+
+  private normalizeLimit(limit: unknown): number {
+    if (typeof limit !== 'number') return 0;
+    return limit;
+  }
+
+  private async buildUsage(userId: Types.ObjectId, planLimits: any): Promise<SubscriberUsage> {
+    const [invoicesCount, quotesCount, clientsCount, receiptsCount, recurringCount] = await Promise.all([
+      this.invoiceModel.countDocuments({ userId, isDeleted: { $ne: true } }),
+      this.quoteModel.countDocuments({ userId, isDeleted: { $ne: true } }),
+      this.clientModel.countDocuments({ userId }),
+      this.receiptModel.countDocuments({ userId }),
+      this.recurringModel.countDocuments({ userId }),
+    ]);
+
+    return {
+      invoices: { used: invoicesCount, limit: this.normalizeLimit(planLimits?.invoices) },
+      quotes: { used: quotesCount, limit: this.normalizeLimit(planLimits?.quotes) },
+      clients: { used: clientsCount, limit: this.normalizeLimit(planLimits?.clients) },
+      teamMembers: { used: 1, limit: this.normalizeLimit(planLimits?.teamMembers) },
+      receipts: { used: receiptsCount, limit: this.normalizeLimit(planLimits?.receipts) },
+      recurringInvoices: { used: recurringCount, limit: this.normalizeLimit(planLimits?.recurringInvoices) },
+      storage: {
+        used: 0,
+        limit: typeof planLimits?.storage === 'string' ? planLimits.storage : '0GB',
+        unit: 'GB',
+      },
+    };
+  }
 
   async findAll(
     search?: string,
@@ -48,10 +150,9 @@ export class SubscribersService {
     hasMore: boolean;
   }> {
     const query: any = {
-      isSuperAdmin: { $ne: true }, // ⬅️ Exclude super admin from subscribers
+      isSuperAdmin: { $ne: true },
     };
 
-    // Search by name or email
     if (search) {
       query.$or = [
         { fullName: { $regex: search, $options: 'i' } },
@@ -59,118 +160,262 @@ export class SubscribersService {
       ];
     }
 
-    // NOTE: Status and subscriptionType filtering will work once you add
-    // subscription fields to the User model. For now, all users show as "free" and "monthly"
-    // So filters won't change results until subscription data is added to users
+    if (status) {
+      if (status === 'active') {
+        query.subscriptionStatus = { $in: ['active', 'trialing', 'past_due'] };
+      } else if (status === 'inactive') {
+        query.subscriptionStatus = 'incomplete';
+      } else if (status === 'free') {
+        query.subscriptionStatus = 'free';
+      } else if (status === 'canceled') {
+        query.subscriptionStatus = 'canceled';
+      }
+    }
+
+    if (subscriptionType) {
+      query.billingCycle = subscriptionType;
+    }
 
     const total = await this.userModel.countDocuments(query);
+
     const users = await this.userModel
       .find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(offset)
-      .select('-password -googleAccessToken -googleRefreshToken');
+      .select('-password -googleAccessToken -googleRefreshToken')
+      .populate('planId', 'name')
+      .lean();
 
-    // Transform users to subscriber format
-    let subscribers: SubscriberResponse[] = users.map((user) => {
-      // Determine subscription status and plan
-      // TODO: Replace this with actual subscription data from User model
-      const hasGoogleAuth = !!user.googleId;
+    const userIds = users.map((u: any) => u._id).filter(Boolean);
+
+    const txAgg = await this.transactionModel.aggregate([
+      {
+        $match: {
+          userId: { $in: userIds },
+          type: 'subscription',
+          status: 'succeeded',
+        },
+      },
+      {
+        $group: {
+          _id: '$userId',
+          lifetimeSpend: { $sum: '$amount' },
+          lastPaymentDate: { $max: '$transactionDate' },
+        },
+      },
+    ]);
+
+    const txMap = new Map<string, { lifetimeSpend: number; lastPaymentDate: Date | null }>(
+      txAgg.map((row: any) => [
+        row._id?.toString(),
+        { lifetimeSpend: row.lifetimeSpend || 0, lastPaymentDate: row.lastPaymentDate || null },
+      ]),
+    );
+
+    const subscribers: SubscriberResponse[] = users.map((user: any) => {
+      const tx = txMap.get(user._id.toString());
+      const uiStatus = this.mapStatus(user.subscriptionStatus);
 
       return {
         _id: user._id.toString(),
         name: user.fullName,
         email: user.email,
-        company: user.email.split('@')[1] || 'N/A', // Extract domain as company for now
-        plan: 'Free', // TODO: Get from subscription field
-        subscriptionType: 'monthly', // TODO: Get from subscription field
-        subscriptionDate: user.createdAt?.toISOString() || new Date().toISOString(),
-        status: 'free', // TODO: Calculate from subscription
-        lifetimeSpend: 0, // TODO: Calculate from payments/transactions
-        lastPaymentDate: '-', // TODO: Get from last payment record
-        createdAt: user.createdAt?.toISOString() || new Date().toISOString(),
+        company: this.getCompanyFromEmail(user.email),
+        plan: user.planId?.name || 'Free',
+        subscriptionType: (user.billingCycle as UiBillingCycle) || 'monthly',
+        subscriptionDate: (user.subscriptionStartedAt || user.createdAt || new Date()).toISOString(),
+        status: uiStatus,
+        lifetimeSpend: tx?.lifetimeSpend || 0,
+        lastPaymentDate: tx?.lastPaymentDate ? new Date(tx.lastPaymentDate).toISOString() : '-',
+        nextRenewalDate: user.currentPeriodEnd ? new Date(user.currentPeriodEnd).toISOString() : null,
+        internalNotes: user.internalNotes || '',
+        createdAt: (user.createdAt || new Date()).toISOString(),
       };
     });
 
-    // ⬅️ CLIENT-SIDE FILTERING (until subscription data is added to User model)
-    // Filter by status
-    if (status) {
-      subscribers = subscribers.filter(sub => sub.status === status);
-    }
-
-    // Filter by subscription type
-    if (subscriptionType) {
-      subscribers = subscribers.filter(sub => sub.subscriptionType === subscriptionType);
-    }
-
-    // Recalculate total after filtering
-    const filteredTotal = subscribers.length;
-
     return {
       items: subscribers,
-      total: filteredTotal,
+      total,
       limit,
       offset,
-      hasMore: offset + limit < filteredTotal,
+      hasMore: offset + users.length < total,
     };
   }
 
   async findOne(id: string): Promise<SubscriberResponse> {
     const user = await this.userModel
       .findById(id)
-      .select('-password -googleAccessToken -googleRefreshToken');
+      .select('-password -googleAccessToken -googleRefreshToken')
+      .populate('planId', 'name limits')
+      .lean();
 
     if (!user) {
-      throw new Error('Subscriber not found');
+      throw new NotFoundException('Subscriber not found');
     }
 
-    const isSuperAdmin = user.isSuperAdmin;
+    const [txAgg] = await this.transactionModel.aggregate([
+      {
+        $match: {
+          userId: new Types.ObjectId(id),
+          type: 'subscription',
+          status: 'succeeded',
+        },
+      },
+      {
+        $group: {
+          _id: '$userId',
+          lifetimeSpend: { $sum: '$amount' },
+          lastPaymentDate: { $max: '$transactionDate' },
+        },
+      },
+    ]);
+
+    const recentTransactions = await this.transactionModel
+      .find({
+        userId: new Types.ObjectId(id),
+        type: 'subscription',
+      })
+      .sort({ transactionDate: -1 })
+      .limit(5)
+      .lean();
+
+    const paymentMethod = recentTransactions[0]?.provider || 'Not available';
+
+    const planDoc: any = user.planId || null;
+    const usage = await this.buildUsage(new Types.ObjectId(id), planDoc?.limits || {});
 
     return {
       _id: user._id.toString(),
       name: user.fullName,
       email: user.email,
-      company: user.email.split('@')[1] || 'N/A',
-      plan: isSuperAdmin ? 'Admin' : 'Free',
-      subscriptionType: 'monthly',
-      subscriptionDate: user.createdAt?.toISOString() || new Date().toISOString(),
-      status: isSuperAdmin ? 'active' : 'free',
-      lifetimeSpend: 0,
-      lastPaymentDate: '-',
-      createdAt: user.createdAt?.toISOString() || new Date().toISOString(),
+      company: this.getCompanyFromEmail(user.email),
+      plan: planDoc?.name || 'Free',
+      subscriptionType: (user.billingCycle as UiBillingCycle) || 'monthly',
+      subscriptionDate: (user.subscriptionStartedAt || user.createdAt || new Date()).toISOString(),
+      status: this.mapStatus(user.subscriptionStatus),
+      lifetimeSpend: txAgg?.lifetimeSpend || 0,
+      lastPaymentDate: txAgg?.lastPaymentDate ? new Date(txAgg.lastPaymentDate).toISOString() : '-',
+      nextRenewalDate: user.currentPeriodEnd ? new Date(user.currentPeriodEnd).toISOString() : null,
+      internalNotes: user.internalNotes || '',
+      usage,
+      billing: {
+        paymentMethod,
+        paymentMethodDetails: paymentMethod === 'Stripe' ? 'Card details not available in current transaction payload' : '-',
+        recentInvoices: recentTransactions.map((tx: any) => ({
+          id: tx.transactionId || tx._id.toString(),
+          date: tx.transactionDate ? new Date(tx.transactionDate).toISOString() : new Date().toISOString(),
+          amount: tx.amount || 0,
+          currency: tx.currency || 'KWD',
+          status: tx.status || 'pending',
+        })),
+      },
+      createdAt: (user.createdAt || new Date()).toISOString(),
     };
   }
 
   async update(id: string, updateSubscriberDto: UpdateSubscriberDto): Promise<SubscriberResponse> {
-    const user = await this.userModel.findByIdAndUpdate(
-      id,
-      { 
-        fullName: updateSubscriberDto.name,
-        email: updateSubscriberDto.email,
-      },
-      { new: true },
-    );
-
-    if (!user) {
-      throw new Error('Subscriber not found');
+    const existingUser = await this.userModel.findById(id).populate('planId', 'name');
+    if (!existingUser) {
+      throw new NotFoundException('Subscriber not found');
     }
 
+    const updateData: any = {};
+
+    if (updateSubscriberDto.name !== undefined) {
+      updateData.fullName = updateSubscriberDto.name;
+    }
+    if (updateSubscriberDto.email !== undefined) {
+      updateData.email = updateSubscriberDto.email;
+    }
+    if (updateSubscriberDto.subscriptionType !== undefined) {
+      updateData.billingCycle = updateSubscriberDto.subscriptionType;
+    }
+    if (updateSubscriberDto.internalNotes !== undefined) {
+      updateData.internalNotes = updateSubscriberDto.internalNotes;
+    }
+    if (updateSubscriberDto.status !== undefined) {
+      updateData.subscriptionStatus = this.mapStatusToSubscriptionStatus(
+        updateSubscriberDto.status as UiStatus,
+      );
+    }
+
+    if (updateSubscriberDto.plan !== undefined) {
+      const requestedPlan = updateSubscriberDto.plan.trim();
+      const isFreePlan = requestedPlan.toLowerCase() === 'free';
+
+      if (isFreePlan) {
+        updateData.planId = undefined;
+        if (updateSubscriberDto.status === undefined) {
+          updateData.subscriptionStatus = 'free';
+        }
+        updateData.subscriptionAmount = 0;
+      } else {
+        const plan = await this.billingPlanModel.findOne({
+          name: { $regex: `^${requestedPlan}$`, $options: 'i' },
+        });
+        if (!plan) {
+          throw new NotFoundException(`Billing plan '${requestedPlan}' not found`);
+        }
+
+        updateData.planId = plan._id;
+        if (updateSubscriberDto.status === undefined) {
+          updateData.subscriptionStatus = 'active';
+        }
+        updateData.subscriptionAmount = plan.price > 0 ? plan.price : 0;
+      }
+    }
+
+    await this.userModel.findByIdAndUpdate(id, updateData, { new: true });
     return this.findOne(id);
   }
 
   async getStats(): Promise<SubscriberStats> {
-    // Exclude super admin from counts
-    const total = await this.userModel.countDocuments({ isSuperAdmin: { $ne: true } });
-    
-    // TODO: Calculate actual stats from subscription data
+    const [total, active, free, canceled, incomplete, revenueAgg, monthlyRevenueAgg] =
+      await Promise.all([
+        this.userModel.countDocuments({ isSuperAdmin: { $ne: true } }),
+        this.userModel.countDocuments({
+          isSuperAdmin: { $ne: true },
+          subscriptionStatus: { $in: ['active', 'trialing', 'past_due'] },
+        }),
+        this.userModel.countDocuments({
+          isSuperAdmin: { $ne: true },
+          subscriptionStatus: 'free',
+        }),
+        this.userModel.countDocuments({
+          isSuperAdmin: { $ne: true },
+          subscriptionStatus: 'canceled',
+        }),
+        this.userModel.countDocuments({
+          isSuperAdmin: { $ne: true },
+          subscriptionStatus: 'incomplete',
+        }),
+        this.transactionModel.aggregate([
+          { $match: { type: 'subscription', status: 'succeeded' } },
+          { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+        this.transactionModel.aggregate([
+          {
+            $match: {
+              type: 'subscription',
+              status: 'succeeded',
+              transactionDate: {
+                $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+              },
+            },
+          },
+          { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+      ]);
+
     return {
       total,
-      active: 0, // TODO: Count users with active paid subscriptions
-      free: total, // TODO: Count users on free plan (currently all are free)
-      canceled: 0, // TODO: Count canceled subscriptions
-      inactive: 0, // TODO: Count inactive subscriptions
-      totalRevenue: 0, // TODO: Sum all payments
-      monthlyRevenue: 0, // TODO: Sum payments this month
+      active,
+      free,
+      canceled,
+      inactive: incomplete,
+      totalRevenue: revenueAgg[0]?.total || 0,
+      monthlyRevenue: monthlyRevenueAgg[0]?.total || 0,
     };
   }
 }

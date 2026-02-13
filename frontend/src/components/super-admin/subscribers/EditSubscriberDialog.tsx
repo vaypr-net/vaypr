@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Subscriber } from "@/api/services/subscriber.service";
 import {
   Dialog,
@@ -30,6 +30,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { ArrowUp, ArrowDown, XCircle } from "lucide-react";
+import { useUpdateSubscriber } from "@/hooks/api/useSubscribers";
 
 interface EditSubscriberDialogProps {
   subscriber: Subscriber | null;
@@ -49,23 +50,37 @@ export function EditSubscriberDialog({
   const [mobile, setMobile] = useState("");
   const [selectedPlan, setSelectedPlan] = useState(subscriber?.plan || "");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const updateSubscriberMutation = useUpdateSubscriber();
 
   // Reset form when subscriber changes
-  useState(() => {
+  useEffect(() => {
     if (subscriber) {
       setName(subscriber.name);
       setEmail(subscriber.email);
       setSelectedPlan(subscriber.plan);
     }
-  });
+  }, [subscriber]);
 
   const currentPlanIndex = availablePlans.indexOf(subscriber?.plan || "");
   const selectedPlanIndex = availablePlans.indexOf(selectedPlan);
   const isUpgrade = selectedPlanIndex > currentPlanIndex;
   const isDowngrade = selectedPlanIndex < currentPlanIndex;
 
-  const handleSave = () => {
-    // In a real app, this would make an API call
+  const mapPlanToStatus = (planName: string): "active" | "free" => {
+    return planName.toLowerCase() === "free" ? "free" : "active";
+  };
+
+  const handleSave = async () => {
+    if (!subscriber) return;
+    await updateSubscriberMutation.mutateAsync({
+      id: subscriber._id,
+      data: {
+        name,
+        email,
+        plan: selectedPlan,
+        status: mapPlanToStatus(selectedPlan),
+      },
+    });
     toast.success("Subscriber profile updated successfully");
     onOpenChange(false);
   };
@@ -79,8 +94,12 @@ export function EditSubscriberDialog({
     }
   };
 
-  const handleCancelSubscription = () => {
-    // In a real app, this would make an API call
+  const handleCancelSubscription = async () => {
+    if (!subscriber) return;
+    await updateSubscriberMutation.mutateAsync({
+      id: subscriber._id,
+      data: { status: "canceled" },
+    });
     toast.success("Subscription cancelled successfully");
     setShowCancelConfirm(false);
     onOpenChange(false);
@@ -212,7 +231,9 @@ export function EditSubscriberDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>Save Changes</Button>
+            <Button onClick={handleSave} disabled={updateSubscriberMutation.isPending}>
+              Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

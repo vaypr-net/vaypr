@@ -20,4 +20,12 @@ export class UpdateSubscriberDto {
   @IsOptional()
   @IsString()
   subscriptionType?: 'monthly' | 'yearly';
+
+  @IsOptional()
+  @IsString()
+  status?: 'active' | 'inactive' | 'free' | 'canceled';
+
+  @IsOptional()
+  @IsString()
+  internalNotes?: string;
 }

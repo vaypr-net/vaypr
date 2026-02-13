@@ -874,6 +874,26 @@ function LandingPageEditor() {
   }, [landingPage]);
 
   const handleUpdateHero = () => {
+    const missingFields: string[] = [];
+    if (!heroForm.badge.trim()) missingFields.push("Badge");
+    if (!heroForm.headline.trim()) missingFields.push("Headline");
+    if (!heroForm.subheadline.trim()) missingFields.push("Subheadline");
+    if (!heroForm.primaryButtonText.trim()) missingFields.push("Primary Button Text");
+    if (!heroForm.secondaryButtonText.trim()) missingFields.push("Secondary Button Text");
+
+    if (missingFields.length > 0) {
+      const fieldList =
+        missingFields.length === 1
+          ? missingFields[0]
+          : `${missingFields.slice(0, -1).join(", ")} and ${missingFields[missingFields.length - 1]}`;
+      toast({
+        title: "Required fields missing",
+        description: `Please fill: ${fieldList}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     updateSection.mutate({
       section: 'heroSection',
       data: heroForm,
