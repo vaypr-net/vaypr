@@ -248,6 +248,10 @@ export default function Quotes() {
     return `${symbol}${amount.toFixed(2)}`;
   };
 
+  const filterPhoneInput = (value: string): string => {
+    return value.replace(/[^\d+]/g, '');
+  };
+
   const filteredQuotes = useMemo(() => {
     return quotes.filter(quote => {
       const matchesSearch = 
@@ -1181,7 +1185,7 @@ export default function Quotes() {
                   <Label>Phone</Label>
                   <Input
                     value={formData.companyPhone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, companyPhone: e.target.value }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, companyPhone: filterPhoneInput(e.target.value) }))}
                     placeholder="Company phone"
                   />
                 </div>

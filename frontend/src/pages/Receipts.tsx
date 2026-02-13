@@ -182,6 +182,10 @@ export default function Receipts() {
     return found ? found.label : method;
   };
 
+  const filterPhoneInput = (value: string): string => {
+    return value.replace(/[^\d+]/g, '');
+  };
+
   const resetForm = () => {
     setFormData({
       receivedFrom: '',
@@ -737,7 +741,7 @@ export default function Receipts() {
                   <Label>Phone</Label>
                   <Input
                     value={formData.companyPhone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, companyPhone: e.target.value }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, companyPhone: filterPhoneInput(e.target.value) }))}
                     placeholder="Company phone"
                   />
                 </div>

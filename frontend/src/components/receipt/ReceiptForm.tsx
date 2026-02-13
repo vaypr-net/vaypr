@@ -25,6 +25,10 @@ export function ReceiptForm({ data, onChange }: ReceiptFormProps) {
     onChange({ ...data, [field]: value });
   };
 
+  const filterPhoneInput = (value: string): string => {
+    return value.replace(/[^\d+]/g, '');
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Logo & Currency */}
@@ -147,7 +151,7 @@ export function ReceiptForm({ data, onChange }: ReceiptFormProps) {
               id="companyPhone"
               placeholder="Company phone"
               value={data.companyPhone}
-              onChange={(e) => updateField("companyPhone", e.target.value)}
+              onChange={(e) => updateField("companyPhone", filterPhoneInput(e.target.value))}
             />
           </div>
           <div className="space-y-2 md:col-span-2">
