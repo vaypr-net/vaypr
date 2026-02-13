@@ -343,7 +343,7 @@ export class CorporatePagesService {
     const guide = await this.guideModel.findByIdAndUpdate(
       id, 
       [{ $set: { published: { $not: '$published' } } }], 
-      { new: true }
+      { new: true, updatePipeline: true }
     ).exec();
     
     if (!guide) {
