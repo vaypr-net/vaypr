@@ -118,13 +118,32 @@ export class StripeService {
   /**
    * Get Stripe price ID for a plan by currency and billing cycle
    * Supports new multi-currency structure and falls back to old single-currency format
+   * Maps unsupported currencies to supported alternatives
    */
   private getPriceIdForCurrency(
     plan: any,
     billingCycle: 'monthly' | 'yearly',
     currency: string = 'USD',
   ): string {
-    const key = `${currency.toUpperCase()}-${billingCycle}`;
+    let lookupCurrency = currency.toUpperCase();
+    
+    // Map regional currencies to Stripe-supported alternatives
+    const currencyMapping: Record<string, string> = {
+      'KWD': 'AED', // Kuwait Dinar -> UAE Dirham (Stripe supported)
+      'SAR': 'AED', // Saudi Riyal -> UAE Dirham
+      'QAR': 'AED', // Qatari Riyal -> UAE Dirham
+      'BHD': 'AED', // Bahraini Dinar -> UAE Dirham
+      'OMR': 'AED', // Omani Rial -> UAE Dirham
+      'JOD': 'AED', // Jordanian Dinar -> UAE Dirham
+      'USD': 'AED', // Use AED for all payments
+    };
+    
+    // If currency is in the mapping, use the mapped currency
+    if (currencyMapping[lookupCurrency]) {
+      lookupCurrency = currencyMapping[lookupCurrency];
+    }
+    
+    const key = `${lookupCurrency}-${billingCycle}`;
     
     // Try new stripePrices structure first
     if (plan.stripePrices && plan.stripePrices[key]) {
@@ -193,10 +212,12 @@ export class StripeService {
     const stripeCustomerId = await this.getOrCreateStripeCustomer(user);
 
     // Create checkout session
+    // Use AED currency which is supported by Stripe and available for Middle Eastern users
     const appUrl = this.configService.get<string>('APP_URL') || 'http://localhost:8081';
     const session = await this.stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: 'subscription',
+      currency: 'aed', // Use AED for Stripe checkout (supported currency)
       line_items: [
         {
           price: priceId,
@@ -209,7 +230,7 @@ export class StripeService {
         userId: userId,
         planId: planId,
         billingCycle: billingCycle,
-        currency: currency,
+        requestedCurrency: currency, // Store the originally requested currency
       },
     });
 
