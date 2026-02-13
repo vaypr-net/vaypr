@@ -68,15 +68,12 @@ export class FaqsService {
   }
 
   async togglePublished(id: string): Promise<Faq> {
-    const faq = await this.faqModel
-      .findByIdAndUpdate(id, [{ $set: { published: { $not: '$published' } } }], {
-        new: true,
-      })
-      .exec();
+    const faq = await this.faqModel.findById(id).exec();
     if (!faq) {
       throw new NotFoundException(`FAQ with ID ${id} not found`);
     }
-    return faq;
+    faq.published = !faq.published;
+    return faq.save();
   }
 
   async reorder(items: ReorderFaqDto[]): Promise<Faq[]> {

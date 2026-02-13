@@ -35,6 +35,10 @@ export class SocialLinksService {
     return this.socialLinkModel.find().sort({ order: 1 }).lean();
   }
 
+  async findPublic() {
+    return this.socialLinkModel.find({ enabled: true }).sort({ order: 1 }).lean();
+  }
+
   async findOne(id: string) {
     const link = await this.socialLinkModel.findById(id).lean();
     if (!link) {

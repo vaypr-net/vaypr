@@ -100,31 +100,25 @@ export class SupportPagesService {
   }
 
   async toggleEnabled(id: string): Promise<SupportPage> {
-    const page = await this.supportPageModel.findByIdAndUpdate(
-      id, 
-      [{ $set: { enabled: { $not: '$enabled' } } }], 
-      { new: true }
-    ).exec();
+    const page = await this.supportPageModel.findById(id).exec();
     
     if (!page) {
       throw new NotFoundException(`Support page with ID ${id} not found`);
     }
     
-    return page;
+    page.enabled = !page.enabled;
+    return page.save();
   }
 
   async toggleFooterVisibility(id: string): Promise<SupportPage> {
-    const page = await this.supportPageModel.findByIdAndUpdate(
-      id, 
-      [{ $set: { showInFooter: { $not: '$showInFooter' } } }], 
-      { new: true }
-    ).exec();
+    const page = await this.supportPageModel.findById(id).exec();
     
     if (!page) {
       throw new NotFoundException(`Support page with ID ${id} not found`);
     }
     
-    return page;
+    page.showInFooter = !page.showInFooter;
+    return page.save();
   }
 
   /**

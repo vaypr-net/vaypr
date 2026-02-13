@@ -110,31 +110,25 @@ export class CorporatePagesService {
   }
 
   async toggleEnabled(id: string): Promise<CorporatePage> {
-    const page = await this.corporatePageModel.findByIdAndUpdate(
-      id, 
-      { $set: { enabled: { $not: '$enabled' } } }, 
-      { new: true }
-    ).exec();
+    const page = await this.corporatePageModel.findById(id).exec();
     
     if (!page) {
       throw new NotFoundException(`Corporate page with ID ${id} not found`);
     }
     
-    return page;
+    page.enabled = !page.enabled;
+    return page.save();
   }
 
   async toggleFooterVisibility(id: string): Promise<CorporatePage> {
-    const page = await this.corporatePageModel.findByIdAndUpdate(
-      id, 
-      { $set: { showInFooter: { $not: '$showInFooter' } } }, 
-      { new: true }
-    ).exec();
+    const page = await this.corporatePageModel.findById(id).exec();
     
     if (!page) {
       throw new NotFoundException(`Corporate page with ID ${id} not found`);
     }
     
-    return page;
+    page.showInFooter = !page.showInFooter;
+    return page.save();
   }
 
   /**

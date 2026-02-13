@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SocialLinksService } from './social-links.service';
 import { SocialLinksController } from './social-links.controller';
+import { SocialLinksPublicController } from './social-links-public.controller';
 import { SocialLink, SocialLinkSchema } from './entities/social-link.entity';
 
 @Module({
@@ -22,7 +23,7 @@ import { SocialLink, SocialLinkSchema } from './entities/social-link.entity';
       }),
     }),
   ],
-  controllers: [SocialLinksController],
+  controllers: [SocialLinksController, SocialLinksPublicController],
   providers: [SocialLinksService],
   exports: [SocialLinksService],
 })

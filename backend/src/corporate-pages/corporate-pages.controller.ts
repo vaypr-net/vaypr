@@ -47,14 +47,6 @@ export class CorporatePagesController {
   }
 
   /**
-   * Public endpoint - Get single page
-   */
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.corporatePagesService.findOne(id);
-  }
-
-  /**
    * Protected endpoint - Create new page
    */
   @UseGuards(SuperAdminGuard)
@@ -139,6 +131,14 @@ export class CorporatePagesController {
       fileName: guide.fileName,
       downloads: guide.downloads,
     };
+  }
+
+  /**
+   * Public endpoint - Get single page
+   */
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.corporatePagesService.findOne(id);
   }
 
   /**
