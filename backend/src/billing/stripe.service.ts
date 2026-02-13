@@ -200,14 +200,36 @@ export class StripeService {
       throw new NotFoundException('User not found');
     }
 
-    // Check if user already has active subscription
+    // If user already has active subscription, cancel it before creating new one
     if (
       user.subscriptionStatus === 'active' ||
       user.subscriptionStatus === 'trialing'
     ) {
-      throw new BadRequestException(
-        'User already has an active subscription. Use billing portal to upgrade/downgrade.',
+      this.logger.log(
+        `User ${userId} already has active subscription ${user.stripeSubscriptionId}. Canceling before creating new subscription.`,
       );
+      
+      try {
+        if (user.stripeSubscriptionId) {
+          // Cancel the old subscription immediately
+          await this.stripe.subscriptions.cancel(user.stripeSubscriptionId);
+          
+          // Update user status
+          await this.userModel.findByIdAndUpdate(userId, {
+            subscriptionStatus: 'canceled',
+            stripeSubscriptionId: null,
+          });
+          
+          this.logger.log(
+            `Canceled old subscription ${user.stripeSubscriptionId} for user ${userId}`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to cancel old subscription for user ${userId}: ${error.message}`,
+        );
+        // Continue anyway - they might want to change plans
+      }
     }
 
     const stripeCustomerId = await this.getOrCreateStripeCustomer(user);
