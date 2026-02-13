@@ -209,26 +209,31 @@ export class StripeService {
         `User ${userId} already has active subscription ${user.stripeSubscriptionId}. Canceling before creating new subscription.`,
       );
       
-      try {
-        if (user.stripeSubscriptionId) {
-          // Cancel the old subscription immediately
+      if (user.stripeSubscriptionId) {
+        try {
+          // Try to cancel the old subscription in Stripe
           await this.stripe.subscriptions.cancel(user.stripeSubscriptionId);
-          
-          // Update user status
-          await this.userModel.findByIdAndUpdate(userId, {
-            subscriptionStatus: 'canceled',
-            stripeSubscriptionId: null,
-          });
-          
           this.logger.log(
             `Canceled old subscription ${user.stripeSubscriptionId} for user ${userId}`,
           );
+        } catch (error: any) {
+          // If subscription doesn't exist in Stripe (404), that's fine - continue
+          if (error.statusCode === 404 || error.code === 'resource_missing') {
+            this.logger.warn(
+              `Subscription ${user.stripeSubscriptionId} not found in Stripe. Continuing with new subscription.`,
+            );
+          } else {
+            this.logger.error(
+              `Failed to cancel old subscription for user ${userId}: ${error.message}`,
+            );
+          }
         }
-      } catch (error) {
-        this.logger.error(
-          `Failed to cancel old subscription for user ${userId}: ${error.message}`,
-        );
-        // Continue anyway - they might want to change plans
+        
+        // Update user status regardless of Stripe cancellation result
+        await this.userModel.findByIdAndUpdate(userId, {
+          subscriptionStatus: 'canceled',
+          stripeSubscriptionId: null,
+        });
       }
     }
 
@@ -363,9 +368,10 @@ export class StripeService {
     
     // Use stored subscription amount if available, otherwise fetch from Stripe
     let actualPrice = user.subscriptionAmount || plan?.price || 0;
+    let subscriptionStatus = user.subscriptionStatus;
     
-    // If no stored amount but has active subscription, fetch from Stripe
-    if (!user.subscriptionAmount && user.stripeSubscriptionId && user.subscriptionStatus !== 'free') {
+    // If user has a subscription, verify its status with Stripe
+    if (user.stripeSubscriptionId && user.subscriptionStatus !== 'free') {
       try {
         this.ensureStripeConfigured();
         // Retrieve subscription with expanded price information
@@ -379,6 +385,20 @@ export class StripeService {
         this.logger.debug(
           `Subscription retrieved - ID: ${subscription?.id}, Items: ${subscription?.items?.data?.length}, Status: ${subscription?.status}`
         );
+
+        // Sync subscription status from Stripe
+        if (subscription.status !== user.subscriptionStatus) {
+          this.logger.log(
+            `Syncing subscription status for user ${userId}: ${user.subscriptionStatus} -> ${subscription.status}`
+          );
+          
+          // Update user's subscription status
+          await this.userModel.findByIdAndUpdate(userId, {
+            subscriptionStatus: subscription.status,
+          });
+          
+          subscriptionStatus = subscription.status;
+        }
 
         if (subscription && subscription.items?.data?.length > 0) {
           // Get the actual amount being charged from the first subscription item
@@ -397,11 +417,23 @@ export class StripeService {
         } else {
           this.logger.warn(`No subscription items found for user ${userId}`);
         }
-      } catch (error) {
-        this.logger.error(
-          `Failed to fetch actual subscription price from Stripe for user ${userId}: ${error.message}`
-        );
-        // Fall back to base plan price if Stripe fetch fails
+      } catch (error: any) {
+        // If subscription not found in Stripe, update user status
+        if (error.statusCode === 404 || error.code === 'resource_missing') {
+          this.logger.warn(
+            `Subscription ${user.stripeSubscriptionId} not found in Stripe. Updating user status to canceled.`
+          );
+          
+          await this.userModel.findByIdAndUpdate(userId, {
+            subscriptionStatus: 'canceled',
+          });
+          
+          subscriptionStatus = 'canceled';
+        } else {
+          this.logger.error(
+            `Failed to fetch subscription from Stripe for user ${userId}: ${error.message}`
+          );
+        }
       }
     }
 
@@ -419,7 +451,7 @@ export class StripeService {
         priceInDisplayCurrency: priceInDisplayCurrency,
         displayCurrency: displayCurrency,
       },
-      status: user.subscriptionStatus,
+      status: subscriptionStatus, // Use synced status from Stripe
       billingCycle: user.billingCycle,
       currentPeriodEnd: user.currentPeriodEnd,
       subscriptionStartedAt: user.subscriptionStartedAt,
@@ -449,9 +481,27 @@ export class StripeService {
     );
 
     // Fetch subscription from Stripe
-    const subscription = (await this.stripe.subscriptions.retrieve(
-      user.stripeSubscriptionId,
-    )) as any;
+    let subscription: any;
+    try {
+      subscription = await this.stripe.subscriptions.retrieve(
+        user.stripeSubscriptionId,
+      );
+    } catch (stripeError: any) {
+      // If subscription doesn't exist in Stripe, update user status
+      if (stripeError.statusCode === 404 || stripeError.code === 'resource_missing') {
+        this.logger.warn(
+          `Subscription ${user.stripeSubscriptionId} not found in Stripe for user ${userId}. Updating user status.`,
+        );
+        
+        // Update user to canceled status
+        await this.userModel.findByIdAndUpdate(userId, {
+          subscriptionStatus: 'canceled',
+        });
+
+        throw new BadRequestException('You do not have an active subscription');
+      }
+      throw stripeError;
+    }
 
     // Log subscription details for debugging
     this.logger.debug(
@@ -469,7 +519,12 @@ export class StripeService {
     }
 
     if (subscription.status === 'canceled') {
-      throw new BadRequestException('This subscription is already canceled');
+      // Update user status to match Stripe
+      await this.userModel.findByIdAndUpdate(userId, {
+        subscriptionStatus: 'canceled',
+      });
+      
+      throw new BadRequestException('You do not have an active subscription');
     }
 
     if (subscription.status === 'incomplete') {
@@ -601,9 +656,60 @@ export class StripeService {
 
     try {
       // Fetch subscription from Stripe
-      const subscription = (await this.stripe.subscriptions.retrieve(
-        user.stripeSubscriptionId,
-      )) as any;
+      let subscription: any;
+      try {
+        subscription = await this.stripe.subscriptions.retrieve(
+          user.stripeSubscriptionId,
+        );
+      } catch (stripeError: any) {
+        // If subscription doesn't exist in Stripe (already canceled/deleted), just update user status
+        if (stripeError.statusCode === 404 || stripeError.code === 'resource_missing') {
+          this.logger.warn(
+            `Subscription ${user.stripeSubscriptionId} not found in Stripe for user ${userId}. Updating user status to canceled.`,
+          );
+          
+          // Update user to canceled status
+          await this.userModel.findByIdAndUpdate(userId, {
+            subscriptionStatus: 'canceled',
+            cancellationMethod: 'immediate',
+            cancellationReason: reason || 'subscription_not_found',
+            cancellationFeedback: feedback,
+          });
+
+          return {
+            success: true,
+            method: cancellationMethod,
+            message: 'Subscription already canceled in Stripe. User status updated.',
+            refundAmount: 0,
+            refundStatus: 'not_applicable',
+          };
+        }
+        // If it's a different error, throw it
+        throw stripeError;
+      }
+
+      // Check if subscription is already canceled in Stripe
+      if (subscription.status === 'canceled') {
+        this.logger.warn(
+          `Subscription ${user.stripeSubscriptionId} is already canceled in Stripe for user ${userId}. Updating user status.`,
+        );
+        
+        // Update user to canceled status
+        await this.userModel.findByIdAndUpdate(userId, {
+          subscriptionStatus: 'canceled',
+          cancellationMethod: 'immediate',
+          cancellationReason: reason || 'already_canceled',
+          cancellationFeedback: feedback,
+        });
+
+        return {
+          success: true,
+          method: cancellationMethod,
+          message: 'Subscription was already canceled. User status updated.',
+          refundAmount: 0,
+          refundStatus: 'not_applicable',
+        };
+      }
 
       // Cancel in Stripe using the correct API path for each method.
       if (cancellationMethod === 'at_period_end') {
