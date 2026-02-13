@@ -173,10 +173,23 @@ export default function Expenses() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.description || formData.amount <= 0) {
+    const missingFields: string[] = [];
+
+    // Check required fields
+    if (!formData.description.trim()) {
+      missingFields.push('Description');
+    }
+    if (formData.amount <= 0) {
+      missingFields.push('Amount');
+    }
+
+    // If there are missing fields, show them
+    if (missingFields.length > 0) {
+      const fieldText = missingFields.join(', ');
+      const isPlural = missingFields.length > 1;
       toast({
         title: 'Missing required fields',
-        description: 'Description and amount are required.',
+        description: `${fieldText} ${isPlural ? 'are' : 'is'} required.`,
         variant: 'destructive',
       });
       return;
