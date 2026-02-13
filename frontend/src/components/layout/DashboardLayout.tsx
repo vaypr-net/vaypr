@@ -75,119 +75,117 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </header>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r transform transition-transform duration-200 lg:translate-x-0 lg:static",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}>
-          <div className="flex flex-col h-full">
-            {/* Logo */}
-            <div className="p-6 border-b flex items-center justify-between">
-              <Link to="/dashboard" className="flex items-center gap-2">
-                <div className="p-2 bg-primary rounded-lg">
-                  <FileText className="h-5 w-5 text-primary-foreground" />
-                </div>
-                <span className="font-bold text-lg">VAYPR</span>
-              </Link>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="lg:hidden"
-                onClick={() => setIsSidebarOpen(false)}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-
-            {/* Navigation */}
-            <nav className="flex-1 p-4 space-y-1">
-              {navItems.map((item) => {
-                const isActive = location.pathname === item.href || 
-                  (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
-                return (
-                  <Link
-                    key={item.href}
-                    to={item.href}
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                      isActive 
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                    )}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* User Menu */}
-            <div className="p-4 border-t">
-              <Link 
-                to="/dashboard/profile"
-                onClick={() => setIsSidebarOpen(false)}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-sidebar-accent/50 transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                  <span className="text-primary-foreground text-sm font-medium">
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{user?.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                </div>
-              </Link>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start mt-2 text-muted-foreground"
-                onClick={handleLogout}
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign out
-              </Button>
-            </div>
+      {/* Sidebar - Fixed on all screens */}
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 w-64 h-screen bg-sidebar border-r transform transition-transform duration-200 lg:translate-x-0",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="flex flex-col h-full overflow-y-auto">
+          {/* Logo */}
+          <div className="p-6 border-b flex items-center justify-between">
+            <Link to="/dashboard" className="flex items-center gap-2">
+              <div className="p-2 bg-primary rounded-lg">
+                <FileText className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <span className="font-bold text-lg">VAYPR</span>
+            </Link>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="lg:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
           </div>
-        </aside>
 
-        {/* Overlay */}
-        {isSidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-        )}
+          {/* Navigation */}
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.href || 
+                (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    isActive 
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground" 
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
 
-        {/* Main Content */}
-        <main className="flex-1 lg:min-h-screen">
-          {/* Desktop Header */}
-          <header className="hidden lg:flex sticky top-0 z-40 bg-background/95 backdrop-blur border-b px-6 py-4 items-center justify-between">
-            <div />
-            <div className="flex items-center gap-4">
-              <NotificationDropdown 
-                reminders={unreadReminders} 
-                unreadCount={unreadCount}
-                onMarkAsRead={markAsRead}
-              />
-              <Link 
-                to="/generator" 
-                className="group relative inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary to-accent text-primary-foreground text-sm font-medium shadow-glow hover:shadow-lg transition-all duration-300 hover:scale-105"
-              >
-                <Sparkles className="h-4 w-4 animate-pulse" />
-                <span>Invoice Generator</span>
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </header>
-          
-          <div className="p-6">
-            {children}
+          {/* User Menu */}
+          <div className="p-4 border-t">
+            <Link 
+              to="/dashboard/profile"
+              onClick={() => setIsSidebarOpen(false)}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-sidebar-accent/50 transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground text-sm font-medium">
+                  {user?.name?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{user?.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+            </Link>
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start mt-2 text-muted-foreground"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign out
+            </Button>
           </div>
-        </main>
-      </div>
+        </div>
+      </aside>
+
+      {/* Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main Content - Offset by sidebar on desktop */}
+      <main className="lg:ml-64 flex flex-col min-h-screen">
+        {/* Desktop Header */}
+        <header className="hidden lg:flex sticky top-0 z-40 bg-background/95 backdrop-blur border-b px-6 py-4 items-center justify-between">
+          <div />
+          <div className="flex items-center gap-4">
+            <NotificationDropdown 
+              reminders={unreadReminders} 
+              unreadCount={unreadCount}
+              onMarkAsRead={markAsRead}
+            />
+            <Link 
+              to="/generator" 
+              className="group relative inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary to-accent text-primary-foreground text-sm font-medium shadow-glow hover:shadow-lg transition-all duration-300 hover:scale-105"
+            >
+              <Sparkles className="h-4 w-4 animate-pulse" />
+              <span>Invoice Generator</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+        </header>
+        
+        <div className="flex-1 p-6 overflow-y-auto">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

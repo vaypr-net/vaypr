@@ -51,7 +51,7 @@ export function AdminSidebar() {
     .join("")
     .toUpperCase() || "SA";
 
-  return <aside className="w-64 bg-sidebar border-r border-sidebar-border h-screen fixed left-0 top-0 flex flex-col">
+  return <aside className="w-64 bg-sidebar border-r border-sidebar-border h-screen fixed left-0 top-0 z-50 flex flex-col overflow-y-auto">
       <div className="p-6 border-b border-sidebar-border">
         <Link to="/super-admin" className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
