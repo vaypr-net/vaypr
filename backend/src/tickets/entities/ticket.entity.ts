@@ -41,6 +41,9 @@ export class Ticket extends Document {
 
   @Prop({ type: [{ message: String, author: String, timestamp: Date }], default: [] })
   messages: Array<{ message: string; author: string; timestamp: Date }>;
+
+  @Prop({ type: [{ note: String, author: String, timestamp: Date }], default: [] })
+  internalNotes: Array<{ note: string; author: string; timestamp: Date }>;
 }
 
 export const TicketSchema = SchemaFactory.createForClass(Ticket);

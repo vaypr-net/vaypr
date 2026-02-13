@@ -83,6 +83,14 @@ export class TicketsController {
     return this.ticketsService.addMessage(id, body.message, body.author);
   }
 
+  @Post(':id/internal-notes')
+  addInternalNote(
+    @Param('id') id: string,
+    @Body() body: { note: string; author: string },
+  ) {
+    return this.ticketsService.addInternalNote(id, body.note, body.author);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ticketsService.remove(id);

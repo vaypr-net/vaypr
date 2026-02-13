@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MessageSquare, Plus, Clock, User, AlertTriangle, CheckCircle, Eye } from "lucide-react";
+import { MessageSquare, Plus, Clock, User, AlertTriangle, CheckCircle, Eye, Loader2 } from "lucide-react";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
 import { DataTable } from "@/components/super-admin/DataTable";
 import { StatusBadge } from "@/components/super-admin/StatusBadge";
@@ -30,6 +30,7 @@ import {
 } from "@/hooks/api/useTickets";
 import { Ticket } from "@/api/services/ticket.service";
 import { toast } from "sonner";
+import axiosInstance from "@/api/axios";
 
 const priorityStyles: Record<string, string> = {
   low: "bg-gray-100 text-gray-600",
@@ -129,6 +130,10 @@ export default function Support() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [replyMessage, setReplyMessage] = useState("");
+  const [internalNote, setInternalNote] = useState("");
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const [isAddingNote, setIsAddingNote] = useState(false);
 
   // API Hooks
   const { data: ticketsData, isLoading: ticketsLoading } = useGetTickets(
@@ -145,6 +150,60 @@ export default function Support() {
   const updateStatusMutation = useUpdateTicketStatus();
 
   const displayTickets = ticketsData?.items || [];
+
+  const handleSendReply = async () => {
+    if (!selectedTicket || !replyMessage.trim()) {
+      toast.error("Please enter a message");
+      return;
+    }
+
+    try {
+      setIsSendingReply(true);
+      const response = await axiosInstance.post(
+        `/super-admin/tickets/${selectedTicket._id}/messages`,
+        {
+          message: replyMessage,
+          author: "Support Team",
+        }
+      );
+
+      setSelectedTicket(response.data);
+      setReplyMessage("");
+      toast.success("Reply sent and email notification sent to customer");
+    } catch (error) {
+      console.error("Error sending reply:", error);
+      toast.error("Failed to send reply");
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!selectedTicket || !internalNote.trim()) {
+      toast.error("Please enter a note");
+      return;
+    }
+
+    try {
+      setIsAddingNote(true);
+      const response = await axiosInstance.post(
+        `/super-admin/tickets/${selectedTicket._id}/internal-notes`,
+        {
+          note: internalNote,
+          author: "Admin",
+        }
+      );
+
+      setSelectedTicket(response.data);
+      setInternalNote("");
+      toast.success("Internal note added successfully");
+    } catch (error) {
+      console.error("Error adding note:", error);
+      toast.error("Failed to add note");
+    } finally {
+      setIsAddingNote(false);
+    }
+  };
 
   const handleCreateTicket = async (ticketData: {
     customerName: string;
@@ -399,47 +458,122 @@ export default function Support() {
                   </TabsList>
 
                   <TabsContent value="messages" className="mt-4 space-y-4">
-                    {/* Sample Messages */}
-                    <div className="space-y-4">
+                    {/* Messages List */}
+                    <div className="space-y-4 max-h-60 overflow-y-auto">
+                      {/* Initial Description */}
                       <div className="p-4 bg-muted rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium text-sm">{selectedTicket.customerName}</span>
                           <span className="text-xs text-muted-foreground">{formatDate(selectedTicket.createdAt)}</span>
                         </div>
-                        <p className="text-sm">I'm having trouble exporting my invoices to PDF. The download button doesn't seem to work.</p>
+                        <p className="text-sm">{selectedTicket.description}</p>
                       </div>
-                      
-                      <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-sm text-primary">Support Team</span>
-                          <span className="text-xs text-muted-foreground">{formatTimeAgo(selectedTicket.updatedAt)}</span>
-                        </div>
-                        <p className="text-sm">Hi! Thanks for reaching out. Could you please try clearing your browser cache and trying again? Also, which browser are you using?</p>
-                      </div>
+
+                      {/* Messages from array */}
+                      {selectedTicket.messages && selectedTicket.messages.length > 0 ? (
+                        selectedTicket.messages.map((msg, index) => (
+                          <div 
+                            key={index}
+                            className={`p-4 rounded-lg ${
+                              msg.author === selectedTicket.customerName 
+                                ? "bg-muted" 
+                                : "bg-primary/5 border border-primary/20"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium text-sm">{msg.author}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {msg.timestamp ? formatDate(new Date(msg.timestamp).toISOString()) : "N/A"}
+                              </span>
+                            </div>
+                            <p className="text-sm">{msg.message}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No additional messages yet</p>
+                      )}
                     </div>
 
                     {/* Reply Box */}
                     <div>
-                      <Textarea placeholder="Type your reply..." rows={3} />
+                      <Textarea 
+                        placeholder="Type your reply..." 
+                        rows={3} 
+                        value={replyMessage}
+                        onChange={(e) => setReplyMessage(e.target.value)}
+                        disabled={isSendingReply}
+                      />
                       <div className="flex justify-end gap-2 mt-2">
-                        <Button variant="outline">Save as Draft</Button>
-                        <Button>Send Reply</Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setReplyMessage("")}
+                          disabled={isSendingReply}
+                        >
+                          Clear
+                        </Button>
+                        <Button 
+                          onClick={handleSendReply}
+                          disabled={isSendingReply || !replyMessage.trim()}
+                        >
+                          {isSendingReply ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            "Send Reply"
+                          )}
+                        </Button>
                       </div>
                     </div>
                   </TabsContent>
 
                   <TabsContent value="notes" className="mt-4 space-y-4">
-                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-sm">Admin</span>
-                        <span className="text-xs text-muted-foreground">2 hours ago</span>
-                      </div>
-                      <p className="text-sm">Customer is on Professional plan. Verified their account - no billing issues. Likely a browser compatibility problem.</p>
+                    {/* Internal Notes List */}
+                    <div className="space-y-4 max-h-60 overflow-y-auto">
+                      {selectedTicket.internalNotes && selectedTicket.internalNotes.length > 0 ? (
+                        selectedTicket.internalNotes.map((note, index) => (
+                          <div 
+                            key={index}
+                            className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium text-sm">{note.author}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {note.timestamp ? formatDate(new Date(note.timestamp).toISOString()) : "N/A"}
+                              </span>
+                            </div>
+                            <p className="text-sm">{note.note}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No internal notes yet</p>
+                      )}
                     </div>
 
+                    {/* Add Note */}
                     <div>
-                      <Textarea placeholder="Add internal note..." rows={2} />
-                      <Button className="mt-2">Add Note</Button>
+                      <Textarea 
+                        placeholder="Add internal note..." 
+                        rows={2} 
+                        value={internalNote}
+                        onChange={(e) => setInternalNote(e.target.value)}
+                        disabled={isAddingNote}
+                      />
+                      <Button 
+                        className="mt-2"
+                        onClick={handleAddNote}
+                        disabled={isAddingNote || !internalNote.trim()}
+                      >
+                        {isAddingNote ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Adding...
+                          </>
+                        ) : (
+                          "Add Note"
+                        )}
+                      </Button>
                     </div>
                   </TabsContent>
                 </Tabs>

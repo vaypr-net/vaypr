@@ -137,6 +137,31 @@ export class TicketsService {
     return ticket;
   }
 
+  async addInternalNote(
+    id: string,
+    note: string,
+    author: string,
+  ): Promise<Ticket> {
+    const ticket = await this.ticketModel.findByIdAndUpdate(
+      id,
+      {
+        $push: {
+          internalNotes: {
+            note,
+            author,
+            timestamp: new Date(),
+          },
+        },
+      },
+      { new: true },
+    );
+
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+    return ticket;
+  }
+
   async remove(id: string): Promise<{ success: boolean; message: string }> {
     const ticket = await this.ticketModel.findByIdAndDelete(id);
     if (!ticket) {
