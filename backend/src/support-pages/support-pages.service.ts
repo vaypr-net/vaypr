@@ -243,6 +243,78 @@ export class SupportPagesService {
         showInFooter: true,
         order: 3,
       },
+      {
+        slug: 'terms',
+        title: 'Terms of Service',
+        type: PageType.TERMS,
+        metaDescription: 'Read VAYPR\'s Terms of Service and understand our service agreement.',
+        icon: 'FileText',
+        sections: [
+          {
+            title: 'Acceptance of Terms',
+            content: 'By accessing and using VAYPR, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to these terms, please do not use our service.',
+            order: 1,
+          },
+          {
+            title: 'Use of Service',
+            content: 'VAYPR provides invoicing and business management tools. You agree to:\n- Use the service only for lawful purposes\n- Not attempt to gain unauthorized access to our systems\n- Not use the service to transmit harmful content\n- Maintain the security of your account credentials',
+            order: 2,
+          },
+          {
+            title: 'Account Responsibilities',
+            content: 'You are responsible for:\n- Maintaining accurate account information\n- All activities that occur under your account\n- Notifying us of any unauthorized use\n- Complying with all applicable laws and regulations',
+            order: 3,
+          },
+          {
+            title: 'Subscription and Billing',
+            content: 'Subscription fees are billed in advance on a monthly or annual basis. You agree to provide accurate billing information and authorize us to charge your payment method. Fees are non-refundable except as stated in our Refund Policy.',
+            order: 4,
+          },
+          {
+            title: 'Intellectual Property',
+            content: 'VAYPR and its content are protected by copyright, trademark, and other laws. You retain ownership of your data, but grant us the right to use it to provide our services. We retain all rights to the VAYPR platform and software.',
+            order: 5,
+          },
+          {
+            title: 'Data and Privacy',
+            content: 'We collect and process your data as described in our Privacy Policy. You are responsible for the accuracy and legality of data you upload to our service.',
+            order: 6,
+          },
+          {
+            title: 'Service Availability',
+            content: 'We strive to maintain 99.9% uptime but do not guarantee uninterrupted access. We may perform maintenance, updates, or modifications without prior notice.',
+            order: 7,
+          },
+          {
+            title: 'Termination',
+            content: 'We may suspend or terminate your account if you violate these terms. You may cancel your subscription at any time through your account settings. Upon termination, you will lose access to your account and data.',
+            order: 8,
+          },
+          {
+            title: 'Limitation of Liability',
+            content: 'VAYPR is provided "as is" without warranties of any kind. We are not liable for any indirect, incidental, or consequential damages arising from your use of the service.',
+            order: 9,
+          },
+          {
+            title: 'Changes to Terms',
+            content: 'We reserve the right to modify these terms at any time. We will notify you of significant changes via email or through the service. Continued use after changes constitutes acceptance.',
+            order: 10,
+          },
+          {
+            title: 'Governing Law',
+            content: 'These terms are governed by the laws of Kuwait. Any disputes will be resolved in the courts of Kuwait.',
+            order: 11,
+          },
+          {
+            title: 'Contact Information',
+            content: 'For questions about these Terms of Service, please contact us at legal@vaypr.com',
+            order: 12,
+          },
+        ],
+        enabled: true,
+        showInFooter: true,
+        order: 4,
+      },
     ];
 
     for (const pageData of defaultPages) {

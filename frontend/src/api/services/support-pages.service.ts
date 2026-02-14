@@ -6,6 +6,7 @@ export enum PageType {
   CONTACT = 'CONTACT',
   PRIVACY = 'PRIVACY',
   REFUND = 'REFUND',
+  TERMS = 'TERMS',
   ABOUT = 'ABOUT',
   B2B = 'B2B',
   CUSTOM = 'CUSTOM',

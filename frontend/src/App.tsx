@@ -28,6 +28,7 @@ import FAQs from "./pages/FAQs";
 import Contact from "./pages/Contact";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import RefundPolicy from "./pages/RefundPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import Guides from "./pages/Guides";
 import AboutUs from "./pages/AboutUs";
 import B2BServices from "./pages/B2BServices";
@@ -97,6 +98,7 @@ function AppRoutes() {
       <Route path="/contact" element={<Contact />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/refund" element={<RefundPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
       <Route path="/guides" element={<Guides />} />
       <Route path="/about" element={<AboutUs />} />
       <Route path="/b2b" element={<B2BServices />} />
