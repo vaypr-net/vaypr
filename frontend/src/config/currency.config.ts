@@ -8,28 +8,28 @@ export const CURRENCY_CONFIG = {
   displayCurrency: 'KWD',
   
   // Default payment currency (what Stripe charges)
-  defaultPaymentCurrency: 'USD',
+  defaultPaymentCurrency: 'AED', // We charge in AED via Stripe
   
-  // Conversion rate: 1 USD = X KWD
-  // Update this to match backend USD_TO_KWD_RATE
-  conversionRate: 0.31,
+  // Conversion rate: 1 AED ≈ 0.30 KWD (1 KWD = 3.31 AED)
+  // 99 AED = 29.91 KWD
+  conversionRate: 0.30,
   
-  // Supported currencies for payment selection
-  supportedCurrencies: ['USD', 'AED', 'QAR', 'EGP', 'SAR', 'KWD', 'BHD', 'OMR', 'JOD', 'LBP'],
+  // Supported currencies for payment selection (Arab countries only)
+  supportedCurrencies: ['AED', 'QAR', 'EGP', 'SAR', 'KWD', 'BHD', 'OMR', 'JOD', 'LBP'],
 };
 
 /**
- * Convert USD amount to display currency (KWD)
+ * Convert AED amount to display currency (KWD)
  */
-export function convertToDisplayCurrency(usdAmount: number): number {
-  return Math.round(usdAmount * CURRENCY_CONFIG.conversionRate * 100) / 100;
+export function convertToDisplayCurrency(aedAmount: number): number {
+  return Math.round(aedAmount * CURRENCY_CONFIG.conversionRate * 100) / 100;
 }
 
 /**
  * Format price in display currency
  */
-export function formatPriceInDisplayCurrency(usdAmount: number): string {
-  const converted = convertToDisplayCurrency(usdAmount);
+export function formatPriceInDisplayCurrency(aedAmount: number): string {
+  const converted = convertToDisplayCurrency(aedAmount);
   return `${CURRENCY_CONFIG.displayCurrency} ${converted.toFixed(2)}`;
 }
 

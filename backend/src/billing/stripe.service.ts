@@ -504,9 +504,10 @@ export class StripeService {
 
           if (item.price?.unit_amount) {
             // Convert from cents to major unit (divide by 100)
+            // Keep price in AED - frontend will convert AED directly to KWD
             actualPrice = item.price.unit_amount / 100;
             this.logger.debug(
-              `Actual price calculated: ${actualPrice} (from ${item.price.unit_amount} cents)`
+              `Price calculated: ${actualPrice} AED (from ${item.price.unit_amount} cents)`
             );
           }
         } else {
@@ -534,15 +535,15 @@ export class StripeService {
 
     const planObject = (plan?.toObject?.() || plan) || { price: actualPrice };
     
-    // Convert USD price to display currency (KWD)
+    // Convert AED price to display currency (KWD)
     const displayCurrency = this.currencyService.getDisplayCurrency();
     const priceInDisplayCurrency = this.currencyService.convertToDisplayCurrency(actualPrice);
     
     return {
       plan: {
         ...planObject,
-        price: actualPrice, // Override with actual charged price in USD
-        priceInUSD: actualPrice,
+        price: actualPrice, // Override with actual charged price in AED
+        priceInAED: actualPrice,
         priceInDisplayCurrency: priceInDisplayCurrency,
         displayCurrency: displayCurrency,
       },

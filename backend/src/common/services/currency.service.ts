@@ -11,11 +11,12 @@ export class CurrencyService {
 
   private initializeRates() {
     // Load conversion rates from environment
-    const usdToKwd = this.configService.get<number>('USD_TO_KWD_RATE', 0.31);
+    // Kuwait-based: Using AED as payment currency, KWD as display currency
+    const aedToKwd = this.configService.get<number>('AED_TO_KWD_RATE', 0.30);
     
     this.conversionRates = {
-      'USD_TO_KWD': usdToKwd,
-      'KWD_TO_USD': 1 / usdToKwd, // Inverse rate
+      'AED_TO_KWD': aedToKwd,
+      'KWD_TO_AED': 1 / aedToKwd, // Inverse rate
     };
   }
 
@@ -45,30 +46,30 @@ export class CurrencyService {
    * Get display currency from config
    */
   getDisplayCurrency(): string {
-    return this.configService.get<string>('DISPLAY_CURRENCY', 'USD');
+    return this.configService.get<string>('DISPLAY_CURRENCY', 'KWD');
   }
 
   /**
    * Get default payment currency
    */
   getDefaultCurrency(): string {
-    return this.configService.get<string>('DEFAULT_CURRENCY', 'USD');
+    return this.configService.get<string>('DEFAULT_CURRENCY', 'AED');
   }
 
   /**
-   * Convert USD amount to display currency (KWD)
+   * Convert AED amount to display currency (KWD)
    */
-  convertToDisplayCurrency(usdAmount: number): number {
+  convertToDisplayCurrency(aedAmount: number): number {
     const displayCurrency = this.getDisplayCurrency();
-    return this.convert(usdAmount, 'USD', displayCurrency);
+    return this.convert(aedAmount, 'AED', displayCurrency);
   }
 
   /**
-   * Format price in display currency
+   * Format price in display currency (AED to KWD)
    */
-  formatPrice(usdAmount: number): string {
+  formatPrice(aedAmount: number): string {
     const displayCurrency = this.getDisplayCurrency();
-    const convertedAmount = this.convertToDisplayCurrency(usdAmount);
+    const convertedAmount = this.convertToDisplayCurrency(aedAmount);
     return `${displayCurrency} ${convertedAmount.toFixed(2)}`;
   }
 }

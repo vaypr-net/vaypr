@@ -13,7 +13,7 @@ interface BillingPlan {
   _id: string;
   name: string;
   price: number;
-  priceInUSD?: number;
+  priceInAED?: number;
   priceInDisplayCurrency?: number;
   displayCurrency?: string;
   interval: string;
@@ -172,8 +172,8 @@ export function BillingStatus() {
             </h2>
             {currentPlan && currentPlan.price > 0 && (
               <p className="text-sm text-muted-foreground mt-1">
-                {currentPlan.displayCurrency || CURRENCY_CONFIG.displayCurrency}{' '}
-                {(currentPlan.priceInDisplayCurrency || currentPlan.price).toFixed(2)}
+                {CURRENCY_CONFIG.displayCurrency}{' '}
+                {(currentPlan.priceInDisplayCurrency || (currentPlan.price * CURRENCY_CONFIG.conversionRate)).toFixed(2)}
                 /{subscription?.billingCycle === 'yearly' ? 'year' : 'month'}
               </p>
             )}
