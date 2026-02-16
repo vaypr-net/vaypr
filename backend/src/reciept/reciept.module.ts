@@ -9,6 +9,7 @@ import { Client, ClientSchema } from '../clients/entities/client.entity';
 import { Invoice, InvoiceSchema } from '../invoice/entities/invoice.entity';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
       },
     }),
     CloudinaryModule,
+    CommonModule,  // Import to access PlanLimitService
   ],
   controllers: [RecieptController],
   providers: [RecieptService, JwtAuthGuard],

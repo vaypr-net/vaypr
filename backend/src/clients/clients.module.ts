@@ -8,6 +8,7 @@ import { Client, ClientSchema } from './entities/client.entity';
 import { Invoice, InvoiceSchema } from '../invoice/entities/invoice.entity';
 import { Quote, QuoteSchema } from '../quotes/entities/quote.entity';
 import { Recurring, RecurringSchema } from '../recurring/entities/recurring.entity';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { Recurring, RecurringSchema } from '../recurring/entities/recurring.enti
         secret: configService.get<string>('JWT_SECRET') || 'default_secret',
       }),
     }),
+    CommonModule,  // Import to access PlanLimitService
   ],
   controllers: [ClientsController],
   providers: [ClientsService],

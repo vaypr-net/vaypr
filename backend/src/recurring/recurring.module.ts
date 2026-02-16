@@ -10,6 +10,7 @@ import { Invoice, InvoiceSchema } from '../invoice/entities/invoice.entity';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UserprofileModule } from '../userprofile/userprofile.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { UserprofileModule } from '../userprofile/userprofile.module';
     }),
     CloudinaryModule,
     UserprofileModule,
+    CommonModule,  // Import to access PlanLimitService
   ],
   controllers: [RecurringController],
   providers: [RecurringService, JwtAuthGuard],
