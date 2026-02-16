@@ -19,8 +19,8 @@ export class BillingPlanStripeSyncService {
   private stripe: Stripe;
   private logger = new Logger(BillingPlanStripeSyncService.name);
 
-  // KWD to AED conversion rate (approximately 1 KWD = 3.31 AED)
-  private readonly KWD_TO_AED_RATE = 3.31;
+  // KWD to AED conversion rate (exact: 1 KWD = 11.97 AED)
+  private readonly KWD_TO_AED_RATE = 11.97;
 
   constructor(
     @InjectModel(BillingPlan.name) private billingPlanModel: Model<BillingPlan>,

@@ -12,11 +12,12 @@ export class CurrencyService {
   private initializeRates() {
     // Load conversion rates from environment
     // Kuwait-based: Using AED as payment currency, KWD as display currency
-    const aedToKwd = this.configService.get<number>('AED_TO_KWD_RATE', 0.30);
+    // Exact rate: 1 KWD = 11.97 AED, so 1 AED = 0.0835 KWD
+    const aedToKwd = this.configService.get<number>('AED_TO_KWD_RATE', 0.0835);
     
     this.conversionRates = {
       'AED_TO_KWD': aedToKwd,
-      'KWD_TO_AED': 1 / aedToKwd, // Inverse rate
+      'KWD_TO_AED': 1 / aedToKwd, // Inverse rate (11.97)
     };
   }
 

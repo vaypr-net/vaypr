@@ -123,8 +123,8 @@ export class StripeService {
    */
   async createStripeProductAndPrices(plan: any): Promise<Record<string, string>> {
     try {
-      // Convert plan price from KWD to AED for Stripe
-      const priceInAED = Math.round(plan.price * 3.31); // Approximate KWD to AED conversion
+      // Convert plan price from KWD to AED for Stripe (exact: 1 KWD = 11.97 AED)
+      const priceInAED = Math.round(plan.price * 11.97);
 
       // Create Stripe product
       const product = await this.stripe.products.create({
@@ -1103,6 +1103,7 @@ export class StripeService {
     );
     
     // Check if transaction already exists (idempotency)
+    this.logger.log(`Webhook: Checking for existing transaction with session ID: ${session.id}`);
     const existingTransaction = await this.transactionModel.findOne({
       stripeCheckoutSessionId: session.id,
     });
@@ -1112,8 +1113,13 @@ export class StripeService {
         `Webhook: Transaction for checkout session ${session.id} already exists, skipping duplicate`,
       );
     } else {
+      this.logger.log(`Webhook: No existing transaction found. Creating new transaction...`);
       try {
-        await this.transactionModel.create({
+        this.logger.log(
+          `Webhook: Transaction data - userId: ${userId}, amount: ${transactionAmount}, currency: ${session.currency?.toUpperCase() || 'KWD'}, plan: ${plan?.name || 'Unknown'}`
+        );
+        
+        const newTransaction = await this.transactionModel.create({
           transactionId: `stripe_${session.id}`,
           userId: new Types.ObjectId(userId),
           subscriberId: userId,
@@ -1133,7 +1139,7 @@ export class StripeService {
         });
 
         this.logger.log(
-          `Webhook: Transaction created for checkout session ${session.id}`,
+          `Webhook: ✅ Transaction created successfully! ID: ${newTransaction._id}, Session: ${session.id}`,
         );
       } catch (transactionError: any) {
         // If duplicate key error, it's likely already processed
@@ -1143,8 +1149,11 @@ export class StripeService {
           );
         } else {
           this.logger.error(
-            `Webhook: Failed to create transaction for session ${session.id}: ${transactionError.message}`,
+            `Webhook: ❌ Failed to create transaction for session ${session.id}`,
           );
+          this.logger.error(`Webhook: Error code: ${transactionError.code}`);
+          this.logger.error(`Webhook: Error message: ${transactionError.message}`);
+          this.logger.error(`Webhook: Full error:`, transactionError);
           // Don't throw - subscription is already created, just log the error
         }
       }
