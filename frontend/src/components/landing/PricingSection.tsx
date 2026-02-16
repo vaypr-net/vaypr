@@ -193,12 +193,42 @@ export function PricingSection() {
     );
   }
 
-  if (error) {
+  if (error || plans.length === 0) {
     return (
       <section className="py-24 relative overflow-hidden">
+        {/* Background */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-primary/5 to-background" />
+
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center">
-            <p className="text-red-500">{error}</p>
+          <div className="text-center max-w-2xl mx-auto">
+            <div className="mb-6">
+              {error ? (
+                <svg className="w-20 h-20 mx-auto text-yellow-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-20 h-20 mx-auto text-primary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
+                </svg>
+              )}
+            </div>
+            <h3 className="text-2xl font-bold text-foreground mb-2">
+              {error ? 'Unable to Load Plans' : 'No Plans Exist Yet'}
+            </h3>
+            <p className="text-muted-foreground mb-6">
+              {error
+                ? 'We encountered an issue loading the pricing plans. Please try again later.'
+                : 'No pricing plans have been created yet. Please check back later.'}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Retry Loading
+            </button>
           </div>
         </div>
       </section>

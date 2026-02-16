@@ -13,11 +13,24 @@ interface BillingPlan {
   _id: string;
   name: string;
   price: number;
+  priceInUSD?: number;
+  priceInDisplayCurrency?: number;
+  displayCurrency?: string;
   interval: string;
-  features: string[];
-  limits: any;
-  stripeMonthlyPriceId: string;
-  stripeYearlyPriceId: string;
+  features?: string[];
+  limits: {
+    invoices?: number;
+    quotes?: number;
+    clients?: number;
+    teamMembers?: number;
+    storage?: string;
+    receipts?: number;
+    recurringInvoices?: number;
+    expenseTracking?: boolean;
+    invoiceTemplates?: string;
+  };
+  stripeMonthlyPriceId?: string;
+  stripeYearlyPriceId?: string;
 }
 
 export function BillingStatus() {
@@ -43,41 +56,114 @@ export function BillingStatus() {
     ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
     : null;
 
-  // Plan features mapping
-  const planFeatures: Record<string, string[]> = {
-    Free: [
+  // Generate plan features dynamically from API data
+  const getPlanFeatures = (): string[] => {
+    // If plan has features from API, use those
+    if (currentPlan?.features && currentPlan.features.length > 0) {
+      return currentPlan.features;
+    }
+
+    // Fallback: Generate features from limits if no features provided
+    if (currentPlan?.limits) {
+      const { limits } = currentPlan;
+      const features: string[] = [];
+
+      // Invoices
+      if (limits.invoices !== undefined) {
+        features.push(
+          limits.invoices === -1 || limits.invoices >= 9999
+            ? 'Unlimited invoices'
+            : `Up to ${limits.invoices} invoices/month`
+        );
+      }
+
+      // Quotes
+      if (limits.quotes !== undefined) {
+        features.push(
+          limits.quotes === -1 || limits.quotes >= 9999
+            ? 'Unlimited quotes'
+            : `Up to ${limits.quotes} quotes/month`
+        );
+      }
+
+      // Clients
+      if (limits.clients !== undefined) {
+        features.push(
+          limits.clients === -1 || limits.clients >= 9999
+            ? 'Unlimited clients'
+            : `Up to ${limits.clients} clients`
+        );
+      }
+
+      // Templates
+      if (limits.invoiceTemplates) {
+        features.push(
+          limits.invoiceTemplates === 'unlimited' || limits.invoiceTemplates === 'all'
+            ? 'All templates'
+            : 'Basic templates'
+        );
+      }
+
+      // Receipts
+      if (limits.receipts && (limits.receipts === -1 || limits.receipts > 0)) {
+        features.push(
+          limits.receipts === -1 || limits.receipts >= 9999
+            ? 'Unlimited receipts'
+            : `Up to ${limits.receipts} receipts/month`
+        );
+      }
+
+      // Recurring Invoices
+      if (limits.recurringInvoices && (limits.recurringInvoices === -1 || limits.recurringInvoices > 0)) {
+        features.push(
+          limits.recurringInvoices === -1 || limits.recurringInvoices >= 9999
+            ? 'Unlimited recurring invoices'
+            : `Up to ${limits.recurringInvoices} recurring invoices`
+        );
+      }
+
+      // Expense Tracking
+      if (limits.expenseTracking) {
+        features.push('Expense tracking');
+      }
+
+      // Team Members
+      if (limits.teamMembers && limits.teamMembers > 1) {
+        features.push(
+          limits.teamMembers === -1 || limits.teamMembers >= 9999
+            ? 'Unlimited team members'
+            : `Up to ${limits.teamMembers} team members`
+        );
+      }
+
+      // Storage
+      if (limits.storage) {
+        features.push(`${limits.storage} storage`);
+      }
+
+      return features;
+    }
+
+    // Ultimate fallback for free plan
+    return [
       'Up to 5 invoices/month',
       'Up to 5 quotes/month',
       'Up to 5 clients',
       'Basic templates',
       'Community support',
-    ],
-    Pro: [
-      'Unlimited invoices',
-      'Unlimited quotes',
-      'Up to 50 clients',
-      'All templates',
-      'Email support',
-      'Custom branding',
-      'API access',
-    ],
-    Business: [
-      'Everything in Pro',
-      'Unlimited clients',
-      'Team management',
-      'Advanced analytics',
-      'Priority support',
-      'Custom integrations',
-    ],
+    ];
   };
+
+  const displayFeatures = getPlanFeatures();
 
   return (
     <div className="space-y-6">
       <Card className="p-5 bg-primary/5 border-primary/25">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold text-foreground">
-              Current Plan: <span className="text-primary">{currentPlan?.name || 'Free'}</span>
+              Current Plan:{' '}
+              <span className="text-primary">{currentPlan?.name || 'Free'}</span>
             </h2>
             {currentPlan && currentPlan.price > 0 && (
               <p className="text-sm text-muted-foreground mt-1">
@@ -118,13 +204,27 @@ export function BillingStatus() {
 
       <div>
         <h3 className="text-base font-semibold text-foreground mb-3">Plan Features</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-3">
-          {(planFeatures[currentPlan?.name || 'Free'] || planFeatures.Free).map((feature, idx) => (
-            <div key={idx} className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-              <span className="text-sm text-foreground">{feature}</span>
+        <div 
+          className={`grid gap-x-8 gap-y-3 ${
+            displayFeatures.length <= 3 
+              ? 'grid-cols-1' 
+              : displayFeatures.length <= 6 
+              ? 'grid-cols-1 sm:grid-cols-2' 
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+          }`}
+        >
+          {displayFeatures.length > 0 ? (
+            displayFeatures.map((feature, idx) => (
+              <div key={idx} className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                <span className="text-sm text-foreground leading-relaxed">{feature}</span>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-4">
+              <p className="text-sm text-muted-foreground">No features available for this plan</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
 

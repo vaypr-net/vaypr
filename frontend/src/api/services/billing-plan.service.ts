@@ -63,8 +63,21 @@ export interface UpdateBillingPlanDto extends Partial<CreateBillingPlanDto> {
 // ==================== SERVICE ====================
 
 const BASE_URL = '/super-admin/billing-plans';
+const PUBLIC_BASE_URL = '/billing-plans';
 
 export const BillingPlanService = {
+  // ========== PUBLIC API (No auth required) ==========
+
+  async getPublicPlans(
+    status: string = 'active',
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<PaginatedResponse<BillingPlan>> {
+    const params = { status, limit, offset };
+    const response = await axios.get<PaginatedResponse<BillingPlan>>(PUBLIC_BASE_URL, { params });
+    return response.data;
+  },
+
   // ========== BILLING PLAN CRUD ==========
 
   async getPlans(
