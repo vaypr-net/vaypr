@@ -12,6 +12,7 @@ import { ActivityModule } from '../activity/activity.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CommonModule } from '../common/common.module';
 import { CurrencyService } from '../common/services/currency.service';
+import { BillingPlanModule } from '../billing-plan/billing-plan.module';
 
 /**
  * BillingModule - Stripe Checkout subscriptions
@@ -46,6 +47,7 @@ import { CurrencyService } from '../common/services/currency.service';
   imports: [
     ConfigModule,
     CommonModule,
+    BillingPlanModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

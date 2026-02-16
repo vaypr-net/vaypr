@@ -56,6 +56,9 @@ export class BillingPlan extends Document {
   @Prop({ required: false })
   stripeYearlyPriceId: string; // Stripe price ID for yearly billing
 
+  @Prop({ required: false })
+  stripeProductId: string; // Stripe product ID for this billing plan
+
   @Prop()
   createdAt: Date;
 

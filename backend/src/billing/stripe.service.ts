@@ -8,6 +8,7 @@ import { BillingPlan } from '../billing-plan/entities/billing-plan.entity';
 import { Transaction } from '../transcations/entities/transcation.entity';
 import { ActivityService } from '../activity/activity.service';
 import { CurrencyService } from '../common/services/currency.service';
+import { BillingPlanStripeSyncService } from '../billing-plan/services/billing-plan-stripe-sync.service';
 
 /**
  * StripeService - Handles all Stripe Checkout subscription operations
@@ -38,6 +39,7 @@ export class StripeService {
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
     private activityService: ActivityService,
     private currencyService: CurrencyService,
+    private stripeSyncService: BillingPlanStripeSyncService,
   ) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
@@ -116,6 +118,75 @@ export class StripeService {
   }
 
   /**
+   * Create Stripe product and prices for a billing plan
+   * Automatically creates monthly and yearly prices in AED currency
+   */
+  async createStripeProductAndPrices(plan: any): Promise<Record<string, string>> {
+    try {
+      // Convert plan price from KWD to AED for Stripe
+      const priceInAED = Math.round(plan.price * 3.31); // Approximate KWD to AED conversion
+
+      // Create Stripe product
+      const product = await this.stripe.products.create({
+        name: plan.name,
+        description: plan.description || `${plan.name} plan`,
+        metadata: {
+          planId: plan._id.toString(),
+          planName: plan.name,
+        },
+      });
+
+      this.logger.log(`Created Stripe product ${product.id} for plan ${plan.name}`);
+
+      // Create monthly price
+      const monthlyPrice = await this.stripe.prices.create({
+        product: product.id,
+        currency: 'aed',
+        unit_amount: priceInAED * 100, // Convert to cents
+        recurring: {
+          interval: 'month',
+          usage_type: 'licensed',
+        },
+        metadata: {
+          planId: plan._id.toString(),
+          billingCycle: 'monthly',
+        },
+      });
+
+      // Create yearly price
+      const yearlyPrice = await this.stripe.prices.create({
+        product: product.id,
+        currency: 'aed',
+        unit_amount: (priceInAED * 12 * 0.9) * 100, // 10% discount for yearly, convert to cents
+        recurring: {
+          interval: 'year',
+          usage_type: 'licensed',
+        },
+        metadata: {
+          planId: plan._id.toString(),
+          billingCycle: 'yearly',
+        },
+      });
+
+      this.logger.log(
+        `Created Stripe prices for plan ${plan.name}: monthly=${monthlyPrice.id}, yearly=${yearlyPrice.id}`,
+      );
+
+      return {
+        'AED-monthly': monthlyPrice.id,
+        'AED-yearly': yearlyPrice.id,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to create Stripe product and prices for plan ${plan.name}: ${error.message}`,
+      );
+      // Return empty object to allow plan creation to continue
+      // User will need to manually set Stripe prices later
+      return {};
+    }
+  }
+
+  /**
    * Get Stripe price ID for a plan by currency and billing cycle
    * Supports new multi-currency structure and falls back to old single-currency format
    * Maps unsupported currencies to supported alternatives
@@ -185,7 +256,31 @@ export class StripeService {
 
     // Validate currency is supported
     currency = currency.toUpperCase();
-    const priceId = this.getPriceIdForCurrency(plan, billingCycle, currency);
+    let priceId = this.getPriceIdForCurrency(plan, billingCycle, currency);
+
+    // If price not found, attempt to sync plan to Stripe (one-time fallback)
+    if (!priceId) {
+      this.logger.log(
+        `Price not found for plan ${plan.name}. Attempting to sync to Stripe...`,
+      );
+      try {
+        const syncedPlan = await this.stripeSyncService.syncPlanToStripe(planId);
+        if (syncedPlan) {
+          priceId = this.getPriceIdForCurrency(syncedPlan, billingCycle, currency);
+          
+          if (priceId) {
+            this.logger.log(
+              `Successfully synced plan ${plan.name} and found price ${priceId}`,
+            );
+          }
+        }
+      } catch (syncError) {
+        this.logger.warn(
+          `Failed to sync plan ${plan.name} to Stripe: ${syncError.message}`,
+        );
+        // Continue with original error below
+      }
+    }
 
     if (!priceId) {
       throw new BadRequestException(
@@ -357,7 +452,7 @@ export class StripeService {
   async getSubscriptionInfo(userId: string): Promise<any> {
     const user = await this.userModel
       .findById(userId)
-      .populate('planId', 'name price limits');
+      .populate('planId', 'name price currency limits features');
 
     if (!user) {
       throw new NotFoundException('User not found');

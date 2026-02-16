@@ -1,14 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateBillingPlanDto } from './dto/create-billing-plan.dto';
 import { UpdateBillingPlanDto } from './dto/update-billing-plan.dto';
 import { BillingPlan } from './entities/billing-plan.entity';
+import { BillingPlanStripeSyncService } from './services/billing-plan-stripe-sync.service';
 
 @Injectable()
 export class BillingPlanService {
+  private logger = new Logger(BillingPlanService.name);
+
   constructor(
     @InjectModel(BillingPlan.name) private billingPlanModel: Model<BillingPlan>,
+    private stripeSyncService: BillingPlanStripeSyncService,
   ) {}
 
   async create(createBillingPlanDto: CreateBillingPlanDto): Promise<BillingPlan> {
@@ -18,8 +22,25 @@ export class BillingPlanService {
       status: createBillingPlanDto.status || 'active',
       subscriberCount: 0,
     });
-    return newPlan.save();
+    const savedPlan = await newPlan.save();
+
+    // Attempt to sync plan to Stripe (create product and prices)
+    try {
+      const syncedPlan = await this.stripeSyncService.syncPlanToStripe(
+        savedPlan._id.toString(),
+      );
+      return syncedPlan || savedPlan;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to sync plan ${savedPlan.name} to Stripe: ${error.message}. Plan created but needs Stripe configuration.`,
+      );
+      // Plan is still created successfully, just without Stripe sync
+      // This is not a blocking error - admin can retry later
+      return savedPlan;
+    }
   }
+
+
 
   async findAll(
     status?: string,
@@ -71,6 +92,21 @@ export class BillingPlanService {
     if (!plan) {
       throw new NotFoundException('Billing plan not found');
     }
+
+    // If price or plan name changed, resync to Stripe (creates new price)
+    if (updateBillingPlanDto.price !== undefined || updateBillingPlanDto.name !== undefined) {
+      try {
+        const syncedPlan = await this.stripeSyncService.syncPlanToStripe(id);
+        return syncedPlan || plan;
+      } catch (error) {
+        this.logger.warn(
+          `Failed to sync updated plan ${plan.name} to Stripe: ${error.message}. Plan updated but needs Stripe update.`,
+        );
+        // Plan is still updated successfully
+        return plan;
+      }
+    }
+
     return plan;
   }
 
