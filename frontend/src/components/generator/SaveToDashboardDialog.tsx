@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FileText, Receipt, FileCheck, ArrowRight, Building2, User, AlertCircle, Loader2 } from "lucide-react";
 import {
@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCreateInvoice } from "@/hooks/api/useInvoices";
+import { useCreateInvoice, useUpdateInvoice } from "@/hooks/api/useInvoices";
 import { useCreateQuote } from "@/hooks/api/useQuotes";
 import { useCreateReceipt } from "@/hooks/api/useReceipts";
 import { useClients } from "@/hooks/api/useClients";
@@ -35,6 +35,8 @@ interface SaveToDashboardDialogProps {
   invoiceData?: InvoiceData;
   receiptData?: ReceiptData;
   quoteData?: QuoteData;
+  editingInvoiceId?: string | null;
+  defaultClientId?: string | null;
 }
 
 export function SaveToDashboardDialog({
@@ -44,9 +46,12 @@ export function SaveToDashboardDialog({
   invoiceData,
   receiptData,
   quoteData,
+  editingInvoiceId = null,
+  defaultClientId = null,
 }: SaveToDashboardDialogProps) {
   const navigate = useNavigate();
   const createInvoice = useCreateInvoice();
+  const updateInvoice = useUpdateInvoice();
   const createQuote = useCreateQuote();
   const createReceipt = useCreateReceipt();
   const { data: clients = [], isLoading: loadingClients } = useClients();
@@ -59,6 +64,13 @@ export function SaveToDashboardDialog({
   const individuals = clients.filter(c => c.clientType === 'individual' || !c.clientType);
 
   const selectedClient = clients.find(c => c._id === selectedClientId);
+  const isEditingInvoice = documentType === "invoice" && !!editingInvoiceId;
+
+  useEffect(() => {
+    if (defaultClientId) {
+      setSelectedClientId(defaultClientId);
+    }
+  }, [defaultClientId, isOpen]);
 
   const getIcon = () => {
     switch (documentType) {
@@ -94,7 +106,7 @@ export function SaveToDashboardDialog({
   };
 
   const handleSave = async () => {
-    if (!selectedClientId) {
+    if (!selectedClientId && !isEditingInvoice) {
       toast.error("Please select a client or company");
       return;
     }
@@ -112,10 +124,13 @@ export function SaveToDashboardDialog({
           ? invoiceData.manualGrandTotal
           : Math.max(0, subtotal - discountAmount + invoiceData.deliveryFee); // Ensure total is never negative
 
+        const paymentTermsText = invoiceData.paymentTerms?.trim() || '';
+        const showPaymentTerms = invoiceData.showPaymentTerms && paymentTermsText.length > 0;
+
         // Prepare invoice data for API
         const apiInvoiceData = {
           invoiceNumber: invoiceData.invoiceNumber || `INV-${Date.now()}`,
-          clientId: selectedClientId,
+          clientId: selectedClientId || defaultClientId || undefined,
           billTo: {
             name: invoiceData.billTo.name,
             phone: invoiceData.billTo.phone || selectedClient?.phone || '',
@@ -155,8 +170,8 @@ export function SaveToDashboardDialog({
             accountName: invoiceData.bankAccount?.accountName || '',
             iban: invoiceData.bankAccount?.iban || '',
           },
-          showPaymentTerms: invoiceData.showPaymentTerms,
-          paymentTerms: invoiceData.paymentTerms || '',
+          showPaymentTerms,
+          paymentTerms: showPaymentTerms ? paymentTermsText : undefined,
           logoScale: invoiceData.logoScale || 1.0,
           tableHeaderColor: invoiceData.tableHeaderColor,
           hideQuantity: invoiceData.hideQuantity,
@@ -175,10 +190,18 @@ export function SaveToDashboardDialog({
           logoFile = new File([blob], 'logo.png', { type: 'image/png' });
         }
 
-        await createInvoice.mutateAsync({ 
-          data: apiInvoiceData, 
-          logo: logoFile 
-        });
+        if (isEditingInvoice && editingInvoiceId) {
+          await updateInvoice.mutateAsync({
+            id: editingInvoiceId,
+            data: apiInvoiceData,
+            logo: logoFile,
+          });
+        } else {
+          await createInvoice.mutateAsync({ 
+            data: apiInvoiceData, 
+            logo: logoFile 
+          });
+        }
 
       } else if (documentType === "quote" && quoteData) {
         const subtotal = quoteData.items.reduce(

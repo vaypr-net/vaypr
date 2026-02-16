@@ -35,11 +35,11 @@ export class CreateInvoiceDto {
 
   @IsDateString()
   @IsNotEmpty()
-  issueDate: Date;
+  issueDate: string;
 
   @IsDateString()
   @IsNotEmpty()
-  dueDate: Date;
+  dueDate: string;
 
   @Transform(({ value }) => {
     if (typeof value === 'string') {
@@ -58,19 +58,29 @@ export class CreateInvoiceDto {
   billTo: BillToDto;
 
   @Transform(({ value }) => {
+    const normalizeItems = (items: any[]) =>
+      items.map(item => ({
+        description: String(item.description || ''),
+        quantity: Number(item.quantity) || 0,
+        unitPrice: Number(item.unitPrice) || 0,
+        amount: Number(item.amount) || 0,
+      }));
+
     if (typeof value === 'string') {
       try {
         const parsed = JSON.parse(value);
-        return Array.isArray(parsed) 
-          ? parsed.map(item => plainToInstance(InvoiceItemDto, item))
-          : parsed;
+        if (!Array.isArray(parsed)) return parsed;
+        return plainToInstance(InvoiceItemDto, normalizeItems(parsed));
       } catch {
         return value;
       }
     }
-    return Array.isArray(value) 
-      ? value.map(item => plainToInstance(InvoiceItemDto, item))
-      : value;
+
+    if (Array.isArray(value)) {
+      return plainToInstance(InvoiceItemDto, normalizeItems(value));
+    }
+
+    return value;
   })
   @IsArray()
   @ValidateNested({ each: true })
@@ -88,31 +98,46 @@ export class CreateInvoiceDto {
 
   @IsNumber()
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  })
   @IsOptional()
   subtotal?: number;
 
   @IsNumber()
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  })
   @IsOptional()
   tax?: number;
 
   @IsNumber()
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  })
   @IsOptional()
   discount?: number;
 
   @IsNumber()
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  })
   @IsOptional()
   deliveryFee?: number;
 
   @IsNumber()
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  })
   @IsNotEmpty()
   total: number;
 
@@ -138,7 +163,10 @@ export class CreateInvoiceDto {
 
   @IsNumber()
   @Min(0.1)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 1.0 : num;
+  })
   @IsOptional()
   logoScale?: number;
 
@@ -215,7 +243,10 @@ export class CreateInvoiceDto {
 
   @IsNumber()
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  })
   @IsOptional()
   manualGrandTotal?: number;
 
@@ -225,7 +256,7 @@ export class CreateInvoiceDto {
 
   @IsDateString()
   @IsOptional()
-  paidAt?: Date;
+  paidAt?: string;
 
   @IsMongoId()
   @IsOptional()

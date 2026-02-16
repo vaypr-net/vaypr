@@ -39,6 +39,9 @@ export class InvoiceController {
     @Request() req,
   ) {
     try {
+      console.log('📥 Received invoice data:', JSON.stringify(createInvoiceDto, null, 2));
+      console.log('📥 Items:', createInvoiceDto.items);
+      
       if (logo) {
         // Validate file size (max 5MB)
         if (logo.size > 5 * 1024 * 1024) {

@@ -41,11 +41,19 @@ const Index = () => {
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const [isSaveTemplateOpen, setIsSaveTemplateOpen] = useState(false);
   const [isSaveToDashboardOpen, setIsSaveToDashboardOpen] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [editingInvoiceClientId, setEditingInvoiceClientId] = useState<string | null>(null);
 
   const { addInvoice } = useInvoices();
   const { addQuote } = useQuotes();
   const { addReceipt } = useReceipts();
   const { clients } = useClients();
+
+  // Sanitize numeric values
+  const sanitizeNumber = (value: any): number => {
+    const num = Number(value);
+    return typeof num === 'number' && !isNaN(num) && isFinite(num) ? num : 0;
+  };
 
   // Read tab from URL query params and load edit data if available
   useEffect(() => {
@@ -118,6 +126,12 @@ const Index = () => {
                 tableHeaderColor: parsedData.tableHeaderColor || "#000000",
               };
               setInvoiceData(invoiceFormData);
+              setEditingInvoiceId(parsedData._id || null);
+              const clientId =
+                typeof parsedData.clientId === "string"
+                  ? parsedData.clientId
+                  : parsedData.clientId?._id || parsedData.clientId?.id || null;
+              setEditingInvoiceClientId(clientId);
             } else if (tab === "receipt") {
               // Convert ReceiptVoucher to ReceiptData
               const receiptFormData: ReceiptData = {
@@ -585,6 +599,11 @@ const Index = () => {
       return;
     }
 
+    if (activeTab === "invoice" && editingInvoiceId) {
+      setIsSaveToDashboardOpen(true);
+      return;
+    }
+
     // Get customer name based on document type
     let customerName = "";
     if (activeTab === "invoice") {
@@ -618,13 +637,13 @@ const Index = () => {
 
     if (activeTab === "invoice") {
       const subtotal = invoiceData.items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
+        (sum, item) => sum + (sanitizeNumber(item.quantity) * sanitizeNumber(item.unitPrice)),
         0
       );
-      const discountAmount = (subtotal * invoiceData.discount) / 100;
+      const discountAmount = (subtotal * sanitizeNumber(invoiceData.discount)) / 100;
       const total = invoiceData.useManualGrandTotal
-        ? invoiceData.manualGrandTotal
-        : subtotal - discountAmount + invoiceData.deliveryFee;
+        ? sanitizeNumber(invoiceData.manualGrandTotal)
+        : subtotal - discountAmount + sanitizeNumber(invoiceData.deliveryFee);
 
       const invoice: Omit<Invoice, "id" | "createdAt"> = {
         invoiceNumber: invoiceData.invoiceNumber || `INV-${Date.now()}`,
@@ -642,15 +661,15 @@ const Index = () => {
         items: invoiceData.items.map((item) => ({
           id: item.id,
           description: item.description,
-          quantity: item.quantity,
-          rate: item.unitPrice,
-          amount: item.quantity * item.unitPrice,
+          quantity: sanitizeNumber(item.quantity),
+          rate: sanitizeNumber(item.unitPrice),
+          amount: sanitizeNumber(item.quantity) * sanitizeNumber(item.unitPrice),
         })),
-        subtotal,
+        subtotal: sanitizeNumber(subtotal),
         tax: 0,
-        discount: invoiceData.discount,
-        deliveryFee: invoiceData.deliveryFee,
-        total,
+        discount: sanitizeNumber(invoiceData.discount),
+        deliveryFee: sanitizeNumber(invoiceData.deliveryFee),
+        total: sanitizeNumber(total),
         currency: invoiceData.currency,
         currencySymbol: invoiceData.currencySymbol,
         notes: invoiceData.paymentTerms || undefined,
@@ -685,12 +704,12 @@ const Index = () => {
       navigate("/dashboard/invoices");
     } else if (activeTab === "quote") {
       const subtotal = quoteData.items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
+        (sum, item) => sum + (sanitizeNumber(item.quantity) * sanitizeNumber(item.unitPrice)),
         0
       );
       const total = quoteData.useManualGrandTotal
-        ? quoteData.manualGrandTotal
-        : subtotal - quoteData.discount + quoteData.deliveryFee;
+        ? sanitizeNumber(quoteData.manualGrandTotal)
+        : subtotal - sanitizeNumber(quoteData.discount) + sanitizeNumber(quoteData.deliveryFee);
 
       const quote: Omit<Quote, "id" | "createdAt"> = {
         quoteNumber: quoteData.quoteNumber || `QT-${Date.now()}`,
@@ -707,12 +726,12 @@ const Index = () => {
         items: quoteData.items.map((item) => ({
           id: item.id,
           description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
+          quantity: sanitizeNumber(item.quantity),
+          unitPrice: sanitizeNumber(item.unitPrice),
         })),
-        subtotal,
-        discount: quoteData.discount,
-        total,
+        subtotal: sanitizeNumber(subtotal),
+        discount: sanitizeNumber(quoteData.discount),
+        total: sanitizeNumber(total),
         currency: quoteData.currency,
         currencySymbol: quoteData.currencySymbol,
         notes: quoteData.notes || undefined,
@@ -732,7 +751,7 @@ const Index = () => {
         receiptNumber: receiptData.receiptNumber || `RCV-${Date.now()}`,
         receivedFrom: clientName,
         clientId: clientId,
-        amount: receiptData.amount,
+        amount: sanitizeNumber(receiptData.amount),
         currency: receiptData.currency,
         currencySymbol: receiptData.currencySymbol,
         paymentMethod: receiptData.paymentMethod || "Cash",
@@ -1238,6 +1257,8 @@ const Index = () => {
         invoiceData={activeTab === "invoice" ? invoiceData : undefined}
         receiptData={activeTab === "receipt" ? receiptData : undefined}
         quoteData={activeTab === "quote" ? quoteData : undefined}
+        editingInvoiceId={activeTab === "invoice" ? editingInvoiceId : null}
+        defaultClientId={activeTab === "invoice" ? editingInvoiceClientId : null}
       />
     </div>
   );

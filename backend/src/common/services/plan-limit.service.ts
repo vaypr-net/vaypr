@@ -60,9 +60,30 @@ export class PlanLimitService {
         throw new NotFoundException('User not found');
       }
 
-      const plan = user.planId as any;
+      let plan = user.planId as any;
+      
+      // If user doesn't have a plan, assign the default Free plan
       if (!plan) {
-        throw new BadRequestException('User does not have a billing plan. Please subscribe to a plan.');
+        this.logger.warn(`User ${userId} has no billing plan. Assigning default Free plan.`);
+        const DEFAULT_FREE_PLAN_ID = '6992c72183584deeda6e68bb';
+        
+        // Update user with Free plan
+        await this.userModel.findByIdAndUpdate(userId, {
+          planId: DEFAULT_FREE_PLAN_ID,
+          subscriptionStatus: 'free',
+          billingCycle: 'monthly',
+        });
+        
+        // Fetch updated user with plan
+        const updatedUser = await this.userModel
+          .findById(userId)
+          .populate('planId', 'name limits');
+        
+        plan = updatedUser?.planId as any;
+        
+        if (!plan) {
+          throw new BadRequestException('Failed to assign default billing plan. Please contact support.');
+        }
       }
 
       // Get the limit from plan

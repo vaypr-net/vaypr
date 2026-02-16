@@ -115,12 +115,12 @@ export class Invoice extends BaseEntity {
 
 export const InvoiceSchema = SchemaFactory.createForClass(Invoice);
 
-// Create a partial unique index on invoiceNumber where isDeleted is false
-// This allows duplicate invoice numbers for deleted invoices
+// Create a partial unique index on (userId, invoiceNumber) where isDeleted is false
+// This allows duplicate invoice numbers across different users or for deleted invoices
 InvoiceSchema.index(
-  { invoiceNumber: 1 },
-  { 
+  { userId: 1, invoiceNumber: 1 },
+  {
     unique: true,
-    partialFilterExpression: { isDeleted: false }
+    partialFilterExpression: { isDeleted: false },
   }
 );

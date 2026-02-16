@@ -111,26 +111,36 @@ export default function Invoices() {
     return `${prefix}-${timestamp}-${random}`;
   };
 
-  const calculateItemAmount = (quantity: number, unitPrice: number) => quantity * unitPrice;
+  const calculateItemAmount = (quantity: number, unitPrice: number) => {
+    const qty = typeof quantity === 'number' && !isNaN(quantity) ? quantity : 0;
+    const price = typeof unitPrice === 'number' && !isNaN(unitPrice) ? unitPrice : 0;
+    return qty * price;
+  };
 
   const calculateSubtotal = () => {
-    return formData.items.reduce((sum, item) => sum + item.amount, 0);
+    return formData.items.reduce((sum, item) => {
+      const amount = typeof item.amount === 'number' && !isNaN(item.amount) ? item.amount : 0;
+      return sum + amount;
+    }, 0);
   };
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
-    const discountAmount = formData.discount;
+    const discountAmount = typeof formData.discount === 'number' && !isNaN(formData.discount) ? formData.discount : 0;
     return subtotal - discountAmount;
   };
 
   const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
     const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], [field]: value };
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    const sanitizedValue = typeof numValue === 'number' && !isNaN(numValue) ? numValue : 0;
+    
+    newItems[index] = { ...newItems[index], [field]: field === 'description' ? value : sanitizedValue };
+    
     if (field === 'quantity' || field === 'unitPrice') {
-      newItems[index].amount = calculateItemAmount(
-        field === 'quantity' ? Number(value) : newItems[index].quantity,
-        field === 'unitPrice' ? Number(value) : newItems[index].unitPrice
-      );
+      const qty = field === 'quantity' ? sanitizedValue : newItems[index].quantity;
+      const price = field === 'unitPrice' ? sanitizedValue : newItems[index].unitPrice;
+      newItems[index].amount = calculateItemAmount(qty, price);
     }
     setFormData({ ...formData, items: newItems });
   };
@@ -147,6 +157,12 @@ export default function Invoices() {
       const newItems = formData.items.filter((_, i) => i !== index);
       setFormData({ ...formData, items: newItems });
     }
+  };
+
+  // Sanitize numeric values before sending to backend
+  const sanitizeNumber = (value: any): number => {
+    const num = Number(value);
+    return typeof num === 'number' && !isNaN(num) && isFinite(num) ? num : 0;
   };
 
   const handleCreate = async () => {
@@ -177,17 +193,19 @@ export default function Invoices() {
       dueDate: formData.dueDate,
       items: formData.items.map(item => ({
         description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        amount: item.amount,
+        quantity: sanitizeNumber(item.quantity),
+        unitPrice: sanitizeNumber(item.unitPrice),
+        amount: sanitizeNumber(item.amount),
       })),
-      subtotal,
+      subtotal: sanitizeNumber(subtotal),
       tax: 0,
-      discount: formData.discount,
-      total,
+      discount: sanitizeNumber(formData.discount),
+      total: sanitizeNumber(total),
       currency: 'USD',
       notes: formData.notes,
     };
+
+    console.log('📤 Sending invoice data:', JSON.stringify(invoiceData, null, 2));
 
     await createInvoice.mutateAsync({ data: invoiceData });
     setIsCreateOpen(false);
