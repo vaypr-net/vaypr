@@ -20,7 +20,21 @@ export interface SubscriptionInfo {
     _id: string;
     name: string;
     price: number;
-    limits: any;
+    priceInUSD?: number;
+    priceInDisplayCurrency?: number;
+    displayCurrency?: string;
+    features?: string[];
+    limits: {
+      invoices?: number;
+      quotes?: number;
+      clients?: number;
+      teamMembers?: number;
+      storage?: string;
+      receipts?: number;
+      recurringInvoices?: number;
+      expenseTracking?: boolean;
+      invoiceTemplates?: string;
+    };
   } | null;
   status: string;
   billingCycle: 'monthly' | 'yearly' | null;
