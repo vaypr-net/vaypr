@@ -32,6 +32,8 @@ import TermsOfService from "./pages/TermsOfService";
 import Guides from "./pages/Guides";
 import AboutUs from "./pages/AboutUs";
 import B2BServices from "./pages/B2BServices";
+import CorporatePage from "./pages/CorporatePage";
+import SupportPage from "./pages/SupportPage";
 import AdminOverview from "./pages/super-admin/Overview";
 import PageEditor from "./pages/super-admin/PageEditor";
 import Subscribers from "./pages/super-admin/Subscribers";
@@ -102,6 +104,8 @@ function AppRoutes() {
       <Route path="/guides" element={<Guides />} />
       <Route path="/about" element={<AboutUs />} />
       <Route path="/b2b" element={<B2BServices />} />
+      <Route path="/corporate/:slug" element={<CorporatePage />} />
+      <Route path="/support/:slug" element={<SupportPage />} />
       <Route path="/super-admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
         <Route index element={<AdminOverview />} />
         <Route path="page-editor" element={<PageEditor />} />

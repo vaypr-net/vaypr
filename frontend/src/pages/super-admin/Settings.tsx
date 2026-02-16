@@ -35,6 +35,7 @@ export default function Settings() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [supportEmail, setSupportEmail] = useState("");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -50,6 +51,7 @@ export default function Settings() {
       setFirstName(settingsData.firstName || "");
       setLastName(settingsData.lastName || "");
       setEmail(settingsData.email || user?.email || "");
+      setSupportEmail(settingsData.supportEmail || "");
       setNotifyNewSubscribers(settingsData.notifyNewSubscribers ?? true);
       setNotifyPaymentAlerts(settingsData.notifyPaymentAlerts ?? true);
       setNotifySupportTickets(settingsData.notifySupportTickets ?? true);
@@ -66,6 +68,7 @@ export default function Settings() {
     firstName: string;
     lastName: string;
     email: string;
+    supportEmail: string;
     notifyNewSubscribers: boolean;
     notifyPaymentAlerts: boolean;
     notifySupportTickets: boolean;
@@ -75,6 +78,7 @@ export default function Settings() {
       firstName,
       lastName,
       email,
+      supportEmail,
       notifyNewSubscribers,
       notifyPaymentAlerts,
       notifySupportTickets,
@@ -167,6 +171,17 @@ export default function Settings() {
               <div>
                 <Label>Email</Label>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label>Support Email</Label>
+                <Input 
+                  type="email"
+                  value={supportEmail} 
+                  onChange={(e) => setSupportEmail(e.target.value)} 
+                  className="mt-1" 
+                  placeholder="support@example.com"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Email address where contact form submissions will be sent</p>
               </div>
               <Button onClick={handleSaveProfile} disabled={upsertSettingsMutation.isPending}>
                 Save Changes

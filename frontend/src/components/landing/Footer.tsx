@@ -30,14 +30,32 @@ const toHref = (slug: string): string => {
 
 const isExternalHref = (href: string): boolean => /^https?:\/\//i.test(href);
 
-const mapPageLinks = (pages: Array<{ title: string; slug: string; showInFooter: boolean; order: number }>): FooterLinkItem[] =>
+const mapPageLinks = (pages: Array<{ title: string; slug: string; showInFooter: boolean; order: number }>, prefix?: string): FooterLinkItem[] =>
   pages
     .filter((page) => page.showInFooter)
     .sort((a, b) => a.order - b.order)
-    .map((page) => ({
-      label: page.title,
-      href: toHref(page.slug),
-    }));
+    .map((page) => {
+      // Skip prefix for absolute paths or URLs
+      if (page.slug.startsWith('/') || page.slug.startsWith('http')) {
+        return {
+          label: page.title,
+          href: toHref(page.slug),
+        };
+      }
+      // Special hardcoded pages that should not use prefix
+      const hardcodedPages = ['contact', 'privacy', 'refund', 'terms', 'faqs', 'about', 'b2b', 'guides'];
+      if (hardcodedPages.includes(page.slug.toLowerCase())) {
+        return {
+          label: page.title,
+          href: `/${page.slug}`,
+        };
+      }
+      // Add prefix if provided for dynamic pages
+      return {
+        label: page.title,
+        href: prefix ? `${prefix}/${page.slug}` : toHref(page.slug),
+      };
+    });
 
 const mapLandingLinks = (links: LandingFooterLink[] | undefined): FooterLinkItem[] =>
   (links ?? [])
@@ -69,8 +87,8 @@ export function Footer() {
     }));
   const socialLinksFromLanding = mapLandingLinks(landingPage?.footerSection?.socialMediaLinks);
   const socialLinks = socialLinksFromPublicApi.length > 0 ? socialLinksFromPublicApi : socialLinksFromLanding;
-  const supportLinksFromPages = mapPageLinks(supportPages);
-  const corporateLinksFromPages = mapPageLinks(corporatePages);
+  const supportLinksFromPages = mapPageLinks(supportPages, '/support');
+  const corporateLinksFromPages = mapPageLinks(corporatePages, '/corporate');
 
   const supportLinks = supportLinksFromPages.length > 0
     ? supportLinksFromPages

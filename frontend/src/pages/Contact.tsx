@@ -7,6 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Mail, Phone, MapPin, Send, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function Contact() {
   const {
     toast
@@ -19,24 +23,69 @@ export default function Contact() {
     subject: "",
     message: ""
   });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSelectChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      subject: value
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form
+    if (!formData.name || !formData.email || !formData.subject || !formData.message) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    toast({
-      title: "Message sent!",
-      description: "We'll get back to you within 24 hours."
-    });
-    setFormData({
-      name: "",
-      email: "",
-      mobile: "",
-      subject: "",
-      message: ""
-    });
-    setIsSubmitting(false);
+    try {
+      // Send email to support
+      const response = await axios.post(`${API_BASE_URL}/contact/submit`, {
+        name: formData.name,
+        email: formData.email,
+        mobile: formData.mobile,
+        subject: formData.subject,
+        message: formData.message
+      });
+
+      if (response.data) {
+        toast({
+          title: "Message sent!",
+          description: "We'll get back to you within 24 hours at " + formData.email
+        });
+        setFormData({
+          name: "",
+          email: "",
+          mobile: "",
+          subject: "",
+          message: ""
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to send message. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   return <div className="min-h-screen bg-background">
       {/* Header */}
@@ -143,34 +192,22 @@ export default function Contact() {
                 <div className="grid sm:grid-cols-2 gap-6 mb-6">
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" placeholder="John Doe" value={formData.name} onChange={e => setFormData({
-                    ...formData,
-                    name: e.target.value
-                  })} required />
+                    <Input id="name" name="name" placeholder="John Doe" value={formData.name} onChange={handleChange} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" placeholder="john@example.com" value={formData.email} onChange={e => setFormData({
-                    ...formData,
-                    email: e.target.value
-                  })} required />
+                    <Input id="email" type="email" name="email" placeholder="john@example.com" value={formData.email} onChange={handleChange} required />
                   </div>
                 </div>
 
                 <div className="space-y-2 mb-6">
                   <Label htmlFor="mobile">Mobile Number</Label>
-                  <Input id="mobile" type="tel" placeholder="+965 1234 5678" value={formData.mobile} onChange={e => setFormData({
-                  ...formData,
-                  mobile: e.target.value
-                })} />
+                  <Input id="mobile" type="tel" name="mobile" placeholder="+965 1234 5678" value={formData.mobile} onChange={handleChange} />
                 </div>
 
                 <div className="space-y-2 mb-6">
                   <Label htmlFor="subject">Subject</Label>
-                  <Select value={formData.subject} onValueChange={value => setFormData({
-                  ...formData,
-                  subject: value
-                })}>
+                  <Select value={formData.subject} onValueChange={handleSelectChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a subject" />
                     </SelectTrigger>
@@ -187,10 +224,7 @@ export default function Contact() {
 
                 <div className="space-y-2 mb-6">
                   <Label htmlFor="message">Message</Label>
-                  <Textarea id="message" placeholder="How can we help you?" rows={6} value={formData.message} onChange={e => setFormData({
-                  ...formData,
-                  message: e.target.value
-                })} required />
+                  <Textarea id="message" name="message" placeholder="How can we help you?" rows={6} value={formData.message} onChange={handleChange} required />
                 </div>
 
                 <Button type="submit" className="w-full sm:w-auto gap-2" disabled={isSubmitting}>
