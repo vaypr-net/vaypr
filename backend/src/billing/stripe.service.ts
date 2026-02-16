@@ -879,21 +879,32 @@ export class StripeService {
 
       // Create transaction record for refund
       if (refundAmount > 0) {
-        await this.transactionModel.create({
-          transactionId: `stripe_refund_${user.stripeSubscriptionId}_${Date.now()}`,
-          userId: user._id,
-          subscriberId: user._id.toString(),
-          subscriberName: user.fullName,
-          subscriberEmail: user.email,
-          amount: refundAmount,
-          currency: subscription.currency?.toUpperCase() || 'KWD',
-          type: 'refund',
-          provider: 'Stripe',
-          status: 'pending', // Will be updated when refund completes
-          plan: user.planId?.toString() || 'Unknown',
-          transactionDate: new Date(),
-          stripeSubscriptionId: user.stripeSubscriptionId,
-        });
+        try {
+          await this.transactionModel.create({
+            transactionId: `stripe_refund_${user.stripeSubscriptionId}_${Date.now()}`,
+            userId: user._id,
+            subscriberId: user._id.toString(),
+            subscriberName: user.fullName,
+            subscriberEmail: user.email,
+            amount: refundAmount,
+            currency: subscription.currency?.toUpperCase() || 'KWD',
+            type: 'refund',
+            provider: 'Stripe',
+            status: 'pending', // Will be updated when refund completes
+            plan: user.planId?.toString() || 'Unknown',
+            transactionDate: new Date(),
+            stripeSubscriptionId: user.stripeSubscriptionId,
+          });
+
+          this.logger.log(
+            `Webhook: Refund transaction created for user ${user._id}`,
+          );
+        } catch (transactionError: any) {
+          this.logger.error(
+            `Webhook: Failed to create refund transaction for user ${user._id}: ${transactionError.message}`,
+          );
+          // Don't throw - cancellation is already processed
+        }
       }
 
       // Log activity
@@ -1090,24 +1101,53 @@ export class StripeService {
       `Webhook: Creating transaction - Session Amount: ${transactionAmount}, Calculated Subscription Amount: ${subscriptionAmount}, Billing Cycle: ${billingCycle}`,
     );
     
-    await this.transactionModel.create({
-      transactionId: `stripe_${session.id}`,
-      userId: new Types.ObjectId(userId),
-      subscriberId: userId,
-      subscriberName: user.fullName,
-      subscriberEmail: user.email,
-      amount: transactionAmount, // Amount from checkout session
-      currency: session.currency?.toUpperCase() || 'KWD',
-      type: 'subscription',
-      provider: 'Stripe',
-      status: 'succeeded',
-      plan: plan?.name || 'Unknown',
-      transactionDate: new Date(),
-      stripeEventId: session.id,
+    // Check if transaction already exists (idempotency)
+    const existingTransaction = await this.transactionModel.findOne({
       stripeCheckoutSessionId: session.id,
-      stripeSubscriptionId: subscription.id,
-      billingCycle: billingCycle,
     });
+    
+    if (existingTransaction) {
+      this.logger.log(
+        `Webhook: Transaction for checkout session ${session.id} already exists, skipping duplicate`,
+      );
+    } else {
+      try {
+        await this.transactionModel.create({
+          transactionId: `stripe_${session.id}`,
+          userId: new Types.ObjectId(userId),
+          subscriberId: userId,
+          subscriberName: user.fullName,
+          subscriberEmail: user.email,
+          amount: transactionAmount, // Amount from checkout session
+          currency: session.currency?.toUpperCase() || 'KWD',
+          type: 'subscription',
+          provider: 'Stripe',
+          status: 'succeeded',
+          plan: plan?.name || 'Unknown',
+          transactionDate: new Date(),
+          stripeEventId: session.id,
+          stripeCheckoutSessionId: session.id,
+          stripeSubscriptionId: subscription.id,
+          billingCycle: billingCycle,
+        });
+
+        this.logger.log(
+          `Webhook: Transaction created for checkout session ${session.id}`,
+        );
+      } catch (transactionError: any) {
+        // If duplicate key error, it's likely already processed
+        if (transactionError.code === 11000) {
+          this.logger.warn(
+            `Webhook: Transaction already exists for checkout session ${session.id}, skipping`,
+          );
+        } else {
+          this.logger.error(
+            `Webhook: Failed to create transaction for session ${session.id}: ${transactionError.message}`,
+          );
+          // Don't throw - subscription is already created, just log the error
+        }
+      }
+    }
 
     // Log activity
     await this.activityService.create({
@@ -1262,23 +1302,39 @@ export class StripeService {
     });
 
     // Create transaction record for failed payment
-    await this.transactionModel.create({
-      transactionId: `stripe_invoice_${invoice.id}`,
-      userId: user._id,
-      subscriberId: user._id.toString(),
-      subscriberName: user.fullName,
-      subscriberEmail: user.email,
-      amount: (invoice.amount_due || 0) / 100, // Convert cents to KWD
-      currency: invoice.currency?.toUpperCase() || 'KWD',
-      type: 'subscription',
-      provider: 'Stripe',
-      status: 'failed',
-      plan: user.planId?.toString() || 'Unknown',
-      transactionDate: new Date(),
-      stripeEventId: invoice.id,
-      stripeInvoiceId: invoice.id,
-      stripeSubscriptionId: ((invoice as any).subscription as string) || '',
-    });
+    try {
+      await this.transactionModel.create({
+        transactionId: `stripe_invoice_${invoice.id}`,
+        userId: user._id,
+        subscriberId: user._id.toString(),
+        subscriberName: user.fullName,
+        subscriberEmail: user.email,
+        amount: (invoice.amount_due || 0) / 100, // Convert cents to KWD
+        currency: invoice.currency?.toUpperCase() || 'KWD',
+        type: 'subscription',
+        provider: 'Stripe',
+        status: 'failed',
+        plan: user.planId?.toString() || 'Unknown',
+        transactionDate: new Date(),
+        stripeEventId: invoice.id,
+        stripeInvoiceId: invoice.id,
+        stripeSubscriptionId: ((invoice as any).subscription as string) || '',
+      });
+
+      this.logger.log(
+        `Webhook: Failed payment transaction created for invoice ${invoice.id}`,
+      );
+    } catch (transactionError: any) {
+      if (transactionError.code === 11000) {
+        this.logger.warn(
+          `Webhook: Failed payment transaction already exists for invoice ${invoice.id}, skipping`,
+        );
+      } else {
+        this.logger.error(
+          `Webhook: Failed to create failed payment transaction for invoice ${invoice.id}: ${transactionError.message}`,
+        );
+      }
+    }
 
     // Log activity
     await this.activityService.create({
