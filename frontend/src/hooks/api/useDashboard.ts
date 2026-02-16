@@ -54,6 +54,5 @@ export function useDashboardStats() {
     queryFn: () => DashboardService.getStats(),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchInterval: 1000 * 60 * 5, // Refresh every 5 minutes
-    initialData: DEFAULT_STATS,
   });
 }
