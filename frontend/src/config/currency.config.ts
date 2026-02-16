@@ -10,9 +10,10 @@ export const CURRENCY_CONFIG = {
   // Default payment currency (what Stripe charges)
   defaultPaymentCurrency: 'AED', // We charge in AED via Stripe
   
-  // Conversion rate: 1 AED ≈ 0.30 KWD (1 KWD = 3.31 AED)
-  // 99 AED = 29.91 KWD
-  conversionRate: 0.30,
+  // Conversion rate: 1 KWD = 11.97 AED (exact rate)
+  // Therefore: 1 AED = 0.0835 KWD (for AED to KWD conversion)
+  // 99 AED = 8.27 KWD
+  conversionRate: 0.0835,
   
   // Supported currencies for payment selection (Arab countries only)
   supportedCurrencies: ['AED', 'QAR', 'EGP', 'SAR', 'KWD', 'BHD', 'OMR', 'JOD', 'LBP'],
