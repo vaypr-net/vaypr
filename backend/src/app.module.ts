@@ -24,6 +24,7 @@ import { BillingPlanModule } from './billing-plan/billing-plan.module';
 import { TranscationsModule } from './transcations/transcations.module';
 import { BrevoModule } from './brevo/brevo.module';
 import { EmailModule } from './email/email.module';
+import { ContactModule } from './contact/contact.module';
 
 import { SocialLinksModule } from './social-links/social-links.module';
 import { FaqsModule } from './faqs/faqs.module';
@@ -72,6 +73,7 @@ import { SuperAdminAuditModule } from './super-admin-audit/super-admin-audit.mod
     TranscationsModule,
     BrevoModule,
     EmailModule,
+    ContactModule,
    
     SocialLinksModule,
    

@@ -17,6 +17,11 @@ export class CreateSuperadminSettingsDto {
   @IsNotEmpty()
   email: string;
 
+  @ApiProperty({ required: false, default: 'support@vaypr.net' })
+  @IsEmail()
+  @IsOptional()
+  supportEmail?: string;
+
   @ApiProperty({ required: false, default: true })
   @IsBoolean()
   @IsOptional()

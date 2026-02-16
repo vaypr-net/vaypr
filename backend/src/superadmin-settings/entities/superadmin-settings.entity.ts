@@ -16,6 +16,9 @@ export class SuperAdminSettings extends BaseEntity {
   @Prop({ required: true })
   email: string;
 
+  @Prop({ default: 'support@vaypr.net' })
+  supportEmail: string;
+
   @Prop({ default: true })
   notifyNewSubscribers: boolean;
 
