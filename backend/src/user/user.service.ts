@@ -52,6 +52,10 @@ export class UserService {
       ...createUserDto,
       password: hashedPassword,
       brandingDomain, // Set the verified domain
+      // Assign Free plan to new users
+      planId: '6992c72183584deeda6e68bb', // Free plan ID
+      subscriptionStatus: 'free',
+      billingCycle: 'monthly',
       // SECURITY: isSuperAdmin can ONLY be set via CLI script
       // Never allow API registration to create super admin
       isSuperAdmin: false,
@@ -102,6 +106,10 @@ export class UserService {
     const user = new this.userModel({
       ...createUserDto,
       password: hashedPassword,
+      // Assign Free plan to new users
+      planId: '6992c72183584deeda6e68bb', // Free plan ID
+      subscriptionStatus: 'free',
+      billingCycle: 'monthly',
       // SECURITY: isSuperAdmin can ONLY be set via CLI script
       // This ensures create() method never creates a super admin
       isSuperAdmin: false,
@@ -193,6 +201,10 @@ export class UserService {
       profilePicture: googleData.profilePicture,
       authProvider: 'google',
       emailVerified: true,
+      // Assign Free plan to new Google OAuth users
+      planId: '6992c72183584deeda6e68bb', // Free plan ID
+      subscriptionStatus: 'free',
+      billingCycle: 'monthly',
       // SECURITY: isSuperAdmin can ONLY be set via CLI script
       // OAuth signup never creates super admin
       isSuperAdmin: false,
