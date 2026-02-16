@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Users, Eye, Pencil, MoreVertical, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { format, isValid } from "date-fns";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
 import { DataTable } from "@/components/super-admin/DataTable";
 import { StatusBadge } from "@/components/super-admin/StatusBadge";
@@ -26,6 +27,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useGetSubscriberById, useGetSubscribers, useGetSubscriberStats, useUpdateSubscriber } from "@/hooks/api/useSubscribers";
 import { Subscriber, SubscriberService } from "@/api/services/subscriber.service";
+
+// Helper function to safely format dates
+const safeFormatDate = (date: string | null | undefined): string => {
+  if (!date) return '-';
+  const dateObj = new Date(date);
+  if (!isValid(dateObj)) return '-';
+  return format(dateObj, 'MMM d, yyyy');
+};
 
 export default function Subscribers() {
   const navigate = useNavigate();
@@ -233,7 +242,10 @@ export default function Subscribers() {
         </Badge>
       ),
     },
-    { header: "Start Date", accessor: "subscriptionDate" as keyof Subscriber },
+    { 
+      header: "Start Date", 
+      accessor: (row: Subscriber) => safeFormatDate(row.subscriptionDate)
+    },
     {
       header: "Status",
       accessor: (row: Subscriber) => <StatusBadge status={row.status} />,
@@ -242,7 +254,10 @@ export default function Subscribers() {
       header: "Lifetime Spend",
       accessor: (row: Subscriber) => formatCurrency(row.lifetimeSpend),
     },
-    { header: "Last Payment", accessor: "lastPaymentDate" as keyof Subscriber },
+    { 
+      header: "Last Payment", 
+      accessor: (row: Subscriber) => safeFormatDate(row.lastPaymentDate)
+    },
     {
       header: "Actions",
       accessor: (row: Subscriber) => (
@@ -360,7 +375,9 @@ export default function Subscribers() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Member Since</p>
-                      <p className="font-medium">{selectedSubscriber.subscriptionDate}</p>
+                      <p className="font-medium">
+                        {safeFormatDate(selectedSubscriber.subscriptionDate)}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Lifetime Spend</p>
