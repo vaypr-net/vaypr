@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { billingService } from '@/api/services/billing.service';
-import { Check, AlertCircle, ArrowRight, LogOut } from 'lucide-react';
+import { Check, AlertCircle, ArrowRight, LogOut, Zap } from 'lucide-react';
 import { useState } from 'react';
 import CancelSubscriptionDialog from '@/components/billing/CancelSubscriptionDialog';
 import { CURRENCY_CONFIG } from '@/config/currency.config';
@@ -161,9 +161,14 @@ export function BillingStatus() {
       <Card className="p-5 bg-primary/5 border-primary/25">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               Current Plan:{' '}
               <span className="text-primary">{currentPlan?.name || 'Free'}</span>
+              {isActive && currentPlan?.price > 0 && (
+                <span className="inline-block px-2.5 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                  Active
+                </span>
+              )}
             </h2>
             {currentPlan && currentPlan.price > 0 && (
               <p className="text-sm text-muted-foreground mt-1">
@@ -172,7 +177,7 @@ export function BillingStatus() {
                 /{subscription?.billingCycle === 'yearly' ? 'year' : 'month'}
               </p>
             )}
-            {isActive && renewalDate && (
+            {isActive && renewalDate && currentPlan?.price > 0 && (
               <p className="text-sm text-muted-foreground mt-1">Renews: {renewalDate}</p>
             )}
             {subscription?.status === 'past_due' && (
@@ -184,10 +189,19 @@ export function BillingStatus() {
           </div>
 
           <div className="flex gap-2 shrink-0">
-            <Button onClick={() => navigate('/pricing')} size="sm">
-              <ArrowRight className="w-4 h-4 mr-2" />
-              Choose Plan
-            </Button>
+            {/* Show "Upgrade" button if on Free plan */}
+            {!isActive || currentPlan?.price === 0 ? (
+              <Button onClick={() => navigate('/pricing')} size="sm" className="bg-primary">
+                <Zap className="w-4 h-4 mr-2" />
+                {currentPlan?.price === 0 ? 'Upgrade to Paid Plan' : 'Choose Plan'}
+              </Button>
+            ) : (
+              /* Show "Upgrade Plan" for active subscribers if you want them to switch plans
+                 Currently hidden - uncomment if you want this feature */
+              null
+            )}
+            
+            {/* Cancel button for active paid subscriptions */}
             {isActive && currentPlan?.price > 0 && (
               <Button
                 onClick={() => setShowCancelDialog(true)}
