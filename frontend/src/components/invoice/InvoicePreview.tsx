@@ -7,10 +7,14 @@ interface InvoicePreviewProps {
 }
 
 export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoicePreviewProps) {
-  const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  const discountAmount = (subtotal * data.discount) / 100;
-  const calculatedGrandTotal = subtotal - discountAmount + data.deliveryFee;
-  const grandTotal = data.useManualGrandTotal ? data.manualGrandTotal : calculatedGrandTotal;
+  const subtotal = data.items.reduce((sum, item) => {
+    const qty = typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : 0;
+    const price = typeof item.unitPrice === 'number' && !isNaN(item.unitPrice) ? item.unitPrice : 0;
+    return sum + (qty * price);
+  }, 0);
+  const discountAmount = (subtotal * (data.discount || 0)) / 100;
+  const calculatedGrandTotal = subtotal - discountAmount + (data.deliveryFee || 0);
+  const grandTotal = data.useManualGrandTotal ? (data.manualGrandTotal || 0) : calculatedGrandTotal;
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "-";
@@ -22,7 +26,8 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
   };
 
   const formatCurrency = (amount: number) => {
-    return `${data.currency} ${amount.toFixed(2)}`;
+    const validAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+    return `${data.currency} ${validAmount.toFixed(2)}`;
   };
 
   return (

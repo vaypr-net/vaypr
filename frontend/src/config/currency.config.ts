@@ -23,6 +23,9 @@ export const CURRENCY_CONFIG = {
  * Convert AED amount to display currency (KWD)
  */
 export function convertToDisplayCurrency(aedAmount: number): number {
+  if (typeof aedAmount !== 'number' || isNaN(aedAmount)) {
+    return 0;
+  }
   return Math.round(aedAmount * CURRENCY_CONFIG.conversionRate * 100) / 100;
 }
 
@@ -31,7 +34,7 @@ export function convertToDisplayCurrency(aedAmount: number): number {
  */
 export function formatPriceInDisplayCurrency(aedAmount: number): string {
   const converted = convertToDisplayCurrency(aedAmount);
-  return `${CURRENCY_CONFIG.displayCurrency} ${converted.toFixed(2)}`;
+  return `${CURRENCY_CONFIG.displayCurrency} ${(converted || 0).toFixed(2)}`;
 }
 
 /**

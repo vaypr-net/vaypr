@@ -34,10 +34,14 @@ export function TotalsSection({
   onUseManualGrandTotalChange,
   onManualGrandTotalChange,
 }: TotalsSectionProps) {
-  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  const discountAmount = (subtotal * discount) / 100;
-  const calculatedGrandTotal = subtotal - discountAmount + deliveryFee;
-  const grandTotal = useManualGrandTotal ? manualGrandTotal : calculatedGrandTotal;
+  const subtotal = items.reduce((sum, item) => {
+    const qty = typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : 0;
+    const price = typeof item.unitPrice === 'number' && !isNaN(item.unitPrice) ? item.unitPrice : 0;
+    return sum + (qty * price);
+  }, 0);
+  const discountAmount = (subtotal * (discount || 0)) / 100;
+  const calculatedGrandTotal = subtotal - discountAmount + (deliveryFee || 0);
+  const grandTotal = useManualGrandTotal ? (manualGrandTotal || 0) : calculatedGrandTotal;
 
   return (
     <div className="space-y-4">

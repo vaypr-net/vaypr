@@ -55,7 +55,9 @@ export function ItemDetails({
   };
 
   const getItemTotal = (item: InvoiceItem) => {
-    return item.quantity * item.unitPrice;
+    const qty = typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : 0;
+    const price = typeof item.unitPrice === 'number' && !isNaN(item.unitPrice) ? item.unitPrice : 0;
+    return qty * price;
   };
 
   return (
