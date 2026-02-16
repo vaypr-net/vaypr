@@ -1,10 +1,16 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
 import { CurrencyService } from './services/currency.service';
+import { PlanLimitService } from './services/plan-limit.service';
+import { User, UserSchema } from '../user/entities/user.entity';
 
 @Module({
-  imports: [ConfigModule],
-  providers: [CurrencyService],
-  exports: [CurrencyService],
+  imports: [
+    ConfigModule,
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+  ],
+  providers: [CurrencyService, PlanLimitService],
+  exports: [CurrencyService, PlanLimitService],
 })
 export class CommonModule {}

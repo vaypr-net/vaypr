@@ -12,6 +12,7 @@ import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { Quote } from './entities/quote.entity';
 import { Client } from '../clients/entities/client.entity';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
+import { PlanLimitService } from '../common/services/plan-limit.service';
 
 @Injectable()
 export class QuotesService implements OnModuleInit {
@@ -19,6 +20,7 @@ export class QuotesService implements OnModuleInit {
     @InjectModel(Quote.name) private quoteModel: Model<Quote>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
     @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
+    private planLimitService: PlanLimitService,
   ) {}
 
   async onModuleInit() {
@@ -37,6 +39,14 @@ export class QuotesService implements OnModuleInit {
   }
 
   async create(createQuoteDto: CreateQuoteDto, userId: string): Promise<Quote> {
+    // Check plan limit before creating quote
+    await this.planLimitService.enforceLimit(
+      userId,
+      'quotes',
+      this.quoteModel,
+      { isDeleted: { $ne: true } },
+    );
+
     if (createQuoteDto.clientId) {
       const client = await this.clientModel.findById(createQuoteDto.clientId);
 

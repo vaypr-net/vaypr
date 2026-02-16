@@ -13,6 +13,7 @@ import { Client } from '../clients/entities/client.entity';
 import { Invoice } from '../invoice/entities/invoice.entity';
 import { InvoiceStatus } from '../invoice/enums/invoice-status.enum';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
+import { PlanLimitService } from '../common/services/plan-limit.service';
 
 @Injectable()
 export class RecurringService {
@@ -21,12 +22,20 @@ export class RecurringService {
     @InjectModel(Client.name) private clientModel: Model<Client>,
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
+    private planLimitService: PlanLimitService,
   ) {}
 
   async create(
     createRecurringDto: CreateRecurringDto,
     userId: string,
   ): Promise<Recurring> {
+    // Check plan limit before creating recurring invoice
+    await this.planLimitService.enforceLimit(
+      userId,
+      'recurringInvoices',
+      this.recurringModel,
+    );
+
     const client = await this.clientModel.findById(createRecurringDto.clientId);
 
     if (!client) {

@@ -10,6 +10,7 @@ import { UpdateReceiptDto } from './dto/update-reciept.dto';
 import { Receipt } from './entities/reciept.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Invoice } from '../invoice/entities/invoice.entity';
+import { PlanLimitService } from '../common/services/plan-limit.service';
 
 @Injectable()
 export class RecieptService {
@@ -17,12 +18,20 @@ export class RecieptService {
     @InjectModel(Receipt.name) private receiptModel: Model<Receipt>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
+    private planLimitService: PlanLimitService,
   ) {}
 
   async create(
     createReceiptDto: CreateReceiptDto,
     userId: string,
   ): Promise<Receipt> {
+    // Check plan limit before creating receipt
+    await this.planLimitService.enforceLimit(
+      userId,
+      'receipts',
+      this.receiptModel,
+    );
+
     if (createReceiptDto.clientId) {
       const client = await this.clientModel.findById(
         createReceiptDto.clientId,

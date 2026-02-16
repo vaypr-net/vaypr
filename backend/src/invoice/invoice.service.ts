@@ -12,6 +12,7 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { Invoice } from './entities/invoice.entity';
 import { Client } from '../clients/entities/client.entity';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
+import { PlanLimitService } from '../common/services/plan-limit.service';
 
 @Injectable()
 export class InvoiceService implements OnModuleInit {
@@ -19,6 +20,7 @@ export class InvoiceService implements OnModuleInit {
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
     @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
+    private planLimitService: PlanLimitService,
   ) {}
 
   async onModuleInit() {
@@ -40,6 +42,14 @@ export class InvoiceService implements OnModuleInit {
     createInvoiceDto: CreateInvoiceDto,
     userId: string,
   ): Promise<Invoice> {
+    // Check plan limit before creating invoice
+    await this.planLimitService.enforceLimit(
+      userId,
+      'invoices',
+      this.invoiceModel,
+      { isDeleted: { $ne: true } },
+    );
+
     // Validate client ownership if clientId is provided
     if (createInvoiceDto.clientId) {
       const client = await this.clientModel.findById(

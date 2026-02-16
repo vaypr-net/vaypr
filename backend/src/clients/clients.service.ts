@@ -8,6 +8,7 @@ import { Client } from './entities/client.entity';
 import { Invoice } from '../invoice/entities/invoice.entity';
 import { Quote } from '../quotes/entities/quote.entity';
 import { Recurring } from '../recurring/entities/recurring.entity';
+import { PlanLimitService } from '../common/services/plan-limit.service';
 
 @Injectable()
 export class ClientsService {
@@ -16,9 +17,17 @@ export class ClientsService {
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Quote.name) private quoteModel: Model<Quote>,
     @InjectModel(Recurring.name) private recurringModel: Model<Recurring>,
+    private planLimitService: PlanLimitService,
   ) {}
 
   async create(userId: string, createClientDto: CreateClientDto): Promise<Client> {
+    // Check plan limit before creating client
+    await this.planLimitService.enforceLimit(
+      userId,
+      'clients',
+      this.clientModel,
+    );
+
     const normalizedEmail = createClientDto.email.toLowerCase().trim();
     
     // Check if client with same email already exists for this user
