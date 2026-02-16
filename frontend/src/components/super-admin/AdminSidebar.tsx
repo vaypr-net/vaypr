@@ -1,6 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, CreditCard, Receipt, BarChart3, MessageSquare, Users2, Settings, FileText, PenTool, Shield } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LayoutDashboard, Users, CreditCard, Receipt, BarChart3, MessageSquare, Users2, Settings, FileText, PenTool, Shield, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 
 const navItems = [{
   label: "Overview",
@@ -42,7 +43,8 @@ const navItems = [{
 
 export function AdminSidebar() {
   const location = useLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   // Get user initials for avatar
   const initials = user?.fullName
@@ -50,6 +52,11 @@ export function AdminSidebar() {
     .map((n) => n[0])
     .join("")
     .toUpperCase() || "SA";
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return <aside className="w-64 bg-sidebar border-r border-sidebar-border h-screen fixed left-0 top-0 z-50 flex flex-col overflow-y-auto">
       <div className="p-6 border-b border-sidebar-border">
@@ -71,7 +78,7 @@ export function AdminSidebar() {
       })}
       </nav>
 
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border space-y-2">
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
             {initials}
@@ -86,6 +93,14 @@ export function AdminSidebar() {
             <p className="text-xs text-muted-foreground truncate">{user?.email || "user@example.com"}</p>
           </div>
         </div>
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-accent"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Logout
+        </Button>
       </div>
     </aside>;
 }
