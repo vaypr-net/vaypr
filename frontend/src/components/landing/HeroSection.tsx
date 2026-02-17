@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, FileText, FileCheck, Receipt, Users, CalendarCheck, TrendingUp, Palette } from "lucide-react";
 import { PricingDialog } from "./PricingDialog";
+import { useLandingPage } from "@/hooks/useLandingPage";
 
 const features = [
   { icon: FileText, label: "Invoices" },
@@ -14,6 +15,17 @@ const features = [
 ];
 
 export function HeroSection() {
+  const { data: landingPage } = useLandingPage();
+
+  const hero = landingPage?.heroSection;
+
+  const badge = hero?.badge ?? "Billing & Financial Software";
+  const headline = hero?.headline ?? "Send invoices. Track expenses.\nGet paid faster.";
+  const subheadline = hero?.subheadline ??
+    "VAYPR keeps your invoicing, quotes, receipts, and clients organized,\nbuilt for your first job and ready when you scale.";
+  const primaryText = hero?.primaryButtonText ?? "Start Free";
+  const secondaryText = hero?.secondaryButtonText ?? "Sign In";
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
       {/* Background Gradient */}
@@ -23,21 +35,27 @@ export function HeroSection() {
         <div className="text-center max-w-5xl mx-auto">
           {/* Badge */}
           <p className="text-primary font-medium italic text-lg mb-6 animate-fade-in-up">
-            Billing & Financial Software
+            {badge}
           </p>
 
           {/* Main Headline */}
           <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-fade-in-up text-foreground" style={{ animationDelay: "0.1s" }}>
-            Send invoices. Track expenses.
-            <br />
-            Get paid faster.
+            {headline.split('\n').map((line, i) => (
+              <span key={i}>
+                {line}
+                <br />
+              </span>
+            ))}
           </h1>
 
           {/* Subheadline */}
           <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-12 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-            VAYPR keeps your invoicing, quotes, receipts, and clients organized,
-            <br className="hidden sm:block" />
-            built for your first job and ready when you scale.
+            {subheadline.split('\n').map((line, i) => (
+              <span key={i}>
+                {line}
+                <br className="hidden sm:block" />
+              </span>
+            ))}
           </p>
 
           {/* Feature Icons */}
@@ -56,12 +74,12 @@ export function HeroSection() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 animate-fade-in-up" style={{ animationDelay: "0.4s" }}>
             <PricingDialog>
               <Button size="lg" className="w-full sm:w-auto bg-primary hover:bg-primary/90 shadow-glow text-base px-8 h-12">
-                Start Free
+                {primaryText}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </PricingDialog>
             <Button size="lg" variant="outline" asChild className="w-full sm:w-auto text-base px-8 h-12">
-              <Link to="/login">Sign In</Link>
+              <Link to="/login">{secondaryText}</Link>
             </Button>
           </div>
         </div>
