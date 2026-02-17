@@ -29,7 +29,7 @@ export class CreateRecurringDto {
 
   @IsDateString()
   @IsNotEmpty()
-  nextBillingDate: Date;
+  nextBillingDate: string;
 
   @Transform(({ value }) => {
     if (typeof value === 'string') {
@@ -124,4 +124,3 @@ export class CreateRecurringDto {
   @IsOptional()
   bankDetails?: BankAccountDto;
 }
-

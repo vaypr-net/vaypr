@@ -21,8 +21,6 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @ApiTags('quotes')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('quotes')
 export class QuotesController {
   constructor(
@@ -31,6 +29,8 @@ export class QuotesController {
   ) {}
 
   @Post()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('logo'))
   async create(
@@ -60,7 +60,14 @@ export class QuotesController {
     }
   }
 
+  @Get('public/:shareToken')
+  async findByShareToken(@Param('shareToken') shareToken: string) {
+    return this.quotesService.findByShareToken(shareToken);
+  }
+
   @Get()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   findAll(@Request() req, @Query('status') status?: string) {
     if (status) {
       return this.quotesService.findByStatus(status, req.user.userId);
@@ -69,16 +76,22 @@ export class QuotesController {
   }
 
   @Get('client/:clientId')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   findByClient(@Param('clientId') clientId: string, @Request() req) {
     return this.quotesService.findByClient(clientId, req.user.userId);
   }
 
   @Get(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   findOne(@Param('id') id: string, @Request() req) {
     return this.quotesService.findOne(id, req.user.userId);
   }
 
   @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('logo'))
   async update(
@@ -110,6 +123,8 @@ export class QuotesController {
   }
 
   @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string, @Request() req) {
     return this.quotesService.remove(id, req.user.userId);
   }

@@ -294,4 +294,28 @@ export class QuotesService implements OnModuleInit {
       return true;
     }
   }
+
+  /**
+   * Find quote by shareToken (for public sharing)
+   * Does not require authentication
+   */
+  async findByShareToken(shareToken: string): Promise<Quote> {
+    if (!shareToken) {
+      throw new NotFoundException('Share token is required');
+    }
+
+    const quote = await this.quoteModel
+      .findOne({
+        shareToken,
+        isDeleted: false,
+      })
+      .populate('clientId', 'name email phone clientType')
+      .exec();
+
+    if (!quote) {
+      throw new NotFoundException('Quote not found or link has expired');
+    }
+
+    return quote;
+  }
 }
