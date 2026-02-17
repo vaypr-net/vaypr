@@ -45,6 +45,21 @@ export function CTASection() {
             <p className="text-sm text-muted-foreground mt-6">
               No credit card required • Free forever plan available
             </p>
+
+            {/* Policy Links - Static for Google crawlability */}
+            <div className="mt-8 pt-8 border-t border-border/50 flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground">
+              <a href="/privacy" className="hover:text-foreground transition-colors">
+                Privacy Policy
+              </a>
+              <span className="text-border/50">•</span>
+              <a href="/terms" className="hover:text-foreground transition-colors">
+                Terms of Service
+              </a>
+              <span className="text-border/50">•</span>
+              <a href="/contact" className="hover:text-foreground transition-colors">
+                Contact Us
+              </a>
+            </div>
           </div>
         </div>
       </div>
