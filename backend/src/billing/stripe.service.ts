@@ -554,6 +554,32 @@ export class StripeService {
     };
   }
 
+  async getBillingHistory(userId: string): Promise<any[]> {
+    const userObjectId = new Types.ObjectId(userId);
+
+    const transactions = await this.transactionModel
+      .find({
+        userId: userObjectId,
+      })
+      .sort({ transactionDate: -1 })
+      .limit(50)
+      .lean();
+
+    return transactions.map((tx: any) => ({
+      id: tx._id?.toString?.() || tx._id,
+      transactionId: tx.transactionId,
+      amount: tx.amount,
+      currency: tx.currency,
+      status: tx.status,
+      type: tx.type,
+      provider: tx.provider,
+      plan: tx.plan,
+      billingCycle: tx.billingCycle || null,
+      transactionDate: tx.transactionDate,
+      createdAt: tx.createdAt,
+    }));
+  }
+
   /**
    * Get cancellation preview before user confirms cancellation
    * Shows what will happen and refund amount

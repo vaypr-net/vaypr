@@ -141,6 +141,24 @@ export class BillingController {
   }
 
   /**
+   * Get billing history for logged-in user
+   */
+  @Get('history')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get user billing history',
+    description: 'Returns subscription transactions for the current user',
+  })
+  async getBillingHistory(@Request() req: any) {
+    try {
+      return await this.stripeService.getBillingHistory(req.user.sub);
+    } catch (error) {
+      this.logger.error(`Get billing history error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * Get available cancellation reasons
    * Used by frontend to populate cancellation form
    */
