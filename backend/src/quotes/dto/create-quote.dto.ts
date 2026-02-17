@@ -34,11 +34,11 @@ export class CreateQuoteDto {
 
   @IsDateString()
   @IsNotEmpty()
-  quoteDate: Date;
+  quoteDate: string;
 
   @IsDateString()
   @IsNotEmpty()
-  validUntil: Date;
+  validUntil: string;
 
   @Transform(({ value }) => {
     if (typeof value === 'string') {
@@ -216,5 +216,8 @@ export class CreateQuoteDto {
   @IsString()
   @IsOptional()
   paymentDetails?: string;
-}
 
+  @IsString()
+  @IsOptional()
+  shareToken?: string;
+}

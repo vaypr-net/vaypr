@@ -30,7 +30,7 @@ export class CreateReceiptDto {
 
   @IsDateString()
   @IsNotEmpty()
-  receiptDate: Date;
+  receiptDate: string;
 
   @IsString()
   @IsNotEmpty()
@@ -92,4 +92,3 @@ export class CreateReceiptDto {
   @IsOptional()
   amountColor?: string;
 }
-
