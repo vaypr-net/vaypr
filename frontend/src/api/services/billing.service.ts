@@ -78,6 +78,20 @@ export interface CancellationReasonsResponse {
   reasons: CancellationReason[];
 }
 
+export interface BillingHistoryItem {
+  id: string;
+  transactionId: string;
+  amount: number;
+  currency: string;
+  status: 'succeeded' | 'failed' | 'refunded' | 'pending';
+  type: 'subscription' | 'refund' | 'chargeback';
+  provider: string;
+  plan: string;
+  billingCycle: 'monthly' | 'yearly' | null;
+  transactionDate: string;
+  createdAt?: string;
+}
+
 // ==================== SERVICE ====================
 
 const BASE_URL = '/billing';
@@ -123,6 +137,14 @@ export const billingService = {
    */
   async getSubscriptionInfo(): Promise<SubscriptionInfo> {
     const response = await axios.get<SubscriptionInfo>(`${BASE_URL}/me`);
+    return response.data;
+  },
+
+  /**
+   * Get current user's billing history
+   */
+  async getBillingHistory(): Promise<BillingHistoryItem[]> {
+    const response = await axios.get<BillingHistoryItem[]>(`${BASE_URL}/history`);
     return response.data;
   },
 

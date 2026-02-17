@@ -46,6 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 import axios from '@/api/axios';
 import { billingService } from '@/api/services/billing.service';
 import { BillingPlanService, BillingPlan } from '@/api/services/billing-plan.service';
+import { useDashboardStats } from '@/hooks/api/useDashboard';
 import {
   User,
   Mail,
@@ -261,6 +262,12 @@ export default function Profile() {
     queryFn: () => BillingPlanService.getPublicPlans('active', 50, 0),
     enabled: !!user?.id,
   });
+  const { data: billingHistory = [], isLoading: isLoadingBillingHistory } = useQuery({
+    queryKey: ['billing', 'history'],
+    queryFn: () => billingService.getBillingHistory(),
+    enabled: !!user?.id,
+  });
+  const { data: dashboardStats } = useDashboardStats();
 
   // Resolve current plan info safely. `subscription.plan` may be a string key
   // or a plan object returned by the billing API. Map known cases and
@@ -295,6 +302,9 @@ export default function Profile() {
   const currentPlanLimits = subscriptionInfo?.plan?.limits || null;
   const fallbackLimits = subscription?.limits || DEFAULT_SUBSCRIPTION.limits;
   const fallbackUsage = subscription?.usage || DEFAULT_SUBSCRIPTION.usage;
+  const invoicesUsed = dashboardStats?.overview?.totalInvoices ?? fallbackUsage.invoicesThisMonth ?? 0;
+  const quotesUsed = dashboardStats?.overview?.totalQuotes ?? fallbackUsage.quotesThisMonth ?? 0;
+  const clientsUsed = dashboardStats?.overview?.totalClients ?? fallbackUsage.currentClients ?? 0;
   const hasPaidPlan = subscriptionInfo?.plan
     ? subscriptionInfo.plan.price > 0
     : subscription.plan !== 'free';
@@ -901,13 +911,13 @@ export default function Profile() {
                       </div>
                       <Progress
                         value={getUsagePercentage(
-                          fallbackUsage.invoicesThisMonth || 0,
+                          invoicesUsed,
                           currentPlanLimits?.invoices ?? fallbackLimits.invoicesPerMonth,
                         )}
                         className="h-1.5"
                       />
                       <span className="text-xs text-muted-foreground">
-                        {fallbackUsage.invoicesThisMonth || 0} of{' '}
+                        {invoicesUsed} of{' '}
                         {currentPlanLimits?.invoices === -1
                           ? 'Unlimited'
                           : currentPlanLimits?.invoices ?? fallbackLimits.invoicesPerMonth}{' '}
@@ -931,13 +941,13 @@ export default function Profile() {
                       </div>
                       <Progress
                         value={getUsagePercentage(
-                          fallbackUsage.quotesThisMonth || 0,
+                          quotesUsed,
                           currentPlanLimits?.quotes ?? fallbackLimits.quotesPerMonth,
                         )}
                         className="h-1.5"
                       />
                       <span className="text-xs text-muted-foreground">
-                        {fallbackUsage.quotesThisMonth || 0} of{' '}
+                        {quotesUsed} of{' '}
                         {currentPlanLimits?.quotes === -1
                           ? 'Unlimited'
                           : currentPlanLimits?.quotes ?? fallbackLimits.quotesPerMonth}{' '}
@@ -979,13 +989,13 @@ export default function Profile() {
                       </div>
                       <Progress
                         value={getUsagePercentage(
-                          fallbackUsage.currentClients || 0,
+                          clientsUsed,
                           currentPlanLimits?.clients ?? fallbackLimits.clients,
                         )}
                         className="h-1.5"
                       />
                       <span className="text-xs text-muted-foreground">
-                        {fallbackUsage.currentClients || 0} of{' '}
+                        {clientsUsed} of{' '}
                         {currentPlanLimits?.clients === -1
                           ? 'Unlimited'
                           : currentPlanLimits?.clients ?? fallbackLimits.clients}{' '}
@@ -1166,11 +1176,47 @@ export default function Profile() {
                 <CardDescription>View your past invoices and payments</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>No billing history available</p>
-                  <p className="text-sm">Your payment history will appear here</p>
-                </div>
+                {isLoadingBillingHistory ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-3" />
+                    <p>Loading billing history...</p>
+                  </div>
+                ) : billingHistory.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>No billing history available</p>
+                    <p className="text-sm">Your payment history will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {billingHistory.slice(0, 10).map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between rounded-lg border p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">
+                            {item.plan} {item.billingCycle ? `(${item.billingCycle})` : ''}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(item.transactionDate), 'MMM d, yyyy')}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">
+                            {item.currency} {Number(item.amount || 0).toFixed(2)}
+                          </p>
+                          <Badge
+                            variant={item.status === 'succeeded' ? 'default' : 'secondary'}
+                            className="mt-1"
+                          >
+                            {item.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
