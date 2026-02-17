@@ -7,22 +7,91 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { useLogin } from '@/hooks/api/useAuth';
+// removed useLogin in favor of manual login flow to support 2FA
+import { AuthService } from '@/api/services/auth.service';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
+import axios from '@/api/axios';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
-  const loginMutation = useLogin();
+  const { updateUser } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [is2FAPromptOpen, setIs2FAPromptOpen] = useState(false);
+  const [tempToken, setTempToken] = useState<string | null>(null);
+  const [twoFACode, setTwoFACode] = useState('');
+  const [verifying2FA, setVerifying2FA] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      const res = await AuthService.login({ email, password });
+      if (res.two_factor_required) {
+        setTempToken(res.temp_token);
+        setIs2FAPromptOpen(true);
+        return;
+      }
 
-    loginMutation.mutate({
-      email,
-      password,
-    });
+      // Successful login flow (no 2FA)
+      localStorage.setItem('accessToken', res.access_token);
+      const user = {
+        id: res.user.id,
+        email: res.user.email,
+        fullName: res.user.fullName,
+        name: res.user.fullName,
+        createdAt: new Date().toISOString(),
+        isSuperAdmin: res.user.isSuperAdmin || false,
+      };
+      updateUser(user as any);
+      toast({ title: 'Welcome back!', description: `Logged in as ${res.user.fullName}` });
+      const from = (location.state as any)?.from || null;
+      if (from) navigate(from, { replace: true });
+      else if (res.user.isSuperAdmin) navigate('/super-admin', { replace: true });
+      else navigate('/dashboard', { replace: true });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Invalid credentials';
+      toast({ title: 'Login failed', description: msg, variant: 'destructive' });
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!tempToken) return;
+    setVerifying2FA(true);
+    try {
+      const response = await axios.post('/auth/2fa/verify', { token: twoFACode }, { headers: { Authorization: `Bearer ${tempToken}` } });
+      const data = response.data;
+      // Should return access_token and user
+      localStorage.setItem('accessToken', data.access_token);
+      const user = {
+        id: data.user.id,
+        email: data.user.email,
+        fullName: data.user.fullName,
+        name: data.user.fullName,
+        createdAt: new Date().toISOString(),
+      };
+      updateUser(user as any);
+      toast({ title: 'Logged in', description: 'Two-factor authentication successful' });
+      setIs2FAPromptOpen(false);
+      // Redirect to dashboard
+      navigate('/dashboard', { replace: true });
+    } catch (err: any) {
+      toast({ title: '2FA failed', description: err.response?.data?.message || 'Invalid code', variant: 'destructive' });
+    } finally {
+      setVerifying2FA(false);
+    }
   };
 
   /**
@@ -172,6 +241,21 @@ export default function Login() {
                   Sign In
                 </Button>
               </form>
+              <Dialog open={is2FAPromptOpen} onOpenChange={setIs2FAPromptOpen}>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Two-Factor Verification</DialogTitle>
+                    <DialogDescription>Enter the 6-digit code from your authenticator app</DialogDescription>
+                  </DialogHeader>
+                  <div className="py-2">
+                    <Input value={twoFACode} onChange={(e) => setTwoFACode(e.target.value)} placeholder="123456" />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIs2FAPromptOpen(false)}>Cancel</Button>
+                    <Button onClick={handleVerify2FA} disabled={verifying2FA}>{verifying2FA ? 'Verifying...' : 'Verify'}</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
             <CardFooter className="flex flex-col gap-4 pt-2">
               <p className="text-sm text-muted-foreground text-center">

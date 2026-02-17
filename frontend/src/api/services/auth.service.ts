@@ -30,8 +30,8 @@ interface UserResponse {
 }
 
 export const AuthService = {
-  async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await axios.post<AuthResponse>('/auth/login', credentials);
+  async login(credentials: LoginCredentials): Promise<any> {
+    const response = await axios.post('/auth/login', credentials);
     return response.data;
   },
 

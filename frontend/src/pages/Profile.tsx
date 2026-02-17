@@ -205,7 +205,15 @@ export default function Profile() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
-  
+  const [isSessionsDialogOpen, setIsSessionsDialogOpen] = useState(false);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [revokeLoading, setRevokeLoading] = useState<string | null>(null);
+  const [is2FASetupOpen, setIs2FASetupOpen] = useState(false);
+  const [twoFASetup, setTwoFASetup] = useState<any | null>(null);
+  const [twoFACode, setTwoFACode] = useState('');
+  const [isEnabling2FA, setIsEnabling2FA] = useState(false);
+
   // Notification preferences
   const [notifications, setNotifications] = useState({
     // Invoices
@@ -647,6 +655,54 @@ export default function Profile() {
   const formatLimit = (value: number) => {
     return value === -1 ? 'Unlimited' : value.toString();
   };
+
+  const fetchSessions = async () => {
+    setLoadingSessions(true);
+    try {
+      const res = await axios.get('/sessions/me');
+      setSessions(res.data);
+    } catch (e) {
+      toast({ title: 'Failed to load sessions', variant: 'destructive' });
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const summarizeUserAgent = (ua: string | undefined) => {
+    if (!ua) return 'Unknown device';
+    const u = ua;
+    let browser = 'Browser';
+    if (/Edg\//i.test(u)) browser = 'Edge';
+    else if (/Chrome\//i.test(u) && !/Edg\//i.test(u)) browser = 'Chrome';
+    else if (/Firefox\//i.test(u)) browser = 'Firefox';
+    else if (/Safari\//i.test(u) && !/Chrome\//i.test(u)) browser = 'Safari';
+
+    let os = 'Unknown OS';
+    if (/Android/i.test(u)) os = 'Android';
+    else if (/iPhone|iPad|iPod/i.test(u)) os = 'iOS';
+    else if (/Mac OS X|Macintosh/i.test(u)) os = 'macOS';
+    else if (/Windows NT/i.test(u)) os = 'Windows';
+    else if (/Linux/i.test(u)) os = 'Linux';
+
+    return `${browser} · ${os}`;
+  };
+
+  const handleRevokeSession = async (id: string) => {
+    setRevokeLoading(id);
+    try {
+      await axios.delete(`/sessions/${id}`);
+      setSessions((prev) => prev.filter((s) => s._id !== id));
+      toast({ title: 'Session revoked' });
+    } catch (e) {
+      toast({ title: 'Failed to revoke session', variant: 'destructive' });
+    } finally {
+      setRevokeLoading(null);
+    }
+  };
+
+  useEffect(() => {
+    fetchSessions();
+  }, []);
 
   return (
     <DashboardLayout>
@@ -1332,7 +1388,15 @@ export default function Profile() {
                       Add an extra layer of security to your account
                     </p>
                   </div>
-                  <Button variant="outline">Enable 2FA</Button>
+                  <Button variant="outline" onClick={async () => {
+                    try {
+                      const res = await axios.get('/auth/2fa/setup');
+                      setTwoFASetup(res.data);
+                      setIs2FASetupOpen(true);
+                    } catch (e) {
+                      toast({ title: 'Failed to initialize 2FA', variant: 'destructive' });
+                    }
+                  }}>Enable 2FA</Button>
                 </div>
 
                 <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -1342,7 +1406,7 @@ export default function Profile() {
                       Manage devices where you're logged in
                     </p>
                   </div>
-                  <Button variant="outline">View Sessions</Button>
+                  <Button variant="outline" onClick={() => { setIsSessionsDialogOpen(true); fetchSessions(); }}>View Sessions</Button>
                 </div>
               </CardContent>
             </Card>
@@ -1650,6 +1714,90 @@ export default function Profile() {
           )}
         </Tabs>
       </div>
+
+      {/* Sessions Dialog */}
+      <Dialog open={isSessionsDialogOpen} onOpenChange={setIsSessionsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Active Sessions</DialogTitle>
+            <DialogDescription>Devices and browsers where you are logged in.</DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            {loadingSessions ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="animate-spin w-6 h-6 mr-2" /> Loading sessions...
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">No active sessions found.</div>
+            ) : (
+              <ul className="divide-y">
+                {sessions.map((session) => {
+                  const currentToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+                  const isCurrent = currentToken && session.sessionToken === currentToken;
+                  return (
+                    <li key={session._id} className="flex items-center justify-between gap-4 py-4">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm">{summarizeUserAgent(session.userAgent)}</div>
+                        <div className="text-xs text-muted-foreground">{format(new Date(session.createdAt), "MMM d, yyyy, h:mm a")}</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {isCurrent ? (
+                          <span className="text-xs px-2 py-1 rounded-md bg-muted text-muted-foreground">This device</span>
+                        ) : null}
+                        <Button size="sm" variant="destructive" disabled={revokeLoading === session._id || isCurrent} onClick={() => handleRevokeSession(session._id)}>
+                          {revokeLoading === session._id ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : null}
+                          Revoke
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSessionsDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2FA Setup Dialog */}
+      <Dialog open={is2FASetupOpen} onOpenChange={setIs2FASetupOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enable Two-Factor Authentication</DialogTitle>
+            <DialogDescription>Scan the QR with your authenticator app and enter the 6-digit code.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {twoFASetup ? (
+              <div className="flex flex-col items-center gap-3">
+                <img src={twoFASetup.qr} alt="2FA QR" className="w-40 h-40" />
+                <p className="text-xs text-muted-foreground">Secret: <span className="font-mono">{twoFASetup.secret}</span></p>
+                <Input value={twoFACode} onChange={(e) => setTwoFACode(e.target.value)} placeholder="Enter 6-digit code" />
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-6">Initializing...</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIs2FASetupOpen(false)}>Cancel</Button>
+            <Button onClick={async () => {
+              if (!twoFACode || !twoFASetup) return toast({ title: 'Enter code', variant: 'destructive' });
+              setIsEnabling2FA(true);
+              try {
+                await axios.post('/auth/2fa/enable', { secret: twoFASetup.secret, token: twoFACode });
+                toast({ title: 'Two-Factor Authentication enabled' });
+                setIs2FASetupOpen(false);
+              } catch (e) {
+                toast({ title: 'Failed to enable 2FA', variant: 'destructive' });
+              } finally {
+                setIsEnabling2FA(false);
+              }
+            }} disabled={isEnabling2FA}>{isEnabling2FA ? 'Enabling...' : 'Enable'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </DashboardLayout>
   );
 }
