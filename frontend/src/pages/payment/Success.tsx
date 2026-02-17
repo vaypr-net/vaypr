@@ -107,11 +107,8 @@ export default function PaymentSuccess() {
         )}
 
         <div className="flex gap-3 justify-center">
-          <Button onClick={() => navigate('/dashboard')} className="flex-1">
+          <Button onClick={() => navigate('/dashboard')} className="w-48">
             Go to Dashboard
-          </Button>
-          <Button onClick={() => navigate('/billing')} variant="outline" className="flex-1">
-            Manage Billing
           </Button>
         </div>
 
