@@ -7,10 +7,10 @@ export class UserProfile extends BaseEntity {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, unique: true })
   userId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ default: '' })
   fullName: string;
 
-  @Prop({ required: true })
+  @Prop({ default: '' })
   email: string;
 
   @Prop({ default: '' })

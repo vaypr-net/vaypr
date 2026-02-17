@@ -29,13 +29,18 @@ export class UserprofileService {
   }
 
   async findByUserId(userId: string): Promise<UserProfile> {
-    const profile = await this.userProfileModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
-    
-    if (!profile) {
-      throw new NotFoundException('Profile not found');
+    const userObjectId = new Types.ObjectId(userId);
+    const existingProfile = await this.userProfileModel
+      .findOne({ userId: userObjectId })
+      .exec();
+
+    if (existingProfile) {
+      return existingProfile;
     }
-    
-    return profile;
+
+    // Auto-provision an empty profile so GET /userprofile does not 404
+    const profile = new this.userProfileModel({ userId: userObjectId });
+    return profile.save();
   }
 
   async update(userId: string, updateUserprofileDto: UpdateUserprofileDto): Promise<UserProfile> {
