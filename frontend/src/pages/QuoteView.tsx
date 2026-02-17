@@ -29,6 +29,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { QuoteService } from '@/api/services/quote.service';
 
 export default function QuoteView() {
   const { token } = useParams();
@@ -48,40 +49,56 @@ export default function QuoteView() {
     }
   }, [token]);
 
-  const loadQuote = (shareToken: string) => {
+  const loadQuote = async (shareToken: string) => {
     try {
-      const allKeys = Object.keys(localStorage);
-      let foundQuote: Quote | null = null;
-      let storageKey: string | null = null;
+      // First, try to fetch from API
+      const fetchedQuote = await QuoteService.getByShareToken(shareToken);
+      setQuote(fetchedQuote);
+      if (fetchedQuote.clientResponse) {
+        setHasResponded(true);
+      }
+      
+      // Track view after successful fetch
+      if (!fetchedQuote.viewedAt && !hasTrackedView.current) {
+        hasTrackedView.current = true;
+        // You might want to call an API to update the viewedAt status
+      }
+    } catch (apiError) {
+      // If API fails, fall back to localStorage
+      try {
+        const allKeys = Object.keys(localStorage);
+        let foundQuote: Quote | null = null;
+        let storageKey: string | null = null;
 
-      for (const key of allKeys) {
-        if (key.startsWith('fintrack_quotes')) {
-          const quotes: Quote[] = JSON.parse(localStorage.getItem(key) || '[]');
-          const matched = quotes.find(q => q.shareToken === shareToken);
-          if (matched) {
-            foundQuote = matched;
-            storageKey = key;
-            break;
+        for (const key of allKeys) {
+          if (key.startsWith('fintrack_quotes')) {
+            const quotes: Quote[] = JSON.parse(localStorage.getItem(key) || '[]');
+            const matched = quotes.find(q => q.shareToken === shareToken);
+            if (matched) {
+              foundQuote = matched;
+              storageKey = key;
+              break;
+            }
           }
         }
-      }
 
-      if (foundQuote && storageKey) {
-        setQuote(foundQuote);
-        if (foundQuote.clientResponse) {
-          setHasResponded(true);
+        if (foundQuote && storageKey) {
+          setQuote(foundQuote);
+          if (foundQuote.clientResponse) {
+            setHasResponded(true);
+          }
+          
+          // Track view and update status to "viewed" if not already viewed/responded
+          if (!foundQuote.viewedAt && !hasTrackedView.current) {
+            hasTrackedView.current = true;
+            trackQuoteView(storageKey, shareToken, foundQuote);
+          }
+        } else {
+          setError('Quote not found or link has expired');
         }
-        
-        // Track view and update status to "viewed" if not already viewed/responded
-        if (!foundQuote.viewedAt && !hasTrackedView.current) {
-          hasTrackedView.current = true;
-          trackQuoteView(storageKey, shareToken, foundQuote);
-        }
-      } else {
+      } catch (localStorageError) {
         setError('Quote not found or link has expired');
       }
-    } catch (err) {
-      setError('Failed to load quote');
     } finally {
       setLoading(false);
     }
@@ -125,11 +142,12 @@ export default function QuoteView() {
       
       const existingReminders = JSON.parse(localStorage.getItem(notificationsKey) || '[]');
       
+      const clientName = currentQuote.billTo?.name || currentQuote.clientName;
       const newNotification = {
         id: crypto.randomUUID(),
         type: 'custom',
         title: `Quote ${currentQuote.quoteNumber} Viewed`,
-        message: `${currentQuote.clientName} has viewed your quote. Awaiting their response.`,
+        message: `${clientName} has viewed your quote. Awaiting their response.`,
         relatedId: currentQuote.id,
         dueDate: new Date().toISOString(),
         isRead: false,
@@ -200,13 +218,14 @@ export default function QuoteView() {
         modification_requested: 'Requested Modifications',
       };
       
+      const clientName = currentQuote.billTo?.name || currentQuote.clientName;
       const newNotification = {
         id: crypto.randomUUID(),
         type: 'custom',
         title: `Quote ${currentQuote.quoteNumber} ${actionLabels[action]}`,
         message: action === 'modification_requested' 
-          ? `${currentQuote.clientName} requested modifications: "${message}"` 
-          : `${currentQuote.clientName} has ${actionLabels[action].toLowerCase()} your quote.`,
+          ? `${clientName} requested modifications: "${message}"` 
+          : `${clientName} has ${actionLabels[action].toLowerCase()} your quote.`,
         relatedId: currentQuote.id,
         dueDate: new Date().toISOString(),
         isRead: false,
@@ -389,12 +408,12 @@ export default function QuoteView() {
                   Quote For
                 </p>
                 <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 space-y-1">
-                  <p className="font-semibold text-lg">{quote.clientName}</p>
-                  {quote.clientPhone && <p className="text-muted-foreground text-sm">{quote.clientPhone}</p>}
+                  <p className="font-semibold text-lg">{quote.billTo?.name || quote.clientName}</p>
+                  {(quote.billTo?.phone || quote.clientPhone) && <p className="text-muted-foreground text-sm">{quote.billTo?.phone || quote.clientPhone}</p>}
                   {quote.clientEmail && <p className="text-muted-foreground text-sm">{quote.clientEmail}</p>}
-                  {(quote.clientArea || quote.clientBlock || quote.clientStreet) && (
+                  {(quote.billTo?.area || quote.billTo?.block || quote.billTo?.street || quote.clientArea || quote.clientBlock || quote.clientStreet) && (
                     <p className="text-muted-foreground text-sm">
-                      {[quote.clientArea, quote.clientBlock, quote.clientStreet, quote.clientHouse]
+                      {[quote.billTo?.area || quote.clientArea, quote.billTo?.block || quote.clientBlock, quote.billTo?.street || quote.clientStreet, quote.billTo?.house || quote.clientHouse]
                         .filter(Boolean)
                         .join(', ')}
                     </p>

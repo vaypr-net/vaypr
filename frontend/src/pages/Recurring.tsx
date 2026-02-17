@@ -150,6 +150,24 @@ export default function Recurring() {
     }
   };
 
+  const formatDateForInput = (date: string): string => {
+    if (!date) return format(addMonths(new Date(), 1), 'yyyy-MM-dd');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return format(addMonths(new Date(), 1), 'yyyy-MM-dd');
+    return format(parsed, 'yyyy-MM-dd');
+  };
+
+  const toISODateString = (date: string): string | null => {
+    if (!date || !date.trim()) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const parsed = new Date(`${date}T00:00:00.000Z`);
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+    }
+    const parsed = new Date(date);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  };
+
   const filterPhoneInput = (value: string): string => {
     return value.replace(/[^\d+]/g, '');
   };
@@ -180,6 +198,16 @@ export default function Recurring() {
       return;
     }
 
+    const normalizedNextBillingDate = toISODateString(formData.nextBillingDate);
+    if (!normalizedNextBillingDate) {
+      toast({
+        title: 'Invalid date',
+        description: 'Please choose a valid first billing date.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const items = [{
       description: formData.description,
       quantity: 1,
@@ -190,7 +218,7 @@ export default function Recurring() {
     const recurringData = {
       clientId: formData.clientId,
       frequency: formData.frequency,
-      nextBillingDate: formData.nextBillingDate,
+      nextBillingDate: normalizedNextBillingDate,
       items: items,
       subtotal: formData.grandTotal,
       tax: 0,
@@ -241,11 +269,7 @@ export default function Recurring() {
   };
 
   const handleEdit = (recurring: RecurringBilling) => {
-    toast({
-      title: 'Feature Coming Soon',
-      description: 'Editing recurring billings will be available soon.',
-      variant: 'default',
-    });
+    handleEditRecurring(recurring);
   };
 
   const handleToggle = async (recurring: RecurringBilling) => {
@@ -257,12 +281,13 @@ export default function Recurring() {
   };
 
   const handleEditRecurring = (recurring: RecurringBilling) => {
+    setEditingRecurring(recurring);
     const client = clientsArray.find(c => c._id === recurring.clientId);
     setFormData({
       clientId: recurring.clientId,
       clientEmail: client?.email || '',
       frequency: recurring.frequency,
-      nextBillingDate: recurring.nextBillingDate,
+      nextBillingDate: formatDateForInput(recurring.nextBillingDate),
       autoSendReminder: true,
       paymentType: recurring.paymentType || 'cash',
       showBankDetails: recurring.showBankDetails || false,
@@ -300,6 +325,16 @@ export default function Recurring() {
       return;
     }
 
+    const normalizedNextBillingDate = toISODateString(formData.nextBillingDate);
+    if (!normalizedNextBillingDate) {
+      toast({
+        title: 'Invalid date',
+        description: 'Please choose a valid first billing date.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const items = [{
       description: formData.description,
       quantity: 1,
@@ -310,7 +345,7 @@ export default function Recurring() {
     const recurringData = {
       clientId: formData.clientId,
       frequency: formData.frequency,
-      nextBillingDate: formData.nextBillingDate,
+      nextBillingDate: normalizedNextBillingDate,
       items: items,
       subtotal: formData.grandTotal,
       tax: 0,

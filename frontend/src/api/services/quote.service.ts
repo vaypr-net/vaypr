@@ -118,6 +118,11 @@ export const QuoteService = {
     return response.data;
   },
 
+  async getByShareToken(shareToken: string): Promise<Quote> {
+    const response = await axios.get<Quote>(`/quotes/public/${shareToken}`);
+    return response.data;
+  },
+
   async create(data: CreateQuoteDto, logo?: File): Promise<Quote> {
     const formData = new FormData();
     

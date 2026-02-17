@@ -150,6 +150,7 @@ export interface Quote {
   clientBlock?: string;
   clientStreet?: string;
   clientHouse?: string;
+  billTo?: BillTo;
   status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'converted' | 'modification_requested';
   quoteDate: string;
   validUntil: string;
