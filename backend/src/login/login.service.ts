@@ -3,6 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { CreateLoginDto } from './dto/create-login.dto';
 import { UserService } from '../user/user.service';
+import { SessionService } from '../user/session.service';
+import { Request } from 'express';
 
 interface GoogleUser {
   googleId: string;
@@ -19,9 +21,10 @@ export class LoginService {
   constructor(
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
+    private readonly sessionService: SessionService,
   ) {}
 
-  async login(createLoginDto: CreateLoginDto) {
+  async login(createLoginDto: CreateLoginDto, req?: Request) {
     const user = await this.userService.findByEmail(createLoginDto.email);
     
     if (!user) {
@@ -43,15 +46,34 @@ export class LoginService {
       fullUser: JSON.stringify(user, null, 2),
     });
 
+    // If user has 2FA enabled, return a short-lived temp token requiring TOTP verification
+    if (user.twoFactorEnabled) {
+      const tempPayload = {
+        sub: user._id,
+        email: user.email,
+        twoFactor: true,
+      };
+      const tempToken = this.jwtService.sign(tempPayload, { expiresIn: '5m' });
+      return { two_factor_required: true, temp_token: tempToken };
+    }
+
     // Generate JWT token with isSuperAdmin flag for performance
-    const payload = { 
-      sub: user._id, 
+    const payload = {
+      sub: user._id,
       email: user.email,
       isSuperAdmin: user.isSuperAdmin || false,
     };
     const token = this.jwtService.sign(payload);
 
-    console.log('🔐 JWT PAYLOAD:', payload);
+    // Create session if req is provided
+    if (req) {
+      await this.sessionService.createSession(
+        user._id,
+        req.headers['user-agent'] || 'unknown',
+        req.ip || req.connection?.remoteAddress || 'unknown',
+        token,
+      );
+    }
 
     return {
       access_token: token,
@@ -129,8 +151,19 @@ export class LoginService {
     }
 
     // Issue JWT token with isSuperAdmin flag for performance (same as manual login)
-    const payload = { 
-      sub: user._id, 
+    // If user has 2FA enabled, return a short-lived temp token requiring TOTP verification
+    if ((user as any).twoFactorEnabled) {
+      const tempPayload = {
+        sub: user._id,
+        email: user.email,
+        twoFactor: true,
+      };
+      const tempToken = this.jwtService.sign(tempPayload, { expiresIn: '5m' });
+      return { two_factor_required: true, temp_token: tempToken };
+    }
+
+    const payload = {
+      sub: user._id,
       email: user.email,
       isSuperAdmin: user.isSuperAdmin || false,
     };

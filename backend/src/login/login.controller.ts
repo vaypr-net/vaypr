@@ -5,6 +5,7 @@ import type { Response } from 'express';
 import { LoginService } from './login.service';
 import { CreateLoginDto } from './dto/create-login.dto';
 import { GoogleAuthGuard } from '../common/guards/google-auth.guard';
+import type { Request } from 'express';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -25,8 +26,8 @@ export class LoginController {
    * Endpoint: POST /auth/login
    */
   @Post('login')
-  async login(@Body() createLoginDto: CreateLoginDto) {
-    return this.loginService.login(createLoginDto);
+  async login(@Body() createLoginDto: CreateLoginDto, @Req() req: Request) {
+    return this.loginService.login(createLoginDto, req);
   }
 
   /**

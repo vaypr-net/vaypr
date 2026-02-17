@@ -43,6 +43,12 @@ export class User extends BaseEntity {
   @Prop({ required: false })
   googleTokenExpiry: Date; // When the access token expires
 
+  @Prop({ default: false })
+  twoFactorEnabled: boolean;
+
+  @Prop({ required: false })
+  twoFactorSecret: string; // TOTP secret (store encrypted in production)
+
   // Brevo Domain for email sending
   @Prop({ required: false })
   brandingDomain: string; // Verified Brevo domain (e.g., "example.com") - used as sender for invoices, receipts, quotes

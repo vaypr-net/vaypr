@@ -4,6 +4,8 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoginService } from './login.service';
 import { LoginController } from './login.controller';
+import { TwoFAService } from './twofa.service';
+import { TwoFAController } from './twofa.controller';
 import { UserModule } from '../user/user.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 
@@ -22,7 +24,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
       }),
     }),
   ],
-  controllers: [LoginController],
-  providers: [LoginService, GoogleStrategy],
+  controllers: [LoginController, TwoFAController],
+  providers: [LoginService, GoogleStrategy, TwoFAService],
 })
 export class LoginModule {}

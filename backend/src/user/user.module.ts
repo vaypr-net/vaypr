@@ -6,14 +6,18 @@ import { UserService } from './user.service';
 import { UserController } from './user.controller';
 import { User, UserSchema } from './entities/user.entity';
 import { UserProfile, UserProfileSchema } from '../userprofile/entities/userprofile.entity';
+import { Session, SessionSchema } from './entities/session.entity';
+import { SessionService } from './session.service';
 import { BrevoModule } from '../brevo/brevo.module';
 import { ActivityModule } from '../activity/activity.module';
+import { SessionController } from './session.controller';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: UserProfile.name, schema: UserProfileSchema },
+      { name: Session.name, schema: SessionSchema },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -26,8 +30,17 @@ import { ActivityModule } from '../activity/activity.module';
     BrevoModule,
     ActivityModule,
   ],
-  controllers: [UserController],
-  providers: [UserService],
-  exports: [UserService],
+  controllers: [
+    UserController,
+    SessionController,
+  ],
+  providers: [
+    UserService,
+    SessionService,
+  ],
+  exports: [
+    UserService,
+    SessionService,
+  ],
 })
 export class UserModule {}
