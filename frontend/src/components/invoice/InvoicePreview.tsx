@@ -228,18 +228,15 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
 
         {/* Company Footer Details */}
         {(data.companyFooter.companyName || data.companyFooter.address || data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
-          <div className="border-t border-border pt-6 text-center space-y-1">
-            {data.companyFooter.companyName && (
-              <p className="text-sm font-semibold text-foreground">{data.companyFooter.companyName}</p>
-            )}
-            {data.companyFooter.address && (
-              <p className="text-xs text-muted-foreground">{data.companyFooter.address}</p>
-            )}
-            {(data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
-              <p className="text-xs text-muted-foreground">
-                {[data.companyFooter.officePhone, data.companyFooter.websiteEmail].filter(Boolean).join(" • ")}
-              </p>
-            )}
+          <div className="border-t border-border pt-6 text-center">
+            <p className="text-xs text-muted-foreground">
+              {data.companyFooter.companyName && (
+                <span className="font-semibold text-foreground mr-2">{data.companyFooter.companyName}</span>
+              )}
+              {[data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail]
+                .filter(Boolean)
+                .join(' • ')}
+            </p>
           </div>
         )}
 

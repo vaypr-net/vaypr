@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { SubscriptionPlan, Subscription } from '@/types/app';
@@ -43,6 +44,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import axios from '@/api/axios';
+import { billingService } from '@/api/services/billing.service';
+import { BillingPlanService, BillingPlan } from '@/api/services/billing-plan.service';
 import {
   User,
   Mail,
@@ -178,11 +181,11 @@ const DEFAULT_SUBSCRIPTION: Subscription = {
   features: SUBSCRIPTION_PLANS.free.features,
   limits: SUBSCRIPTION_PLANS.free.limits,
   usage: {
-    invoicesThisMonth: 3,
-    quotesThisMonth: 2,
-    currentClients: 5,
+    invoicesThisMonth: 0,
+    quotesThisMonth: 0,
+    currentClients: 0,
     currentTeamMembers: 1,
-    storageUsedGB: 0.15,
+    storageUsedGB: 0,
   },
 };
 
@@ -197,9 +200,10 @@ export default function Profile() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordLastChanged, setPasswordLastChanged] = useState<Date | null>(null);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro');
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
+  const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   
   // Notification preferences
   const [notifications, setNotifications] = useState({
@@ -243,8 +247,71 @@ export default function Profile() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Start with whatever is in the auth user object
   const subscription = user?.subscription || DEFAULT_SUBSCRIPTION;
-  const currentPlanInfo = SUBSCRIPTION_PLANS[subscription.plan];
+
+  const { data: subscriptionInfo } = useQuery({
+    queryKey: ['billing', 'me'],
+    queryFn: () => billingService.getSubscriptionInfo(),
+    enabled: !!user?.id,
+  });
+
+  const { data: publicPlansResponse, isLoading: isLoadingPlans } = useQuery({
+    queryKey: ['billing-plans', 'public', 'active'],
+    queryFn: () => BillingPlanService.getPublicPlans('active', 50, 0),
+    enabled: !!user?.id,
+  });
+
+  // Resolve current plan info safely. `subscription.plan` may be a string key
+  // or a plan object returned by the billing API. Map known cases and
+  // fall back to the `free` plan to avoid runtime errors when `color` or
+  // other properties are accessed.
+  let currentPlanInfo = SUBSCRIPTION_PLANS.free;
+  try {
+    if (typeof subscription.plan === 'string') {
+      if ((SUBSCRIPTION_PLANS as any)[subscription.plan]) {
+        currentPlanInfo = (SUBSCRIPTION_PLANS as any)[subscription.plan];
+      }
+    } else if (subscription.plan && typeof subscription.plan === 'object') {
+      const planObj: any = subscription.plan;
+      // Prefer explicit mapping by known plan names
+      if (planObj.name) {
+        const nameLower = String(planObj.name).toLowerCase();
+        if (nameLower.includes('pro')) currentPlanInfo = SUBSCRIPTION_PLANS.pro;
+        else if (nameLower.includes('business')) currentPlanInfo = SUBSCRIPTION_PLANS.business;
+        else currentPlanInfo = SUBSCRIPTION_PLANS.free;
+      } else if (typeof planObj.price === 'number') {
+        currentPlanInfo = planObj.price > 0 ? SUBSCRIPTION_PLANS.pro : SUBSCRIPTION_PLANS.free;
+      }
+    }
+  } catch (e) {
+    currentPlanInfo = SUBSCRIPTION_PLANS.free;
+  }
+
+  const currentPlanId = subscriptionInfo?.plan?._id || '';
+  const currentPlanName = subscriptionInfo?.plan?.name || currentPlanInfo.name;
+  const currentPlanStatus = subscriptionInfo?.status || subscription?.status || 'active';
+  const currentPeriodEnd = subscriptionInfo?.currentPeriodEnd || subscription.endDate || null;
+  const currentPlanLimits = subscriptionInfo?.plan?.limits || null;
+  const fallbackLimits = subscription?.limits || DEFAULT_SUBSCRIPTION.limits;
+  const fallbackUsage = subscription?.usage || DEFAULT_SUBSCRIPTION.usage;
+  const hasPaidPlan = subscriptionInfo?.plan
+    ? subscriptionInfo.plan.price > 0
+    : subscription.plan !== 'free';
+  const availableUpgradePlans = useMemo(
+    () =>
+      (publicPlansResponse?.items || [])
+        .filter((plan) => plan.status === 'active' && plan.price > 0)
+        .filter((plan) => !currentPlanId || plan._id !== currentPlanId),
+    [publicPlansResponse?.items, currentPlanId],
+  );
+  const isSingleUpgradePlan = availableUpgradePlans.length === 1;
+
+  useEffect(() => {
+    if (!selectedPlanId && availableUpgradePlans.length > 0) {
+      setSelectedPlanId(availableUpgradePlans[0]._id);
+    }
+  }, [availableUpgradePlans, selectedPlanId]);
 
   const filterPhoneInput = (value: string): string => {
     return value.replace(/[^\d+]/g, '');
@@ -531,12 +598,28 @@ export default function Profile() {
     }
   };
 
-  const handleUpgradePlan = () => {
-    toast({
-      title: 'Upgrade Initiated',
-      description: `Upgrading to ${SUBSCRIPTION_PLANS[selectedPlan].name} plan. You'll be redirected to checkout.`,
-    });
-    setIsUpgradeDialogOpen(false);
+  const handleUpgradePlan = async (plan: BillingPlan) => {
+    try {
+      setIsStartingCheckout(true);
+      const checkout = await billingService.createCheckoutSession(
+        plan._id,
+        plan.interval,
+        plan.currency || 'USD',
+      );
+      if (!checkout?.url) {
+        throw new Error('Missing checkout URL');
+      }
+      window.location.href = checkout.url;
+    } catch (error: any) {
+      toast({
+        title: 'Upgrade Failed',
+        description: error?.response?.data?.message || error?.message || 'Could not start checkout.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsStartingCheckout(false);
+      setIsUpgradeDialogOpen(false);
+    }
   };
 
   const handleCancelSubscription = () => {
@@ -784,26 +867,25 @@ export default function Profile() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      <currentPlanInfo.icon className="h-5 w-5" />
-                      Current Plan: {currentPlanInfo.name}
+                      <CreditCard className="h-5 w-5" />
+                      Current Plan: {currentPlanName}
                     </CardTitle>
                     <CardDescription>
-                      {subscription.status === 'active' && 'Your subscription is active'}
-                      {subscription.status === 'trial' && subscription.trialEndsAt && 
+                      {currentPlanStatus === 'active' && 'Your subscription is active'}
+                      {currentPlanStatus === 'trial' && subscription?.trialEndsAt &&
                         `Trial ends ${format(new Date(subscription.trialEndsAt), 'MMMM d, yyyy')}`}
-                      {subscription.status === 'cancelled' && subscription.endDate && 
-                        `Access until ${format(new Date(subscription.endDate), 'MMMM d, yyyy')}`}
+                      {currentPlanStatus === 'cancelled' && currentPeriodEnd &&
+                        `Access until ${format(new Date(currentPeriodEnd), 'MMMM d, yyyy')}`}
                     </CardDescription>
                   </div>
-                  <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'}>
-                    {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                  <Badge variant={currentPlanStatus === 'active' ? 'default' : 'secondary'}>
+                    {currentPlanStatus.charAt(0).toUpperCase() + currentPlanStatus.slice(1)}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Plan Limits Grid */}
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* Invoices per month */}
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border/50">
                     <div className="flex-shrink-0 p-2 rounded-lg bg-primary/10">
                       <FileText className="h-5 w-5 text-primary" />
@@ -811,14 +893,29 @@ export default function Profile() {
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Invoices per month</span>
-                        <span className="text-sm font-semibold">3</span>
+                        <span className="text-sm font-semibold">
+                          {currentPlanLimits?.invoices === -1
+                            ? 'Unlimited'
+                            : currentPlanLimits?.invoices ?? formatLimit(fallbackLimits.invoicesPerMonth)}
+                        </span>
                       </div>
-                      <Progress value={66} className="h-1.5" />
-                      <span className="text-xs text-muted-foreground">2 of 3 used</span>
+                      <Progress
+                        value={getUsagePercentage(
+                          fallbackUsage.invoicesThisMonth || 0,
+                          currentPlanLimits?.invoices ?? fallbackLimits.invoicesPerMonth,
+                        )}
+                        className="h-1.5"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {fallbackUsage.invoicesThisMonth || 0} of{' '}
+                        {currentPlanLimits?.invoices === -1
+                          ? 'Unlimited'
+                          : currentPlanLimits?.invoices ?? fallbackLimits.invoicesPerMonth}{' '}
+                        used
+                      </span>
                     </div>
                   </div>
 
-                  {/* Quotes per month */}
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border/50">
                     <div className="flex-shrink-0 p-2 rounded-lg bg-blue-500/10">
                       <FileText className="h-5 w-5 text-blue-500" />
@@ -826,14 +923,29 @@ export default function Profile() {
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Quotes per month</span>
-                        <span className="text-sm font-semibold">Up to 2</span>
+                        <span className="text-sm font-semibold">
+                          {currentPlanLimits?.quotes === -1
+                            ? 'Unlimited'
+                            : currentPlanLimits?.quotes ?? formatLimit(fallbackLimits.quotesPerMonth)}
+                        </span>
                       </div>
-                      <Progress value={50} className="h-1.5" />
-                      <span className="text-xs text-muted-foreground">1 of 2 used</span>
+                      <Progress
+                        value={getUsagePercentage(
+                          fallbackUsage.quotesThisMonth || 0,
+                          currentPlanLimits?.quotes ?? fallbackLimits.quotesPerMonth,
+                        )}
+                        className="h-1.5"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {fallbackUsage.quotesThisMonth || 0} of{' '}
+                        {currentPlanLimits?.quotes === -1
+                          ? 'Unlimited'
+                          : currentPlanLimits?.quotes ?? fallbackLimits.quotesPerMonth}{' '}
+                        used
+                      </span>
                     </div>
                   </div>
 
-                  {/* Receipts per month */}
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border/50">
                     <div className="flex-shrink-0 p-2 rounded-lg bg-green-500/10">
                       <Receipt className="h-5 w-5 text-green-500" />
@@ -841,14 +953,17 @@ export default function Profile() {
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Receipts per month</span>
-                        <span className="text-sm font-semibold">Up to 3</span>
+                        <span className="text-sm font-semibold">
+                          {currentPlanLimits?.receipts === -1
+                            ? 'Unlimited'
+                            : currentPlanLimits?.receipts ?? 'N/A'}
+                        </span>
                       </div>
-                      <Progress value={33} className="h-1.5" />
-                      <span className="text-xs text-muted-foreground">1 of 3 used</span>
+                      <Progress value={0} className="h-1.5" />
+                      <span className="text-xs text-muted-foreground">Usage tracked in dashboard modules</span>
                     </div>
                   </div>
 
-                  {/* Clients */}
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border/50">
                     <div className="flex-shrink-0 p-2 rounded-lg bg-orange-500/10">
                       <Users className="h-5 w-5 text-orange-500" />
@@ -856,14 +971,29 @@ export default function Profile() {
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Clients</span>
-                        <span className="text-sm font-semibold">10</span>
+                        <span className="text-sm font-semibold">
+                          {currentPlanLimits?.clients === -1
+                            ? 'Unlimited'
+                            : currentPlanLimits?.clients ?? formatLimit(fallbackLimits.clients)}
+                        </span>
                       </div>
-                      <Progress value={50} className="h-1.5" />
-                      <span className="text-xs text-muted-foreground">5 of 10 used</span>
+                      <Progress
+                        value={getUsagePercentage(
+                          fallbackUsage.currentClients || 0,
+                          currentPlanLimits?.clients ?? fallbackLimits.clients,
+                        )}
+                        className="h-1.5"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {fallbackUsage.currentClients || 0} of{' '}
+                        {currentPlanLimits?.clients === -1
+                          ? 'Unlimited'
+                          : currentPlanLimits?.clients ?? fallbackLimits.clients}{' '}
+                        used
+                      </span>
                     </div>
                   </div>
 
-                  {/* Recurring Subscription */}
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border/50">
                     <div className="flex-shrink-0 p-2 rounded-lg bg-purple-500/10">
                       <RefreshCw className="h-5 w-5 text-purple-500" />
@@ -871,7 +1001,11 @@ export default function Profile() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Recurring Subscription</span>
-                        <span className="text-sm font-semibold">1 included</span>
+                        <span className="text-sm font-semibold">
+                          {currentPlanLimits?.recurringInvoices === -1
+                            ? 'Unlimited'
+                            : currentPlanLimits?.recurringInvoices ?? 'N/A'}
+                        </span>
                       </div>
                       <div className="mt-2 flex items-center gap-1.5">
                         <Check className="h-4 w-4 text-primary" />
@@ -880,7 +1014,6 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  {/* Expense Tracking */}
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border/50">
                     <div className="flex-shrink-0 p-2 rounded-lg bg-rose-500/10">
                       <Wallet className="h-5 w-5 text-rose-500" />
@@ -888,14 +1021,17 @@ export default function Profile() {
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Expense Tracking</span>
-                        <span className="text-sm font-semibold">Up to 5</span>
+                        <span className="text-sm font-semibold">
+                          {currentPlanLimits?.expenseTracking ? 'Included' : 'Not included'}
+                        </span>
                       </div>
-                      <Progress value={40} className="h-1.5" />
-                      <span className="text-xs text-muted-foreground">2 of 5 used</span>
+                      <Progress value={currentPlanLimits?.expenseTracking ? 100 : 0} className="h-1.5" />
+                      <span className="text-xs text-muted-foreground">
+                        {currentPlanLimits?.expenseTracking ? 'Enabled for your plan' : 'Upgrade required'}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Custom Template */}
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border/50 sm:col-span-2 lg:col-span-1">
                     <div className="flex-shrink-0 p-2 rounded-lg bg-teal-500/10">
                       <Palette className="h-5 w-5 text-teal-500" />
@@ -903,7 +1039,9 @@ export default function Profile() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Custom Template</span>
-                        <span className="text-sm font-semibold">1 included</span>
+                        <span className="text-sm font-semibold">
+                          {currentPlanLimits?.invoiceTemplates || 'N/A'}
+                        </span>
                       </div>
                       <div className="mt-2 flex items-center gap-1.5">
                         <Check className="h-4 w-4 text-primary" />
@@ -917,10 +1055,10 @@ export default function Profile() {
 
                 {/* Actions */}
                 <div className="flex flex-wrap gap-3">
-                  {subscription.plan !== 'business' && (
+                  {availableUpgradePlans.length > 0 && (
                     <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button className="gap-2">
+                        <Button className="gap-2" disabled={isLoadingPlans}>
                           <Zap className="h-4 w-4" />
                           Upgrade Plan
                         </Button>
@@ -929,111 +1067,64 @@ export default function Profile() {
                         <DialogHeader>
                           <DialogTitle>Upgrade Your Plan</DialogTitle>
                           <DialogDescription>
-                            Choose a plan that fits your needs
+                            Choose a plan from your active billing plans
                           </DialogDescription>
                         </DialogHeader>
-                        <div className="grid gap-6 py-4 sm:grid-cols-2">
-                          {/* Business Plan */}
-                          <div 
-                            className={`relative rounded-2xl border-2 p-6 cursor-pointer transition-all ${
-                              selectedPlan === 'pro' ? 'border-primary shadow-lg shadow-primary/20' : 'border-border hover:border-primary/50'
-                            }`}
-                            onClick={() => setSelectedPlan('pro')}
-                          >
-                            <Badge className="bg-primary text-primary-foreground mb-4">
-                              Business
-                            </Badge>
-                            <p className="text-sm text-muted-foreground mb-4">
-                              Ideal for growing businesses that need full access to invoicing, quotes, and expense tracking.
-                            </p>
-                            <div className="mb-6">
-                              <span className="text-4xl font-bold">KD15</span>
-                              <span className="text-muted-foreground">/month</span>
-                            </div>
-                            <ul className="space-y-3">
-                              {[
-                                'Unlimited Invoices',
-                                'Unlimited Quotes',
-                                'Unlimited Receipts',
-                                'Unlimited Clients',
-                                'Recurring Subscriptions',
-                                'Expense Tracking',
-                                'Custom Templates',
-                                'Priority Email Support',
-                              ].map((feature, index) => (
-                                <li key={index} className="flex items-center gap-2 text-sm">
-                                  <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                                  {feature}
-                                </li>
-                              ))}
-                            </ul>
-                            <Button 
-                              className="w-full mt-6"
-                              variant={selectedPlan === 'pro' ? 'default' : 'outline'}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedPlan('pro');
-                                handleUpgradePlan();
-                              }}
+                        <div
+                          className={`grid gap-6 py-4 ${
+                            isSingleUpgradePlan ? 'grid-cols-1 place-items-center' : 'sm:grid-cols-2'
+                          }`}
+                        >
+                          {availableUpgradePlans.map((plan) => (
+                            <div
+                              key={plan._id}
+                              className={`relative rounded-2xl border-2 p-6 cursor-pointer transition-all ${
+                                selectedPlanId === plan._id
+                                  ? 'border-primary shadow-lg shadow-primary/20'
+                                  : 'border-border hover:border-primary/50'
+                              } ${isSingleUpgradePlan ? 'w-full max-w-md' : ''}`}
+                              onClick={() => setSelectedPlanId(plan._id)}
                             >
-                              Get Started
-                            </Button>
-                          </div>
-
-                          {/* Enterprise Plan */}
-                          <div 
-                            className={`relative rounded-2xl border-2 p-6 cursor-pointer transition-all ${
-                              selectedPlan === 'business' ? 'border-primary shadow-lg shadow-primary/20' : 'border-border hover:border-primary/50'
-                            }`}
-                            onClick={() => setSelectedPlan('business')}
-                          >
-                            <Badge variant="outline" className="mb-4">
-                              Enterprise
-                            </Badge>
-                            <p className="text-sm text-muted-foreground mb-4">
-                              For larger organizations needing custom solutions, dedicated support, and advanced features.
-                            </p>
-                            <div className="mb-6">
-                              <span className="text-4xl font-bold">Let's Talk!</span>
+                              <Badge className="mb-4" variant={plan.isPopular ? 'default' : 'outline'}>
+                                {plan.name}
+                              </Badge>
+                              <p className="text-sm text-muted-foreground mb-4">
+                                {plan.features?.[0] || 'Upgrade your account with this plan.'}
+                              </p>
+                              <div className="mb-6">
+                                <span className="text-4xl font-bold">
+                                  {plan.currency} {plan.price}
+                                </span>
+                                <span className="text-muted-foreground">/{plan.interval}</span>
+                              </div>
+                              <ul className="space-y-3">
+                                {(plan.features || []).slice(0, 8).map((feature, index) => (
+                                  <li key={index} className="flex items-center gap-2 text-sm">
+                                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                                    {feature}
+                                  </li>
+                                ))}
+                              </ul>
+                              <Button
+                                className="w-full mt-6"
+                                variant={selectedPlanId === plan._id ? 'default' : 'outline'}
+                                disabled={isStartingCheckout}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPlanId(plan._id);
+                                  handleUpgradePlan(plan);
+                                }}
+                              >
+                                {isStartingCheckout && selectedPlanId === plan._id ? 'Redirecting...' : 'Upgrade'}
+                              </Button>
                             </div>
-                            <ul className="space-y-3">
-                              {[
-                                'Everything in Business',
-                                'Graphic Designer For Templates',
-                                'Ai Integration System',
-                                'API Access',
-                                'Dedicated Account Manager',
-                                'Smart Financial Analytics',
-                                'Advanced Expense Tracking',
-                                'White-label Options',
-                              ].map((feature, index) => (
-                                <li key={index} className="flex items-center gap-2 text-sm">
-                                  <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                                  {feature}
-                                </li>
-                              ))}
-                            </ul>
-                            <Button 
-                              className="w-full mt-6 bg-foreground text-background hover:bg-foreground/90"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedPlan('business');
-                                toast({
-                                  title: 'Contact Request Sent',
-                                  description: 'Our team will reach out to schedule a call.',
-                                });
-                                setIsUpgradeDialogOpen(false);
-                              }}
-                            >
-                              Book a Call
-                            </Button>
-                          </div>
+                          ))}
                         </div>
                       </DialogContent>
                     </Dialog>
                   )}
                   
-                  {subscription.plan !== 'free' && subscription.status !== 'cancelled' && (
+                  {hasPaidPlan && currentPlanStatus !== 'cancelled' && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="outline" className="text-destructive">
@@ -1046,6 +1137,7 @@ export default function Profile() {
                           <AlertDialogDescription>
                             Your subscription will remain active until the end of your current billing period. 
                             After that, you'll be moved to the Free plan.
+                            {currentPeriodEnd ? ` Current period ends on ${format(new Date(currentPeriodEnd), 'MMMM d, yyyy')}.` : ''}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

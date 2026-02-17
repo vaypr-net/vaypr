@@ -82,8 +82,12 @@ export function ReceiptPreview({ data, previewId = "receipt-preview" }: ReceiptP
       {/* Company Footer */}
       {(data.companyName || data.companyAddress || data.companyPhone) && (
         <div className="mt-6 pt-4 border-t border-border text-center text-[10px] text-muted-foreground">
-          <p className="font-medium text-foreground">{data.companyName}</p>
-          <p>{[data.companyAddress, data.companyPhone].filter(Boolean).join(" • ")}</p>
+          <p className="text-xs text-muted-foreground">
+            {data.companyName && (
+              <span className="font-semibold text-foreground mr-2">{data.companyName}</span>
+            )}
+            {[data.companyAddress, data.companyPhone].filter(Boolean).join(' • ')}
+          </p>
         </div>
       )}
     </div>

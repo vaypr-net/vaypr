@@ -195,11 +195,13 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
       {/* Footer */}
       {(data.companyFooter.companyName || data.companyFooter.address || data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
         <div className="pt-6 border-t border-border text-center text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">{data.companyFooter.companyName}</p>
-          <p>
+          <p className="text-xs text-muted-foreground">
+            {data.companyFooter.companyName && (
+              <span className="font-semibold text-foreground mr-2">{data.companyFooter.companyName}</span>
+            )}
             {[data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail]
               .filter(Boolean)
-              .join(" • ")}
+              .join(' • ')}
           </p>
         </div>
       )}
