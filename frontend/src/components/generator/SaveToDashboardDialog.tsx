@@ -19,8 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateInvoice, useUpdateInvoice } from "@/hooks/api/useInvoices";
-import { useCreateQuote } from "@/hooks/api/useQuotes";
-import { useCreateReceipt } from "@/hooks/api/useReceipts";
+import { useCreateQuote, useUpdateQuote } from "@/hooks/api/useQuotes";
+import { useCreateReceipt, useUpdateReceipt } from "@/hooks/api/useReceipts";
 import { useClients } from "@/hooks/api/useClients";
 import { InvoiceData } from "@/types/invoice";
 import { ReceiptData } from "@/types/receipt";
@@ -36,6 +36,8 @@ interface SaveToDashboardDialogProps {
   receiptData?: ReceiptData;
   quoteData?: QuoteData;
   editingInvoiceId?: string | null;
+  editingReceiptId?: string | null;
+  editingQuoteId?: string | null;
   defaultClientId?: string | null;
 }
 
@@ -47,13 +49,17 @@ export function SaveToDashboardDialog({
   receiptData,
   quoteData,
   editingInvoiceId = null,
+  editingReceiptId = null,
+  editingQuoteId = null,
   defaultClientId = null,
 }: SaveToDashboardDialogProps) {
   const navigate = useNavigate();
   const createInvoice = useCreateInvoice();
   const updateInvoice = useUpdateInvoice();
   const createQuote = useCreateQuote();
+  const updateQuote = useUpdateQuote();
   const createReceipt = useCreateReceipt();
+  const updateReceipt = useUpdateReceipt();
   const { data: clients = [], isLoading: loadingClients } = useClients();
   
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -65,6 +71,8 @@ export function SaveToDashboardDialog({
 
   const selectedClient = clients.find(c => c._id === selectedClientId);
   const isEditingInvoice = documentType === "invoice" && !!editingInvoiceId;
+  const isEditingReceipt = documentType === "receipt" && !!editingReceiptId;
+  const isEditingQuote = documentType === "quote" && !!editingQuoteId;
 
   useEffect(() => {
     if (defaultClientId) {
@@ -106,10 +114,24 @@ export function SaveToDashboardDialog({
   };
 
   const handleSave = async () => {
-    if (!selectedClientId && !isEditingInvoice) {
+    if (!selectedClientId && !isEditingInvoice && !isEditingReceipt && !isEditingQuote) {
       toast.error("Please select a client or company");
       return;
     }
+
+    const toISODateString = (date: unknown): string | null => {
+      if (!date || typeof date !== 'string') return null;
+      const trimmed = date.trim();
+      if (!trimmed) return null;
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const parsed = new Date(`${trimmed}T00:00:00.000Z`);
+        return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+      }
+
+      const parsed = new Date(trimmed);
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+    };
 
     try {
       if (documentType === "invoice" && invoiceData) {
@@ -218,7 +240,7 @@ export function SaveToDashboardDialog({
         // Prepare quote data for API
         const apiQuoteData = {
           quoteNumber: quoteData.quoteNumber || `QUO-${Date.now()}`,
-          clientId: selectedClientId,
+          clientId: selectedClientId || defaultClientId || undefined,
           billTo: {
             name: quoteData.billTo.name,
             phone: quoteData.billTo.phone || selectedClient?.phone || '',
@@ -279,17 +301,28 @@ export function SaveToDashboardDialog({
           logoFile = new File([blob], 'logo.png', { type: 'image/png' });
         }
 
-        await createQuote.mutateAsync({ 
-          data: apiQuoteData, 
-          logo: logoFile 
-        });
+        if (isEditingQuote && editingQuoteId) {
+          await updateQuote.mutateAsync({
+            id: editingQuoteId,
+            data: apiQuoteData,
+            logo: logoFile,
+          });
+        } else {
+          await createQuote.mutateAsync({
+            data: apiQuoteData,
+            logo: logoFile,
+          });
+        }
 
       } else if (documentType === "receipt" && receiptData) {
+        const normalizedReceiptDate =
+          toISODateString(receiptData.receiptDate) || new Date().toISOString();
+
         // Prepare receipt data for API
         const apiReceiptData = {
           receiptNumber: receiptData.receiptNumber || `REC-${Date.now()}`,
-          clientId: selectedClientId,
-          receiptDate: receiptData.date || new Date().toISOString().split("T")[0],
+          clientId: selectedClientId || defaultClientId || undefined,
+          receiptDate: normalizedReceiptDate,
           receivedFrom: receiptData.receivedFrom || selectedClient?.name || '',
           amount: receiptData.amount || 0,
           currency: receiptData.currency || 'KWD',
@@ -314,10 +347,18 @@ export function SaveToDashboardDialog({
           logoFile = new File([blob], 'logo.png', { type: 'image/png' });
         }
 
-        await createReceipt.mutateAsync({ 
-          data: apiReceiptData, 
-          logo: logoFile 
-        });
+        if (isEditingReceipt && editingReceiptId) {
+          await updateReceipt.mutateAsync({
+            id: editingReceiptId,
+            data: apiReceiptData,
+            logo: logoFile,
+          });
+        } else {
+          await createReceipt.mutateAsync({
+            data: apiReceiptData,
+            logo: logoFile,
+          });
+        }
       }
 
       if (goToDashboard) {
@@ -435,19 +476,38 @@ export function SaveToDashboardDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose} disabled={createInvoice.isPending || createQuote.isPending || createReceipt.isPending}>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={
+              createInvoice.isPending ||
+              updateInvoice.isPending ||
+              createQuote.isPending ||
+              updateQuote.isPending ||
+              createReceipt.isPending ||
+              updateReceipt.isPending
+            }
+          >
             Cancel
           </Button>
           <Button 
             onClick={handleSave} 
             className="gap-2" 
-            disabled={!selectedClientId || createInvoice.isPending || createQuote.isPending || createReceipt.isPending}
+            disabled={
+              (!selectedClientId && !isEditingInvoice && !isEditingReceipt && !isEditingQuote) ||
+              createInvoice.isPending ||
+              updateInvoice.isPending ||
+              createQuote.isPending ||
+              updateQuote.isPending ||
+              createReceipt.isPending ||
+              updateReceipt.isPending
+            }
           >
-            {(createInvoice.isPending || createQuote.isPending || createReceipt.isPending) && (
+            {(createInvoice.isPending || updateInvoice.isPending || createQuote.isPending || updateQuote.isPending || createReceipt.isPending || updateReceipt.isPending) && (
               <Loader2 className="h-4 w-4 animate-spin" />
             )}
             Save to Dashboard
-            {!(createInvoice.isPending || createQuote.isPending || createReceipt.isPending) && (
+            {!(createInvoice.isPending || updateInvoice.isPending || createQuote.isPending || updateQuote.isPending || createReceipt.isPending || updateReceipt.isPending) && (
               <ArrowRight className="h-4 w-4" />
             )}
           </Button>

@@ -112,13 +112,24 @@ export function ItemDetails({
                 <input
                   type="color"
                   id="tableHeaderColor"
-                  value={tableHeaderColor}
+                  value={/^#[0-9A-F]{6}$/i.test(tableHeaderColor) ? tableHeaderColor : '#000000'}
                   onChange={(e) => onTableHeaderColorChange(e.target.value)}
                   className="w-8 h-8 rounded cursor-pointer border border-border"
                 />
                 <Input
                   value={tableHeaderColor}
-                  onChange={(e) => onTableHeaderColorChange(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Only allow valid hex colors (#rrggbb format)
+                    if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                      if (value === '' || /^#[0-9A-Fa-f]{6}$/.test(value)) {
+                        onTableHeaderColorChange(value || '#000000');
+                      } else if (/^#[0-9A-Fa-f]{0,5}$/.test(value)) {
+                        // Allow partial input for better UX
+                        onTableHeaderColorChange(value);
+                      }
+                    }
+                  }}
                   placeholder="#000000"
                   className="w-24 h-8 text-xs font-mono"
                 />

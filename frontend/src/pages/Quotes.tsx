@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useInvoices, useReminders } from '@/hooks/useData';
 import { useClients } from '@/hooks/api/useClients';
-import { useQuotesAPI, useDeleteQuote, useUpdateQuote } from '@/hooks/api/useQuotes';
+import { useQuotesAPI, useCreateQuote, useDeleteQuote, useUpdateQuote } from '@/hooks/api/useQuotes';
 import { useAuth } from '@/contexts/AuthContext';
 import { Quote, QuoteItem } from '@/types/app';
 import { QuoteData } from '@/types/quote';
@@ -108,6 +108,7 @@ export default function Quotes() {
   
   // API Hooks - Fetch quotes from database
   const { data: apiQuotes = [], isLoading: loadingQuotes } = useQuotesAPI(statusFilter !== 'all' ? statusFilter : undefined);
+  const createQuoteMutation = useCreateQuote();
   const deleteQuoteMutation = useDeleteQuote();
   const updateQuoteMutation = useUpdateQuote();
   
@@ -124,7 +125,7 @@ export default function Quotes() {
   const quotes: Quote[] = apiQuotesArray.map((q: any) => ({
     id: q._id,
     quoteNumber: q.quoteNumber,
-    clientId: q.clientId || '',
+    clientId: (typeof q.clientId === 'string' ? q.clientId : q.clientId?._id) || '',
     clientName: q.billTo?.name || '',
     clientPhone: q.billTo?.phone || '',
     clientEmail: q.billTo?.email || '',
@@ -180,9 +181,6 @@ export default function Quotes() {
   
   // Stub functions for features not yet migrated to API
   const addQuote = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Create quotes from the Invoice Generator', variant: 'destructive' }); return null; };
-  const markAsSent = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as sent will be available via API soon', variant: 'destructive' }); };
-  const markAsAccepted = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as accepted will be available via API soon', variant: 'destructive' }); };
-  const markAsRejected = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as rejected will be available via API soon', variant: 'destructive' }); };
   const markAsConverted = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Convert to invoice will be available via API soon', variant: 'destructive' }); };
 
   // QuoteData state for editing (matches Generator page structure)
@@ -384,6 +382,28 @@ export default function Quotes() {
 
   const handleEditQuote = (quote: Quote) => {
     setEditingQuoteId(quote.id);
+    
+    // Convert ISO dates to YYYY-MM-DD format for date input fields
+    const formatDateForInput = (date: any) => {
+      if (!date) return format(new Date(), 'yyyy-MM-dd');
+      
+      // If it's already in YYYY-MM-DD format, return as-is
+      if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return date;
+      }
+      
+      // If it's an ISO string or Date object, convert to YYYY-MM-DD
+      if (typeof date === 'string') {
+        return format(new Date(date), 'yyyy-MM-dd');
+      }
+      
+      if (date instanceof Date) {
+        return format(date, 'yyyy-MM-dd');
+      }
+      
+      return format(new Date(date), 'yyyy-MM-dd');
+    };
+    
     // Populate editQuoteData with full QuoteData structure from the quote
     setEditQuoteData({
       logo: quote.logo || null,
@@ -391,8 +411,8 @@ export default function Quotes() {
       currency: quote.currency,
       currencySymbol: quote.currencySymbol,
       quoteNumber: quote.quoteNumber,
-      quoteDate: quote.quoteDate,
-      validUntil: quote.validUntil,
+      quoteDate: formatDateForInput(quote.quoteDate),
+      validUntil: formatDateForInput(quote.validUntil),
       billTo: {
         name: quote.clientName,
         phone: quote.clientPhone || '',
@@ -434,7 +454,7 @@ export default function Quotes() {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateQuote = () => {
+  const handleUpdateQuote = async () => {
     if (!editingQuoteId) return;
 
     if (!editQuoteData.billTo.name) {
@@ -445,46 +465,97 @@ export default function Quotes() {
     const subtotal = calculateSubtotal(editQuoteData.items);
     const total = calculateTotal(editQuoteData.items, editQuoteData.discount);
 
-    updateQuote(editingQuoteId, {
-      logo: editQuoteData.logo,
-      logoScale: editQuoteData.logoScale,
-      clientName: editQuoteData.billTo.name,
-      clientPhone: editQuoteData.billTo.phone,
-      clientArea: editQuoteData.billTo.area,
-      clientBlock: editQuoteData.billTo.block,
-      clientStreet: editQuoteData.billTo.street,
-      clientHouse: editQuoteData.billTo.house,
-      quoteDate: editQuoteData.quoteDate,
-      validUntil: editQuoteData.validUntil,
-      items: editQuoteData.items,
-      subtotal,
-      discount: editQuoteData.discount,
-      deliveryFee: editQuoteData.deliveryFee,
-      total,
-      currency: editQuoteData.currency,
-      currencySymbol: editQuoteData.currencySymbol,
-      notes: editQuoteData.notes,
-      companyName: editQuoteData.companyFooter.companyName,
-      companyAddress: editQuoteData.companyFooter.address,
-      companyPhone: editQuoteData.companyFooter.officePhone,
-      companyEmail: editQuoteData.companyFooter.websiteEmail,
-      paymentDetails: editQuoteData.paymentDetails,
-      showPaymentMethod: editQuoteData.showPaymentMethod,
-      paymentMethodType: editQuoteData.paymentMethodType,
-      showBankAccount: editQuoteData.showBankAccount,
-      bankAccount: editQuoteData.bankAccount,
-      showPaymentTerms: editQuoteData.showPaymentTerms,
-      paymentTerms: editQuoteData.paymentTerms,
-      hideQuantity: editQuoteData.hideQuantity,
-      hideUnitPrice: editQuoteData.hideUnitPrice,
-      hideTotalCost: editQuoteData.hideTotalCost,
-      hideSubTotal: editQuoteData.hideSubTotal,
-      useManualGrandTotal: editQuoteData.useManualGrandTotal,
-      manualGrandTotal: editQuoteData.manualGrandTotal,
-      tableHeaderColor: editQuoteData.tableHeaderColor,
+    // Transform items to include amount field and remove id
+    const transformedItems = editQuoteData.items.map((item: any) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      amount: item.quantity * item.unitPrice,
+    }));
+
+    // Format dates as strict ISO 8601 strings and reject invalid values
+    const formatDateToISO = (date: unknown): string | null => {
+      if (!date) return null;
+
+      if (typeof date === 'string') {
+        const trimmed = date.trim();
+        if (!trimmed) return null;
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+          const dateOnly = new Date(`${trimmed}T00:00:00.000Z`);
+          return Number.isNaN(dateOnly.getTime()) ? null : dateOnly.toISOString();
+        }
+
+        const parsed = new Date(trimmed);
+        return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+      }
+
+      if (date instanceof Date) {
+        return Number.isNaN(date.getTime()) ? null : date.toISOString();
+      }
+
+      const parsed = new Date(date as string | number | Date);
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+    };
+
+    const normalizedQuoteDate = formatDateToISO(editQuoteData.quoteDate);
+    const normalizedValidUntil = formatDateToISO(editQuoteData.validUntil);
+
+    if (!normalizedQuoteDate || !normalizedValidUntil) {
+      toast({
+        title: 'Error',
+        description: 'Quote Date and Valid Until must be valid dates',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    await updateQuoteMutation.mutateAsync({
+      id: editingQuoteId,
+      data: {
+        logo: editQuoteData.logo,
+        logoScale: editQuoteData.logoScale,
+        quoteDate: normalizedQuoteDate,
+        validUntil: normalizedValidUntil,
+        billTo: {
+          name: editQuoteData.billTo.name,
+          phone: editQuoteData.billTo.phone,
+          area: editQuoteData.billTo.area,
+          block: editQuoteData.billTo.block,
+          street: editQuoteData.billTo.street,
+          house: editQuoteData.billTo.house,
+        },
+        items: transformedItems,
+        subtotal,
+        discount: editQuoteData.discount,
+        deliveryFee: editQuoteData.deliveryFee,
+        total,
+        currency: editQuoteData.currency,
+        currencySymbol: editQuoteData.currencySymbol,
+        notes: editQuoteData.notes,
+        companyFooter: {
+          companyName: editQuoteData.companyFooter.companyName,
+          address: editQuoteData.companyFooter.address,
+          officePhone: editQuoteData.companyFooter.officePhone,
+          websiteEmail: editQuoteData.companyFooter.websiteEmail,
+        },
+        paymentDetails: editQuoteData.paymentDetails,
+        showPaymentMethod: editQuoteData.showPaymentMethod,
+        paymentMethodType: editQuoteData.paymentMethodType,
+        showBankAccount: editQuoteData.showBankAccount,
+        bankAccount: editQuoteData.bankAccount,
+        showPaymentTerms: editQuoteData.showPaymentTerms,
+        paymentTerms: editQuoteData.paymentTerms,
+        hideQuantity: editQuoteData.hideQuantity,
+        hideUnitPrice: editQuoteData.hideUnitPrice,
+        hideTotalCost: editQuoteData.hideTotalCost,
+        hideSubTotal: editQuoteData.hideSubTotal,
+        useManualGrandTotal: editQuoteData.useManualGrandTotal,
+        manualGrandTotal: editQuoteData.manualGrandTotal,
+        tableHeaderColor: editQuoteData.tableHeaderColor,
+      }
     });
 
-    toast({ title: 'Quote Updated', description: 'Quote has been updated successfully' });
     setIsEditDialogOpen(false);
     setEditingQuoteId(null);
     resetForm();
@@ -494,27 +565,19 @@ export default function Quotes() {
     return `${window.location.origin}/quote/${quote.shareToken}`;
   };
 
-  const handleGenerateShareLink = (quote: Quote) => {
+  const handleGenerateShareLink = async (quote: Quote) => {
     const shareToken = generateShareToken();
-    updateQuote(quote.id, { shareToken });
-    toast({ title: 'Share Link Generated', description: 'A shareable link has been created for this quote' });
+    await updateQuoteMutation.mutateAsync({ id: quote.id, data: { shareToken } });
   };
 
   const handleCopyLink = async (quote: Quote) => {
     let shareToken = quote.shareToken;
     
-    // Generate token if it doesn't exist and save directly to localStorage
+    // Generate token if it doesn't exist
     if (!shareToken) {
       shareToken = generateShareToken();
-      // Update via hook for React state
-      updateQuote(quote.id, { shareToken });
-      // Also update localStorage directly to ensure it's immediately available
-      const storageKey = user ? `fintrack_quotes_${user.id}` : 'fintrack_quotes';
-      const storedQuotes: Quote[] = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const updatedQuotes = storedQuotes.map(q => 
-        q.id === quote.id ? { ...q, shareToken } : q
-      );
-      localStorage.setItem(storageKey, JSON.stringify(updatedQuotes));
+      const updated = await updateQuoteMutation.mutateAsync({ id: quote.id, data: { shareToken } });
+      shareToken = updated.shareToken || shareToken;
     }
     
     const link = `${window.location.origin}/quote/${shareToken}`;
@@ -526,21 +589,14 @@ export default function Quotes() {
     }
   };
 
-  const handleOpenShareLink = (quote: Quote) => {
+  const handleOpenShareLink = async (quote: Quote) => {
     let shareToken = quote.shareToken;
 
-    // Generate token if it doesn't exist and save directly to localStorage
+    // Generate token if it doesn't exist
     if (!shareToken) {
       shareToken = generateShareToken();
-      // Update via hook for React state
-      updateQuote(quote.id, { shareToken });
-      // Also update localStorage directly to ensure it's immediately available
-      const storageKey = user ? `fintrack_quotes_${user.id}` : 'fintrack_quotes';
-      const storedQuotes: Quote[] = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const updatedQuotes = storedQuotes.map(q =>
-        q.id === quote.id ? { ...q, shareToken } : q
-      );
-      localStorage.setItem(storageKey, JSON.stringify(updatedQuotes));
+      const updated = await updateQuoteMutation.mutateAsync({ id: quote.id, data: { shareToken } });
+      shareToken = updated.shareToken || shareToken;
     }
 
     const link = `${window.location.origin}/quote/${shareToken}`;
@@ -550,18 +606,27 @@ export default function Quotes() {
     window.location.assign(link);
   };
 
-  const handleSendQuote = (quote: Quote) => {
-    markAsSent(quote.id);
+  const handleSendQuote = async (quote: Quote) => {
+    await updateQuoteMutation.mutateAsync({
+      id: quote.id,
+      data: { status: 'sent', sentAt: new Date().toISOString() },
+    });
     toast({ title: 'Quote Sent', description: `Quote ${quote.quoteNumber} marked as sent` });
   };
 
-  const handleAcceptQuote = (quote: Quote) => {
-    markAsAccepted(quote.id);
+  const handleAcceptQuote = async (quote: Quote) => {
+    await updateQuoteMutation.mutateAsync({
+      id: quote.id,
+      data: { status: 'accepted', acceptedAt: new Date().toISOString() },
+    });
     toast({ title: 'Quote Accepted', description: `Quote ${quote.quoteNumber} marked as accepted` });
   };
 
-  const handleRejectQuote = (quote: Quote) => {
-    markAsRejected(quote.id);
+  const handleRejectQuote = async (quote: Quote) => {
+    await updateQuoteMutation.mutateAsync({
+      id: quote.id,
+      data: { status: 'rejected', rejectedAt: new Date().toISOString() },
+    });
     toast({ title: 'Quote Rejected', description: `Quote ${quote.quoteNumber} marked as rejected` });
   };
   /**
@@ -747,17 +812,64 @@ export default function Quotes() {
     }
   };
 
-  const handleDuplicateQuote = (quote: Quote) => {
+  const handleDuplicateQuote = async (quote: Quote) => {
     const shareToken = generateShareToken();
-    addQuote({
-      ...quote,
-      quoteNumber: generateQuoteNumber(),
-      status: 'draft',
-      quoteDate: format(new Date(), 'yyyy-MM-dd'),
-      validUntil: format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-      convertedToInvoiceId: undefined,
-      shareToken,
-      clientResponse: undefined,
+    const generatedNumber = /^QT-\d+$/.test(quote.quoteNumber)
+      ? generateQuoteNumber()
+      : `${quote.quoteNumber}-COPY-${String(Date.now()).slice(-6)}`;
+
+    await createQuoteMutation.mutateAsync({
+      data: {
+        quoteNumber: generatedNumber,
+        clientId: quote.clientId || undefined,
+        status: 'draft',
+        quoteDate: new Date().toISOString(),
+        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        billTo: {
+          name: quote.clientName,
+          phone: quote.clientPhone || '',
+          area: quote.clientArea || '',
+          block: quote.clientBlock || '',
+          street: quote.clientStreet || '',
+          house: quote.clientHouse || '',
+          other: '',
+        },
+        items: quote.items.map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          amount: item.quantity * item.unitPrice,
+        })),
+        subtotal: quote.subtotal || calculateSubtotal(quote.items),
+        discount: quote.discount || 0,
+        deliveryFee: quote.deliveryFee || 0,
+        total: quote.total || calculateTotal(quote.items, quote.discount || 0),
+        currency: quote.currency,
+        currencySymbol: quote.currencySymbol,
+        companyFooter: {
+          companyName: quote.companyName || '',
+          address: quote.companyAddress || '',
+          officePhone: quote.companyPhone || '',
+          websiteEmail: quote.companyEmail || '',
+        },
+        logoScale: quote.logoScale || 1.0,
+        tableHeaderColor: quote.tableHeaderColor || '#000000',
+        showPaymentMethod: quote.showPaymentMethod || false,
+        paymentMethodType: quote.paymentMethodType || 'cash',
+        showBankAccount: quote.showBankAccount || false,
+        bankAccount: quote.bankAccount || { bankName: '', accountName: '', iban: '' },
+        showPaymentTerms: quote.showPaymentTerms || false,
+        paymentTerms: quote.paymentTerms || '',
+        hideQuantity: quote.hideQuantity || false,
+        hideUnitPrice: quote.hideUnitPrice || false,
+        hideTotalCost: quote.hideTotalCost || false,
+        hideSubTotal: quote.hideSubTotal || false,
+        useManualGrandTotal: quote.useManualGrandTotal || false,
+        manualGrandTotal: quote.manualGrandTotal || 0,
+        notes: quote.notes || '',
+        paymentDetails: quote.paymentDetails || '',
+        shareToken,
+      },
     });
     toast({ title: 'Quote Duplicated', description: 'A copy of the quote has been created with a new shareable link' });
   };

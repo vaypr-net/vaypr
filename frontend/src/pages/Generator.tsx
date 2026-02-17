@@ -43,6 +43,10 @@ const Index = () => {
   const [isSaveToDashboardOpen, setIsSaveToDashboardOpen] = useState(false);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [editingInvoiceClientId, setEditingInvoiceClientId] = useState<string | null>(null);
+  const [editingReceiptId, setEditingReceiptId] = useState<string | null>(null);
+  const [editingReceiptClientId, setEditingReceiptClientId] = useState<string | null>(null);
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+  const [editingQuoteClientId, setEditingQuoteClientId] = useState<string | null>(null);
 
   const { addInvoice } = useInvoices();
   const { addQuote } = useQuotes();
@@ -126,7 +130,7 @@ const Index = () => {
                 tableHeaderColor: parsedData.tableHeaderColor || "#000000",
               };
               setInvoiceData(invoiceFormData);
-              setEditingInvoiceId(parsedData._id || null);
+              setEditingInvoiceId(parsedData.id || parsedData._id || null);
               const clientId =
                 typeof parsedData.clientId === "string"
                   ? parsedData.clientId
@@ -153,6 +157,12 @@ const Index = () => {
                 amountColor: parsedData.amountColor || "#000000",
               };
               setReceiptData(receiptFormData);
+              setEditingReceiptId(parsedData.id || parsedData._id || null);
+              const receiptClientId =
+                typeof parsedData.clientId === "string"
+                  ? parsedData.clientId
+                  : parsedData.clientId?._id || parsedData.clientId?.id || null;
+              setEditingReceiptClientId(receiptClientId);
             } else if (tab === "quote") {
               // Convert Quote to QuoteData
               const quoteFormData: QuoteData = {
@@ -207,6 +217,12 @@ const Index = () => {
                 tableHeaderColor: parsedData.tableHeaderColor || "#000000",
               };
               setQuoteData(quoteFormData);
+              setEditingQuoteId(parsedData.id || parsedData._id || null);
+              const quoteClientId =
+                typeof parsedData.clientId === "string"
+                  ? parsedData.clientId
+                  : parsedData.clientId?._id || parsedData.clientId?.id || null;
+              setEditingQuoteClientId(quoteClientId);
             }
             
             // Clear the stored data after loading
@@ -600,6 +616,16 @@ const Index = () => {
     }
 
     if (activeTab === "invoice" && editingInvoiceId) {
+      setIsSaveToDashboardOpen(true);
+      return;
+    }
+
+    if (activeTab === "quote" && editingQuoteId) {
+      setIsSaveToDashboardOpen(true);
+      return;
+    }
+
+    if (activeTab === "receipt" && editingReceiptId) {
       setIsSaveToDashboardOpen(true);
       return;
     }
@@ -1258,7 +1284,17 @@ const Index = () => {
         receiptData={activeTab === "receipt" ? receiptData : undefined}
         quoteData={activeTab === "quote" ? quoteData : undefined}
         editingInvoiceId={activeTab === "invoice" ? editingInvoiceId : null}
-        defaultClientId={activeTab === "invoice" ? editingInvoiceClientId : null}
+        editingReceiptId={activeTab === "receipt" ? editingReceiptId : null}
+        editingQuoteId={activeTab === "quote" ? editingQuoteId : null}
+        defaultClientId={
+          activeTab === "invoice"
+            ? editingInvoiceClientId
+            : activeTab === "receipt"
+              ? editingReceiptClientId
+            : activeTab === "quote"
+              ? editingQuoteClientId
+              : null
+        }
       />
     </div>
   );
