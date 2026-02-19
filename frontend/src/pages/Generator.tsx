@@ -27,6 +27,7 @@ import { SaveTemplateDialog } from "@/components/generator/SaveTemplateDialog";
 import { SaveToDashboardDialog } from "@/components/generator/SaveToDashboardDialog";
 import { TemplateSelector } from "@/components/generator/TemplateSelector";
 import { useDesignTemplates } from "@/hooks/useDesignTemplates";
+import { useDocumentActions } from "@/hooks/useDocumentActions";
 import { InvoiceData } from "@/types/invoice";
 import { ReceiptData } from "@/types/receipt";
 import { QuoteData } from "@/types/quote";
@@ -52,6 +53,10 @@ const Index = () => {
   const { addQuote } = useQuotes();
   const { addReceipt } = useReceipts();
   const { clients } = useClients();
+  const { downloadPDF } = useDocumentActions();
+
+  const toBool = (value: unknown): boolean =>
+    value === true || value === "true" || value === 1 || value === "1";
 
   // Sanitize numeric values
   const sanitizeNumber = (value: any): number => {
@@ -121,11 +126,11 @@ const Index = () => {
                 },
                 showPaymentTerms: parsedData.showPaymentTerms || false,
                 paymentTerms: parsedData.paymentTerms || parsedData.notes || "",
-                hideQuantity: parsedData.hideQuantity || false,
-                hideUnitPrice: parsedData.hideUnitPrice || false,
-                hideTotalCost: parsedData.hideTotalCost || false,
-                hideSubTotal: parsedData.hideSubTotal || false,
-                useManualGrandTotal: parsedData.useManualGrandTotal || false,
+                hideQuantity: toBool(parsedData.hideQuantity),
+                hideUnitPrice: toBool(parsedData.hideUnitPrice),
+                hideTotalCost: toBool(parsedData.hideTotalCost),
+                hideSubTotal: toBool(parsedData.hideSubTotal),
+                useManualGrandTotal: toBool(parsedData.useManualGrandTotal),
                 manualGrandTotal: parsedData.manualGrandTotal || 0,
                 tableHeaderColor: parsedData.tableHeaderColor || "#000000",
               };
@@ -198,21 +203,21 @@ const Index = () => {
                   websiteEmail: parsedData.companyEmail || "",
                 },
                 paymentDetails: parsedData.paymentDetails || "",
-                showPaymentMethod: parsedData.showPaymentMethod || false,
+                showPaymentMethod: toBool(parsedData.showPaymentMethod),
                 paymentMethodType: parsedData.paymentMethodType || "cash",
-                showBankAccount: parsedData.showBankAccount || false,
+                showBankAccount: toBool(parsedData.showBankAccount),
                 bankAccount: parsedData.bankAccount || {
                   bankName: "",
                   accountName: "",
                   iban: "",
                 },
-                showPaymentTerms: parsedData.showPaymentTerms || false,
+                showPaymentTerms: toBool(parsedData.showPaymentTerms),
                 paymentTerms: parsedData.paymentTerms || "",
-                hideQuantity: parsedData.hideQuantity || false,
-                hideUnitPrice: parsedData.hideUnitPrice || false,
-                hideTotalCost: parsedData.hideTotalCost || false,
-                hideSubTotal: parsedData.hideSubTotal || false,
-                useManualGrandTotal: parsedData.useManualGrandTotal || false,
+                hideQuantity: toBool(parsedData.hideQuantity),
+                hideUnitPrice: toBool(parsedData.hideUnitPrice),
+                hideTotalCost: toBool(parsedData.hideTotalCost),
+                hideSubTotal: toBool(parsedData.hideSubTotal),
+                useManualGrandTotal: toBool(parsedData.useManualGrandTotal),
                 manualGrandTotal: parsedData.manualGrandTotal || 0,
                 tableHeaderColor: parsedData.tableHeaderColor || "#000000",
               };
@@ -418,7 +423,21 @@ const Index = () => {
       return;
     }
 
-    window.print();
+    const exportId =
+      activeTab === "invoice"
+        ? "generator-invoice-export-preview"
+        : activeTab === "receipt"
+          ? "generator-receipt-export-preview"
+          : "generator-quote-export-preview";
+
+    const exportName =
+      activeTab === "invoice"
+        ? `Invoice-${invoiceData.invoiceNumber || "document"}`
+        : activeTab === "receipt"
+          ? `Receipt-${receiptData.receiptNumber || "document"}`
+          : `Quote-${quoteData.quoteNumber || "document"}`;
+
+    downloadPDF(exportId, exportName);
   };
 
   const getDocumentLabel = () => {
@@ -771,15 +790,31 @@ const Index = () => {
         })),
         subtotal: sanitizeNumber(subtotal),
         discount: sanitizeNumber(quoteData.discount),
+        deliveryFee: sanitizeNumber(quoteData.deliveryFee),
         total: sanitizeNumber(total),
         currency: quoteData.currency,
         currencySymbol: quoteData.currencySymbol,
         notes: quoteData.notes || undefined,
+        paymentDetails: quoteData.paymentDetails || undefined,
+        showPaymentMethod: quoteData.showPaymentMethod,
+        paymentMethodType: quoteData.paymentMethodType,
+        showBankAccount: quoteData.showBankAccount,
+        bankAccount: quoteData.bankAccount,
+        showPaymentTerms: quoteData.showPaymentTerms,
+        paymentTerms: quoteData.paymentTerms || undefined,
+        hideQuantity: quoteData.hideQuantity,
+        hideUnitPrice: quoteData.hideUnitPrice,
+        hideTotalCost: quoteData.hideTotalCost,
+        hideSubTotal: quoteData.hideSubTotal,
+        useManualGrandTotal: quoteData.useManualGrandTotal,
+        manualGrandTotal: quoteData.manualGrandTotal,
+        tableHeaderColor: quoteData.tableHeaderColor || undefined,
         companyName: quoteData.companyFooter.companyName || undefined,
         companyAddress: quoteData.companyFooter.address || undefined,
         companyPhone: quoteData.companyFooter.officePhone || undefined,
         companyEmail: quoteData.companyFooter.websiteEmail || undefined,
         logo: quoteData.logo,
+        logoScale: quoteData.logoScale,
         shareToken: crypto.randomUUID().replace(/-/g, '').substring(0, 16),
       };
 
@@ -1276,6 +1311,19 @@ const Index = () => {
             {activeTab === "invoice" && <InvoicePreview data={invoiceData} />}
             {activeTab === "receipt" && <ReceiptPreview data={receiptData} />}
             {activeTab === "quote" && <QuotePreview data={quoteData} />}
+          </div>
+
+          {/* Offscreen export targets for jsPDF/html2canvas */}
+          <div className="absolute -left-[100000px] top-0 pointer-events-none" aria-hidden="true">
+            {activeTab === "invoice" && (
+              <InvoicePreview data={invoiceData} previewId="generator-invoice-export-preview" />
+            )}
+            {activeTab === "receipt" && (
+              <ReceiptPreview data={receiptData} previewId="generator-receipt-export-preview" />
+            )}
+            {activeTab === "quote" && (
+              <QuotePreview data={quoteData} previewId="generator-quote-export-preview" />
+            )}
           </div>
         </main>
       </div>

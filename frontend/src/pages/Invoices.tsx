@@ -771,9 +771,15 @@ export default function Invoices() {
               <Button variant="outline" onClick={() => setIsViewOpen(false)}>
                 Close
               </Button>
-              <Button onClick={() => window.print()} className="gap-2">
+              <Button
+                onClick={() => {
+                  if (!selectedInvoice) return;
+                  downloadPDF('invoice-preview', `Invoice-${selectedInvoice.invoiceNumber}`);
+                }}
+                className="gap-2"
+              >
                 <Printer className="h-4 w-4" />
-                Print
+                Download PDF
               </Button>
             </DialogFooter>
           </DialogContent>

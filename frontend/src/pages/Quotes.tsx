@@ -90,6 +90,8 @@ const CURRENCIES = [
   { value: 'SAR', symbol: 'SAR', label: 'SAR' },
 ];
 
+const toBool = (value: unknown): boolean => value === true || value === 'true' || value === 1 || value === '1';
+
 export default function Quotes() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -164,11 +166,11 @@ export default function Quotes() {
     bankAccount: q.bankAccount || { bankName: '', accountName: '', iban: '' },
     showPaymentTerms: q.showPaymentTerms || false,
     paymentTerms: q.paymentTerms || '',
-    hideQuantity: q.hideQuantity || false,
-    hideUnitPrice: q.hideUnitPrice || false,
-    hideTotalCost: q.hideTotalCost || false,
-    hideSubTotal: q.hideSubTotal || false,
-    useManualGrandTotal: q.useManualGrandTotal || false,
+    hideQuantity: toBool(q.hideQuantity),
+    hideUnitPrice: toBool(q.hideUnitPrice),
+    hideTotalCost: toBool(q.hideTotalCost),
+    hideSubTotal: toBool(q.hideSubTotal),
+    useManualGrandTotal: toBool(q.useManualGrandTotal),
     manualGrandTotal: q.manualGrandTotal || 0,
     tableHeaderColor: q.tableHeaderColor || '#000000',
     shareToken: q.shareToken,
@@ -274,6 +276,64 @@ export default function Quotes() {
 
   const formatCurrency = (amount: number, symbol: string) => {
     return `${symbol}${amount.toFixed(2)}`;
+  };
+
+  const mapQuoteToPreviewData = (quote: Quote): QuoteData => ({
+    logo: quote.logo || null,
+    logoScale: quote.logoScale || 1.0,
+    currency: quote.currency,
+    currencySymbol: quote.currencySymbol || quote.currency,
+    billTo: {
+      name: quote.clientName,
+      phone: quote.clientPhone || '',
+      area: quote.clientArea || '',
+      block: quote.clientBlock || '',
+      street: quote.clientStreet || '',
+      house: quote.clientHouse || '',
+      other: '',
+    },
+    quoteNumber: quote.quoteNumber,
+    quoteDate: quote.quoteDate,
+    validUntil: quote.validUntil,
+    items: quote.items,
+    discount: quote.discount,
+    deliveryFee: quote.deliveryFee || 0,
+    notes: quote.notes || '',
+    companyFooter: {
+      companyName: quote.companyName || '',
+      officePhone: quote.companyPhone || '',
+      address: quote.companyAddress || '',
+      websiteEmail: quote.companyEmail || '',
+    },
+    paymentDetails: quote.paymentDetails || '',
+    showPaymentMethod: toBool(quote.showPaymentMethod),
+    paymentMethodType: quote.paymentMethodType || 'cash',
+    showBankAccount: toBool(quote.showBankAccount),
+    bankAccount: quote.bankAccount || {
+      bankName: '',
+      accountName: '',
+      iban: '',
+    },
+    showPaymentTerms: toBool(quote.showPaymentTerms),
+    paymentTerms: quote.paymentTerms || '',
+    hideQuantity: toBool(quote.hideQuantity),
+    hideUnitPrice: toBool(quote.hideUnitPrice),
+    hideTotalCost: toBool(quote.hideTotalCost),
+    hideSubTotal: toBool(quote.hideSubTotal),
+    useManualGrandTotal: toBool(quote.useManualGrandTotal),
+    manualGrandTotal: quote.manualGrandTotal || 0,
+    tableHeaderColor: quote.tableHeaderColor || '#000000',
+  });
+
+  const handleDownloadQuotePdf = (quote: Quote) => {
+    setSelectedQuote(quote);
+    const filename = `Quote-${quote.quoteNumber}`;
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        downloadPDF('quote-preview', filename);
+      });
+    });
   };
 
   const filterPhoneInput = (value: string): string => {
@@ -420,21 +480,21 @@ export default function Quotes() {
         websiteEmail: quote.companyEmail || '',
       },
       paymentDetails: quote.paymentDetails || '',
-      showPaymentMethod: quote.showPaymentMethod || false,
+      showPaymentMethod: toBool(quote.showPaymentMethod),
       paymentMethodType: quote.paymentMethodType || 'cash',
-      showBankAccount: quote.showBankAccount || false,
+      showBankAccount: toBool(quote.showBankAccount),
       bankAccount: quote.bankAccount || {
         bankName: '',
         accountName: '',
         iban: '',
       },
-      showPaymentTerms: quote.showPaymentTerms || false,
+      showPaymentTerms: toBool(quote.showPaymentTerms),
       paymentTerms: quote.paymentTerms || '',
-      hideQuantity: quote.hideQuantity || false,
-      hideUnitPrice: quote.hideUnitPrice || false,
-      hideTotalCost: quote.hideTotalCost || false,
-      hideSubTotal: quote.hideSubTotal || false,
-      useManualGrandTotal: quote.useManualGrandTotal || false,
+      hideQuantity: toBool(quote.hideQuantity),
+      hideUnitPrice: toBool(quote.hideUnitPrice),
+      hideTotalCost: toBool(quote.hideTotalCost),
+      hideSubTotal: toBool(quote.hideSubTotal),
+      useManualGrandTotal: toBool(quote.useManualGrandTotal),
       manualGrandTotal: quote.manualGrandTotal || 0,
       tableHeaderColor: quote.tableHeaderColor || '#000000',
     });
@@ -1000,11 +1060,7 @@ export default function Quotes() {
                             Send to Email
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => {
-                            setSelectedQuote(quote);
-                            setIsViewDialogOpen(true);
-                            setTimeout(() => {
-                              downloadPDF('quote-preview', `Quote-${quote.quoteNumber}`);
-                            }, 300);
+                            handleDownloadQuotePdf(quote);
                           }}>
                             <Download className="h-4 w-4 mr-2" />
                             Download PDF
@@ -1637,6 +1693,17 @@ export default function Quotes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden quote preview used by Download PDF action */}
+      {selectedQuote && (
+        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} aria-hidden="true">
+          <QuotePreview
+            previewId="quote-preview"
+            data={mapQuoteToPreviewData(selectedQuote)}
+          />
+        </div>
+      )}
+
     {/* Email Quote Dialog */}
     <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
       <DialogContent>
@@ -1664,52 +1731,7 @@ export default function Quotes() {
           <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
             <QuotePreview 
               previewId="quote-preview-email"
-              data={{
-                logo: selectedQuote.logo || null,
-                logoScale: selectedQuote.logoScale || 1.0,
-                currency: selectedQuote.currency,
-                currencySymbol: selectedQuote.currencySymbol || selectedQuote.currency,
-                billTo: {
-                  name: selectedQuote.clientName,
-                  phone: selectedQuote.clientPhone || '',
-                  email: selectedQuote.clientEmail || '',
-                  area: selectedQuote.clientArea || '',
-                  block: selectedQuote.clientBlock || '',
-                  street: selectedQuote.clientStreet || '',
-                  house: selectedQuote.clientHouse || '',
-                },
-                quoteNumber: selectedQuote.quoteNumber,
-                quoteDate: selectedQuote.quoteDate,
-                validUntil: selectedQuote.validUntil,
-                items: selectedQuote.items,
-                discount: selectedQuote.discount,
-                deliveryFee: selectedQuote.deliveryFee || 0,
-                notes: selectedQuote.notes || '',
-                companyFooter: {
-                  name: selectedQuote.companyName || '',
-                  phone: selectedQuote.companyPhone || '',
-                  address: selectedQuote.companyAddress || '',
-                  email: selectedQuote.companyEmail || '',
-                },
-                paymentDetails: selectedQuote.paymentDetails || '',
-                showPaymentMethod: selectedQuote.showPaymentMethod || false,
-                paymentMethodType: selectedQuote.paymentMethodType || 'cash',
-                showBankAccount: selectedQuote.showBankAccount || false,
-                bankAccount: selectedQuote.bankAccount || {
-                  bankName: '',
-                  accountName: '',
-                  iban: '',
-                },
-                showPaymentTerms: selectedQuote.showPaymentTerms || false,
-                paymentTerms: selectedQuote.paymentTerms || '',
-                hideQuantity: selectedQuote.hideQuantity || false,
-                hideUnitPrice: selectedQuote.hideUnitPrice || false,
-                hideTotalCost: selectedQuote.hideTotalCost || false,
-                hideSubTotal: selectedQuote.hideSubTotal || false,
-                useManualGrandTotal: selectedQuote.useManualGrandTotal || false,
-                manualGrandTotal: selectedQuote.manualGrandTotal || 0,
-                tableHeaderColor: selectedQuote.tableHeaderColor || '#000000',
-              }}
+              data={mapQuoteToPreviewData(selectedQuote)}
             />
           </div>
         )}

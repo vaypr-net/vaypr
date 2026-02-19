@@ -408,9 +408,6 @@ export default function Receipts() {
   const handlePrintReceipt = (receipt: ReceiptVoucher) => {
     setSelectedReceipt(receipt);
     setIsViewDialogOpen(true);
-    setTimeout(() => {
-      window.print();
-    }, 500);
   };
 
   const handleClientSelect = (clientId: string) => {
@@ -809,9 +806,15 @@ export default function Receipts() {
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
               Close
             </Button>
-            <Button onClick={() => window.print()} className="gap-2">
+            <Button
+              onClick={() => {
+                if (!selectedReceipt) return;
+                downloadPDF('receipt-preview', `Receipt-${selectedReceipt.receiptNumber}`);
+              }}
+              className="gap-2"
+            >
               <Printer className="h-4 w-4" />
-              Print
+              Download PDF
             </Button>
           </DialogFooter>
         </DialogContent>
