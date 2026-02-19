@@ -549,42 +549,29 @@ export default function Profile() {
 
     setIsUploadingImage(true);
     try {
-      // Create FormData for Cloudinary upload
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'vayper_avatar'); // You may need to adjust this
+      // Upload file to backend which will proxy the upload to Cloudinary using server credentials
+      const fd = new FormData();
+      fd.append('file', file);
 
-      // Upload to Cloudinary
-      const cloudinaryResponse = await fetch(
-        'https://api.cloudinary.com/v1_1/da378hbeu/image/upload',
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+      const uploadResponse = await fetch(`${apiBase}/userprofile/upload-image`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+        body: fd,
+      });
 
-      if (!cloudinaryResponse.ok) {
-        throw new Error('Failed to upload image to Cloudinary');
+      if (!uploadResponse.ok) {
+        const errText = await uploadResponse.text().catch(() => null);
+        throw new Error(errText || 'Failed to upload image to server');
       }
 
-      const cloudinaryData = await cloudinaryResponse.json();
-      const imageUrl = cloudinaryData.secure_url;
+      const data = await uploadResponse.json();
+      const imageUrl = data.profileImage || data.profile?.profileImage || data.secure_url || data.url;
 
-      // Update user avatar in database via API
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/user/${user?.id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
-          },
-          body: JSON.stringify({ avatar: imageUrl }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
+      if (!imageUrl) {
+        throw new Error('Upload succeeded but no image URL returned');
       }
 
       // Sync avatar into auth context/localStorage
@@ -595,20 +582,14 @@ export default function Profile() {
         } as any);
       }
 
-      toast({
-        title: 'Avatar Updated',
-        description: 'Your profile picture has been updated successfully.',
-      });
+      toast({ title: 'Avatar Updated', description: 'Your profile picture has been updated successfully.' });
 
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    } catch (error) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (error: any) {
       console.error('Image upload error:', error);
       toast({
         title: 'Upload Failed',
-        description: error instanceof Error ? error.message : 'Failed to upload image. Please try again.',
+        description: error?.message || 'Failed to upload image. Please try again.',
         variant: 'destructive',
       });
     } finally {
