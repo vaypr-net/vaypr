@@ -50,11 +50,10 @@ export class LoginService {
     if (user.twoFactorEnabled) {
       const tempPayload = {
         sub: user._id,
-        email: user.email,
-        twoFactor: true,
+        type: '2fa_pending',
       };
       const tempToken = this.jwtService.sign(tempPayload, { expiresIn: '5m' });
-      return { two_factor_required: true, temp_token: tempToken };
+      return { requires2fa: true, tempToken: tempToken };
     }
 
     // Generate JWT token with isSuperAdmin flag for performance
@@ -155,11 +154,10 @@ export class LoginService {
     if ((user as any).twoFactorEnabled) {
       const tempPayload = {
         sub: user._id,
-        email: user.email,
-        twoFactor: true,
+        type: '2fa_pending',
       };
       const tempToken = this.jwtService.sign(tempPayload, { expiresIn: '5m' });
-      return { two_factor_required: true, temp_token: tempToken };
+      return { requires2fa: true, tempToken: tempToken };
     }
 
     const payload = {

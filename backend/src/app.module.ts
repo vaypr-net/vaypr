@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { LoginModule } from './login/login.module';
+import { TwofaModule } from './twofa/twofa.module';
 import { UserprofileModule } from './userprofile/userprofile.module';
 import { SuperadminSettingsModule } from './superadmin-settings/superadmin-settings.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
@@ -56,6 +57,7 @@ import { SuperAdminAuditModule } from './super-admin-audit/super-admin-audit.mod
     CloudinaryModule,
     UserModule,
     LoginModule,
+    TwofaModule,
     UserprofileModule,
     SuperadminSettingsModule,
     ClientsModule,
