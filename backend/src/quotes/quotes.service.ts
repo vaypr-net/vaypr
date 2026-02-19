@@ -4,6 +4,7 @@ import {
   NotFoundException,
   OnModuleInit,
   Inject,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -73,7 +74,16 @@ export class QuotesService implements OnModuleInit {
         : undefined,
     });
 
-    return quote.save();
+    try {
+      return await quote.save();
+    } catch (error: any) {
+      if (this.isDuplicateQuoteNumberError(error)) {
+        throw new ConflictException(
+          `Quote number "${createQuoteDto.quoteNumber}" already exists. Please use a different quote number.`,
+        );
+      }
+      throw error;
+    }
   }
 
   async findAll(userId: string): Promise<Quote[]> {
@@ -140,19 +150,30 @@ export class QuotesService implements OnModuleInit {
       }
     }
 
-    const updatedQuote = await this.quoteModel
-      .findByIdAndUpdate(
-        id,
-        {
-          ...updateQuoteDto,
-          clientId: updateQuoteDto.clientId
-            ? new Types.ObjectId(updateQuoteDto.clientId)
-            : existingQuote.clientId,
-        },
-        { new: true },
-      )
-      .populate('clientId', 'name email phone clientType')
-      .exec();
+    let updatedQuote: Quote | null = null;
+    try {
+      updatedQuote = await this.quoteModel
+        .findByIdAndUpdate(
+          id,
+          {
+            ...updateQuoteDto,
+            clientId: updateQuoteDto.clientId
+              ? new Types.ObjectId(updateQuoteDto.clientId)
+              : existingQuote.clientId,
+          },
+          { new: true },
+        )
+        .populate('clientId', 'name email phone clientType')
+        .exec();
+    } catch (error: any) {
+      if (this.isDuplicateQuoteNumberError(error)) {
+        const duplicateNumber = updateQuoteDto.quoteNumber || existingQuote.quoteNumber;
+        throw new ConflictException(
+          `Quote number "${duplicateNumber}" already exists. Please use a different quote number.`,
+        );
+      }
+      throw error;
+    }
 
     if (!updatedQuote) {
       throw new NotFoundException(`Quote with ID ${id} not found`);
@@ -192,6 +213,15 @@ export class QuotesService implements OnModuleInit {
       dto.useManualGrandTotal = false;
       dto.manualGrandTotal = 0;
     }
+  }
+
+  private isDuplicateQuoteNumberError(error: any): boolean {
+    return (
+      !!error &&
+      error.code === 11000 &&
+      (error.keyPattern?.quoteNumber === 1 ||
+        Object.prototype.hasOwnProperty.call(error.keyValue || {}, 'quoteNumber'))
+    );
   }
 
   async remove(id: string, userId: string): Promise<Quote> {

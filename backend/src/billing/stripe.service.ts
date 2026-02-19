@@ -1023,26 +1023,40 @@ export class StripeService {
     refundStrategy: 'full_prorated' | 'account_credit' | 'no_refund',
   ): Promise<void> {
     try {
-      // Get the latest invoice for the subscription
+      // Get recent invoices and pick a paid invoice (credit note refunds require post-payment context).
       const invoices = await this.stripe.invoices.list({
         subscription: subscription.id,
-        limit: 1,
+        limit: 10,
       });
 
-      if (invoices.data.length > 0) {
-        const latestInvoice = invoices.data[0];
+      const paidInvoice = invoices.data.find(
+        (invoice) => invoice.status === 'paid' && (invoice.amount_paid ?? 0) > 0,
+      );
 
-        // Create credit note for partial refund
+      if (paidInvoice) {
+        const requestedRefundMinor = Math.max(0, Math.round(refundAmount * 100));
+        const maxRefundableMinor = Math.max(0, paidInvoice.amount_paid ?? 0);
+        const refundMinor = Math.min(requestedRefundMinor, maxRefundableMinor);
+
+        if (refundMinor <= 0) {
+          this.logger.warn(
+            `Calculated refund is 0 for user ${user._id}; skipping Stripe credit note/refund.`,
+          );
+          return;
+        }
+
+        // Create credit note and explicitly allocate post-payment amount to refund.
         const creditNote = await this.stripe.creditNotes.create({
-          invoice: latestInvoice.id,
+          invoice: paidInvoice.id,
           lines: [
             {
               type: 'custom_line_item' as any,
               description: `Prorated refund for subscription cancellation (${refundAmount} ${subscription.currency?.toUpperCase()})`,
-              unit_amount: Math.round(refundAmount * 100), // Convert to cents
+              unit_amount: refundMinor,
               quantity: 1,
             },
           ],
+          refund_amount: refundMinor,
           memo: `Refund issued on subscription cancellation by user ${user._id}`,
         });
 
@@ -1052,11 +1066,11 @@ export class StripeService {
         });
 
         this.logger.log(
-          `Created credit note ${creditNote.id} for refund of ${refundAmount} to user ${user._id}`,
+          `Created credit note ${creditNote.id} for refund of ${refundMinor / 100} ${subscription.currency?.toUpperCase()} to user ${user._id}`,
         );
       } else {
         this.logger.warn(
-          `No invoices found for subscription ${subscription.id} to create refund`,
+          `No paid invoices found for subscription ${subscription.id} to create refund`,
         );
       }
     } catch (error) {

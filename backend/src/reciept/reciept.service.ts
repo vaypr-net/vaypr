@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -79,7 +80,16 @@ export class RecieptService {
         : undefined,
     });
 
-    return receipt.save();
+    try {
+      return await receipt.save();
+    } catch (error: any) {
+      if (this.isDuplicateReceiptNumberError(error)) {
+        throw new ConflictException(
+          `Receipt number "${createReceiptDto.receiptNumber}" already exists. Please use a different receipt number.`,
+        );
+      }
+      throw error;
+    }
   }
 
   async findAll(userId: string): Promise<Receipt[]> {
@@ -170,23 +180,35 @@ export class RecieptService {
       }
     }
 
-    const updatedReceipt = await this.receiptModel
-      .findByIdAndUpdate(
-        id,
-        {
-          ...updateReceiptDto,
-          clientId: updateReceiptDto.clientId
-            ? new Types.ObjectId(updateReceiptDto.clientId)
-            : existingReceipt.clientId,
-          invoiceId: updateReceiptDto.invoiceId
-            ? new Types.ObjectId(updateReceiptDto.invoiceId)
-            : existingReceipt.invoiceId,
-        },
-        { new: true },
-      )
-      .populate('clientId', 'name email phone clientType')
-      .populate('invoiceId', 'invoiceNumber total status')
-      .exec();
+    let updatedReceipt: Receipt | null = null;
+    try {
+      updatedReceipt = await this.receiptModel
+        .findByIdAndUpdate(
+          id,
+          {
+            ...updateReceiptDto,
+            clientId: updateReceiptDto.clientId
+              ? new Types.ObjectId(updateReceiptDto.clientId)
+              : existingReceipt.clientId,
+            invoiceId: updateReceiptDto.invoiceId
+              ? new Types.ObjectId(updateReceiptDto.invoiceId)
+              : existingReceipt.invoiceId,
+          },
+          { new: true },
+        )
+        .populate('clientId', 'name email phone clientType')
+        .populate('invoiceId', 'invoiceNumber total status')
+        .exec();
+    } catch (error: any) {
+      if (this.isDuplicateReceiptNumberError(error)) {
+        const duplicateNumber =
+          updateReceiptDto.receiptNumber || existingReceipt.receiptNumber;
+        throw new ConflictException(
+          `Receipt number "${duplicateNumber}" already exists. Please use a different receipt number.`,
+        );
+      }
+      throw error;
+    }
 
     if (!updatedReceipt) {
       throw new NotFoundException(`Receipt with ID ${id} not found`);
@@ -266,5 +288,14 @@ export class RecieptService {
       .populate('invoiceId', 'invoiceNumber total status')
       .sort({ createdAt: -1 })
       .exec();
+  }
+
+  private isDuplicateReceiptNumberError(error: any): boolean {
+    return (
+      !!error &&
+      error.code === 11000 &&
+      (error.keyPattern?.receiptNumber === 1 ||
+        Object.prototype.hasOwnProperty.call(error.keyValue || {}, 'receiptNumber'))
+    );
   }
 }
