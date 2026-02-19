@@ -1,6 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useReminders } from '@/hooks/useData';
 import { Button } from '@/components/ui/button';
 import { 
@@ -130,11 +131,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={() => setIsSidebarOpen(false)}
               className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-sidebar-accent/50 transition-colors"
             >
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground text-sm font-medium">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user?.avatar || (user as any)?.profileImage || (user as any)?.profilePicture || undefined} />
+                <AvatarFallback className="text-primary-foreground text-sm font-medium bg-primary">
                   {user?.name?.charAt(0).toUpperCase()}
-                </span>
-              </div>
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{user?.name}</p>
                 <p className="text-xs text-muted-foreground truncate">{user?.email}</p>

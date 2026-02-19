@@ -84,7 +84,7 @@ const PAYMENT_METHODS = [
 
 export default function Receipts() {
   const { toast } = useToast();
-  const { downloadPDF, sendEmail, openInGenerator } = useDocumentActions();
+  const { downloadPDF, printDocument, printPDF, sendEmail, openInGenerator } = useDocumentActions();
   
   // State declarations
   const [searchQuery, setSearchQuery] = useState('');
@@ -560,6 +560,16 @@ export default function Receipts() {
                             Download PDF
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => {
+                            setSelectedReceipt(receipt);
+                            setIsViewDialogOpen(true);
+                            setTimeout(() => {
+                              printPDF('receipt-preview', `Receipt-${receipt.receiptNumber}`);
+                            }, 350);
+                          }}>
+                            <Printer className="h-4 w-4 mr-2" />
+                            Print (no headers)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
                             openInGenerator('receipt', receipt);
                           }}>
                             <Pencil className="h-4 w-4 mr-2" />
@@ -806,16 +816,43 @@ export default function Receipts() {
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
               Close
             </Button>
-            <Button
-              onClick={() => {
-                if (!selectedReceipt) return;
-                downloadPDF('receipt-preview', `Receipt-${selectedReceipt.receiptNumber}`);
-              }}
-              className="gap-2"
-            >
-              <Printer className="h-4 w-4" />
-              Download PDF
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="gap-2">
+                  <Printer className="h-4 w-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (!selectedReceipt) return;
+                    printDocument('receipt-preview');
+                  }}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print (choose orientation)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (!selectedReceipt) return;
+                    printPDF('receipt-preview', `Receipt-${selectedReceipt.receiptNumber}`);
+                  }}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print (no headers)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (!selectedReceipt) return;
+                    downloadPDF('receipt-preview', `Receipt-${selectedReceipt.receiptNumber}`);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </DialogFooter>
         </DialogContent>
       </Dialog>

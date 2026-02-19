@@ -64,7 +64,7 @@ export default function Invoices() {
   const { addPayment } = usePayments();
   const { addReminder } = useReminders();
   const { toast } = useToast();
-  const { downloadPDF, sendEmail, openInGenerator } = useDocumentActions();
+  const { downloadPDF, printDocument, sendEmail, openInGenerator } = useDocumentActions();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -771,16 +771,35 @@ export default function Invoices() {
               <Button variant="outline" onClick={() => setIsViewOpen(false)}>
                 Close
               </Button>
-              <Button
-                onClick={() => {
-                  if (!selectedInvoice) return;
-                  downloadPDF('invoice-preview', `Invoice-${selectedInvoice.invoiceNumber}`);
-                }}
-                className="gap-2"
-              >
-                <Printer className="h-4 w-4" />
-                Download PDF
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="gap-2">
+                    <Printer className="h-4 w-4" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!selectedInvoice) return;
+                      // Print via print dialog
+                      printDocument('invoice-preview');
+                    }}
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print (choose orientation)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!selectedInvoice) return;
+                      downloadPDF('invoice-preview', `Invoice-${selectedInvoice.invoiceNumber}`);
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -34,7 +34,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (storedUser && storedToken) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsed = JSON.parse(storedUser);
+        // Normalize avatar/name fields from multiple possible backend shapes
+        const normalized = {
+          ...parsed,
+          fullName: parsed.fullName || parsed.name || parsed.fullName,
+          name: parsed.name || parsed.fullName || parsed.name,
+          avatar: parsed.avatar || parsed.profileImage || parsed.profilePicture || null,
+        };
+        setUser(normalized);
         setToken(storedToken);
       } catch {
         localStorage.removeItem('user');

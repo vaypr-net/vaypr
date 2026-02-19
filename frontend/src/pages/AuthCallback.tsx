@@ -34,30 +34,46 @@ export default function AuthCallback() {
         // Store token in localStorage
         localStorage.setItem('accessToken', token);
 
-        // Decode token to get user info (JWT payload is base64 encoded)
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        
-        // Fetch user data from backend using token
+        // Decode token to get userId (JWT payload is base64 encoded)
+        const payload = JSON.parse(atob(token.split('.')[1] || ''));
+        const userId = payload?.sub;
         const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
-        const response = await fetch(`${apiBaseUrl}/userprofile`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
 
-        if (response.ok) {
-          const userData = await response.json();
-          localStorage.setItem('user', JSON.stringify(userData));
-          updateUser(userData);
-          
-          // Redirect based on user role
-          if (userData.isSuperAdmin) {
-            navigate('/super-admin');
-          } else {
-            navigate('/dashboard');
-          }
+        // Fetch both core user record and the userprofile, then merge
+        const [userRes, profileRes] = await Promise.all([
+          fetch(`${apiBaseUrl}/user/${userId}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          }),
+          fetch(`${apiBaseUrl}/userprofile`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          }),
+        ]);
+
+        if (!userRes.ok) throw new Error('Failed to fetch user record');
+        if (!profileRes.ok) throw new Error('Failed to fetch user profile');
+
+        const userRecord = await userRes.json();
+        const profile = await profileRes.json();
+
+        // Merge into a single user object shape expected by the frontend
+        const merged = {
+          id: userRecord._id || userRecord.id || userRecord._id,
+          email: profile?.email || userRecord.email,
+          fullName: profile?.fullName || userRecord.fullName || userRecord.name,
+          name: profile?.fullName || userRecord.fullName || userRecord.name,
+          avatar: userRecord.profilePicture || profile?.profileImage || userRecord.profileImage || null,
+          isSuperAdmin: profile?.isSuperAdmin || userRecord.isSuperAdmin || false,
+          createdAt: userRecord.createdAt,
+        };
+
+        localStorage.setItem('user', JSON.stringify(merged));
+        updateUser(merged as any);
+
+        // Redirect based on user role
+        if (merged.isSuperAdmin) {
+          navigate('/super-admin');
         } else {
-          throw new Error('Failed to fetch user data');
+          navigate('/dashboard');
         }
       } catch (error) {
         console.error('Auth callback error:', error);

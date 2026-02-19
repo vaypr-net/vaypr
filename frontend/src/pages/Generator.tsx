@@ -53,7 +53,7 @@ const Index = () => {
   const { addQuote } = useQuotes();
   const { addReceipt } = useReceipts();
   const { clients } = useClients();
-  const { downloadPDF } = useDocumentActions();
+  const { downloadPDF, printDocument } = useDocumentActions();
 
   const toBool = (value: unknown): boolean =>
     value === true || value === "true" || value === 1 || value === "1";
@@ -98,8 +98,8 @@ const Index = () => {
                 invoiceNumber: parsedData.invoiceNumber || "",
                 invoiceDate: parsedData.issueDate || "",
                 paymentDate: parsedData.dueDate || "",
-                items: (parsedData.items || []).map((item: { id: string; description: string; quantity: number; rate: number; amount: number }) => ({
-                  id: item.id,
+                items: (parsedData.items || []).map((item: { id?: string; description: string; quantity: number; rate: number; amount: number }) => ({
+                  id: item.id || crypto.randomUUID(),
                   description: item.description,
                   quantity: item.quantity,
                   unitPrice: item.rate, // Convert rate to unitPrice
@@ -187,8 +187,8 @@ const Index = () => {
                   house: parsedData.clientHouse || "",
                   other: "",
                 },
-                items: (parsedData.items || []).map((item: { id: string; description: string; quantity: number; unitPrice: number }) => ({
-                  id: item.id,
+                items: (parsedData.items || []).map((item: { id?: string; description: string; quantity: number; unitPrice: number }) => ({
+                  id: item.id || crypto.randomUUID(),
                   description: item.description,
                   quantity: item.quantity,
                   unitPrice: item.unitPrice,
@@ -437,7 +437,8 @@ const Index = () => {
           ? `Receipt-${receiptData.receiptNumber || "document"}`
           : `Quote-${quoteData.quoteNumber || "document"}`;
 
-    downloadPDF(exportId, exportName);
+    // Open print dialog by default (restores previous behavior allowing orientation choice)
+    printDocument(exportId);
   };
 
   const getDocumentLabel = () => {
