@@ -159,12 +159,10 @@ export function SaveToDashboardDialog({
         const paymentTermsText = invoiceData.paymentTerms?.trim() || '';
         const showPaymentMethod = toBool(invoiceData.showPaymentMethod);
         const showBankAccount = toBool(invoiceData.showBankAccount);
-        const showPaymentTerms = toBool(invoiceData.showPaymentTerms) && paymentTermsText.length > 0;
+        const showPaymentTerms = toBool(invoiceData.showPaymentTerms);
         const hideQuantity = toBool(invoiceData.hideQuantity);
         const hideUnitPrice = toBool(invoiceData.hideUnitPrice);
         const hideTotalCost = toBool(invoiceData.hideTotalCost);
-        const forceShowItemColumns =
-          hasQuantifiableItems && hideQuantity && hideUnitPrice && hideTotalCost;
 
         // Prepare invoice data for API
         const apiInvoiceData = {
@@ -210,12 +208,12 @@ export function SaveToDashboardDialog({
             iban: invoiceData.bankAccount?.iban || '',
           },
           showPaymentTerms,
-          paymentTerms: showPaymentTerms ? paymentTermsText : undefined,
+          paymentTerms: paymentTermsText,
           logoScale: invoiceData.logoScale || 1.0,
           tableHeaderColor: invoiceData.tableHeaderColor,
-          hideQuantity: forceShowItemColumns ? false : hideQuantity,
-          hideUnitPrice: forceShowItemColumns ? false : hideUnitPrice,
-          hideTotalCost: forceShowItemColumns ? false : hideTotalCost,
+          hideQuantity,
+          hideUnitPrice,
+          hideTotalCost,
           hideSubTotal: toBool(invoiceData.hideSubTotal),
           useManualGrandTotal,
           manualGrandTotal: normalizedManualGrandTotal,
@@ -266,8 +264,6 @@ export function SaveToDashboardDialog({
         const hideQuantity = toBool(quoteData.hideQuantity);
         const hideUnitPrice = toBool(quoteData.hideUnitPrice);
         const hideTotalCost = toBool(quoteData.hideTotalCost);
-        const forceShowItemColumns =
-          hasQuantifiableItems && hideQuantity && hideUnitPrice && hideTotalCost;
 
         // Prepare quote data for API
         const apiQuoteData = {
@@ -315,9 +311,9 @@ export function SaveToDashboardDialog({
           paymentTerms: quoteData.paymentTerms || '',
           logoScale: quoteData.logoScale || 1.0,
           tableHeaderColor: quoteData.tableHeaderColor,
-          hideQuantity: forceShowItemColumns ? false : hideQuantity,
-          hideUnitPrice: forceShowItemColumns ? false : hideUnitPrice,
-          hideTotalCost: forceShowItemColumns ? false : hideTotalCost,
+          hideQuantity,
+          hideUnitPrice,
+          hideTotalCost,
           hideSubTotal: toBool(quoteData.hideSubTotal),
           useManualGrandTotal,
           manualGrandTotal: normalizedManualGrandTotal,

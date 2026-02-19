@@ -21,11 +21,9 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
 
   const formatDate = (dateStr: string) => formatDateDMY(dateStr) || "-";
 
-  const allItemColumnsHidden = data.hideQuantity && data.hideUnitPrice && data.hideTotalCost;
-  const forceShowItemColumns = hasQuantifiableItems && allItemColumnsHidden;
-  const showQuantity = forceShowItemColumns ? true : !data.hideQuantity;
-  const showUnitPrice = forceShowItemColumns ? true : !data.hideUnitPrice;
-  const showTotalCost = forceShowItemColumns ? true : !data.hideTotalCost;
+  const showQuantity = !data.hideQuantity;
+  const showUnitPrice = !data.hideUnitPrice;
+  const showTotalCost = !data.hideTotalCost;
 
   // Calculate dynamic column widths based on visible columns
   const getColumnWidths = () => {
@@ -46,7 +44,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
   const hiddenStyle: React.CSSProperties = { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 };
 
   return (
-    <div className="bg-card rounded-xl shadow-card p-8 max-w-2xl mx-auto print:shadow-none" id={previewId}>
+    <div className="bg-card rounded-xl shadow-card p-8 max-w-2xl mx-auto print:shadow-none print:min-h-[270mm] print:flex print:flex-col" id={previewId}>
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>
@@ -230,7 +228,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
 
       {/* Footer */}
       {(data.companyFooter.companyName || data.companyFooter.address || data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
-        <div className="pt-6 border-t border-border">
+        <div className="pt-6 border-t border-border print:mt-auto">
           <div className="text-sm text-muted-foreground flex items-center justify-center gap-2 whitespace-nowrap">
             {data.companyFooter.companyName && (
               <span className="font-semibold text-foreground">{data.companyFooter.companyName}</span>

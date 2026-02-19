@@ -30,12 +30,9 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
     return `${data.currency} ${validAmount.toFixed(2)}`;
   };
 
-  const allItemColumnsHidden = data.hideQuantity && data.hideUnitPrice && data.hideTotalCost;
-  const forceShowItemColumns = hasQuantifiableItems && allItemColumnsHidden;
-
-  const showQuantity = forceShowItemColumns ? true : !data.hideQuantity;
-  const showUnitPrice = forceShowItemColumns ? true : !data.hideUnitPrice;
-  const showTotalCost = forceShowItemColumns ? true : !data.hideTotalCost;
+  const showQuantity = !data.hideQuantity;
+  const showUnitPrice = !data.hideUnitPrice;
+  const showTotalCost = !data.hideTotalCost;
 
   // Calculate dynamic column widths based on visible columns
   const getColumnWidths = () => {
@@ -57,7 +54,7 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
   return (
     <div className="bg-background max-w-2xl mx-auto print:shadow-none" id={previewId}>
       {/* Document Container */}
-      <div className="bg-card p-8">
+      <div className="bg-card p-8 print:min-h-[270mm] print:flex print:flex-col">
         {/* Header - Logo left, Invoice info right */}
         <div className="flex justify-between items-start mb-8">
           {/* Logo / Company Name */}
@@ -256,7 +253,7 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
 
         {/* Company Footer Details */}
         {(data.companyFooter.companyName || data.companyFooter.address || data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
-          <div className="border-t border-border pt-6">
+          <div className="border-t border-border pt-6 print:mt-auto">
             <div className="text-xs text-muted-foreground flex items-center justify-center gap-2 whitespace-nowrap">
               {data.companyFooter.companyName && (
                 <span className="font-semibold text-foreground">{data.companyFooter.companyName}</span>
