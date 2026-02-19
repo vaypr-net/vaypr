@@ -11,9 +11,39 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
   const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const discountAmount = (subtotal * data.discount) / 100;
   const calculatedGrandTotal = subtotal - discountAmount + data.deliveryFee;
-  const grandTotal = data.useManualGrandTotal ? data.manualGrandTotal : calculatedGrandTotal;
+  const normalizedManualGrandTotal = Number(data.manualGrandTotal) || 0;
+  const hasQuantifiableItems = data.items.some(
+    (item) => Number(item.quantity) > 0 || Number(item.unitPrice) > 0,
+  );
+  const useManualGrandTotal =
+    data.useManualGrandTotal && (normalizedManualGrandTotal > 0 || !hasQuantifiableItems);
+  const grandTotal = useManualGrandTotal ? normalizedManualGrandTotal : calculatedGrandTotal;
 
   const formatDate = (dateStr: string) => formatDateDMY(dateStr) || "-";
+
+  const allItemColumnsHidden = data.hideQuantity && data.hideUnitPrice && data.hideTotalCost;
+  const forceShowItemColumns = hasQuantifiableItems && allItemColumnsHidden;
+  const showQuantity = forceShowItemColumns ? true : !data.hideQuantity;
+  const showUnitPrice = forceShowItemColumns ? true : !data.hideUnitPrice;
+  const showTotalCost = forceShowItemColumns ? true : !data.hideTotalCost;
+
+  // Calculate dynamic column widths based on visible columns
+  const getColumnWidths = () => {
+    const visibleCols = [showQuantity, showUnitPrice, showTotalCost].filter(Boolean).length;
+    if (visibleCols === 0) return { desc: '100%', qty: '0%', price: '0%', total: '0%' };
+    if (visibleCols === 1) return { desc: '65%', qty: showQuantity ? '35%' : '0%', price: showUnitPrice ? '35%' : '0%', total: showTotalCost ? '35%' : '0%' };
+    if (visibleCols === 2) {
+      return {
+        desc: '50%',
+        qty: showQuantity ? '25%' : '0%',
+        price: showUnitPrice ? '25%' : '0%',
+        total: showTotalCost ? '25%' : '0%',
+      };
+    }
+    return { desc: '40%', qty: '20%', price: '20%', total: '20%' };
+  };
+  const colWidths = getColumnWidths();
+  const hiddenStyle: React.CSSProperties = { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 };
 
   return (
     <div className="bg-card rounded-xl shadow-card p-8 max-w-2xl mx-auto print:shadow-none" id={previewId}>
@@ -74,72 +104,29 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
         {data.billTo.other && <p className="text-muted-foreground">{data.billTo.other}</p>}
       </div>
 
-      {/* Items Table */}
-      <div className="mb-8 print:mb-8">
-        <style>{`
-          #quote-preview table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-          #quote-preview table th,
-          #quote-preview table td {
-            overflow: hidden;
-            word-wrap: break-word;
-          }
-          #quote-preview table th:nth-child(1),
-          #quote-preview table td:nth-child(1) { width: 50%; }
-          #quote-preview table th:nth-child(2),
-          #quote-preview table td:nth-child(2) { width: 15%; }
-          #quote-preview table th:nth-child(3),
-          #quote-preview table td:nth-child(3) { width: 18%; }
-          #quote-preview table th:nth-child(4),
-          #quote-preview table td:nth-child(4) { width: 17%; }
-          #quote-preview table .hidden-column {
-            visibility: hidden !important;
-            width: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border: none !important;
-            height: 0 !important;
-            line-height: 0 !important;
-            font-size: 0 !important;
-          }
-          @media print {
-            #quote-preview table { width: 100%; }
-            #quote-preview table th,
-            #quote-preview table td { padding: 8px; }
-          }
-        `}</style>
-        <table className="w-full border-collapse" style={{ width: '100%' }}>
+      {/* Items Table - All 4 columns always rendered for html2canvas compatibility */}
+      <div className="mb-8 print:mb-8" style={{ width: '100%', overflow: 'visible' }}>
+        <table className="w-full text-sm" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: '50%' }} />
-            <col style={{ width: '15%' }} />
-            <col style={{ width: '18%' }} />
-            <col style={{ width: '17%' }} />
+            <col style={{ width: colWidths.desc }} />
+            <col style={{ width: colWidths.qty }} />
+            <col style={{ width: colWidths.price }} />
+            <col style={{ width: colWidths.total }} />
           </colgroup>
           <thead>
             <tr 
               className="border-b border-border"
               style={{ backgroundColor: data.tableHeaderColor, color: '#fff' }}
             >
-              <th className="text-left py-3 px-2 text-sm font-semibold" style={{ width: '50%' }}>Description</th>
-              <th 
-                className={`text-center py-3 px-2 text-sm font-semibold ${data.hideQuantity ? 'hidden-column' : ''}`}
-                style={{ width: '15%' }}
-              >
-                Qty
+              <th className="text-left py-3 px-2 text-sm font-semibold">Description</th>
+              <th className={showQuantity ? "text-center py-3 px-2 text-sm font-semibold" : ""} style={!showQuantity ? hiddenStyle : {}}>
+                {showQuantity ? 'Qty' : ''}
               </th>
-              <th 
-                className={`text-right py-3 px-2 text-sm font-semibold ${data.hideUnitPrice ? 'hidden-column' : ''}`}
-                style={{ width: '18%' }}
-              >
-                Price
+              <th className={showUnitPrice ? "text-right py-3 px-2 text-sm font-semibold" : ""} style={!showUnitPrice ? hiddenStyle : {}}>
+                {showUnitPrice ? 'Price' : ''}
               </th>
-              <th 
-                className={`text-right py-3 px-2 text-sm font-semibold ${data.hideTotalCost ? 'hidden-column' : ''}`}
-                style={{ width: '17%' }}
-              >
-                Total
+              <th className={showTotalCost ? "text-right py-3 px-2 text-sm font-semibold" : ""} style={!showTotalCost ? hiddenStyle : {}}>
+                {showTotalCost ? 'Total' : ''}
               </th>
             </tr>
           </thead>
@@ -153,26 +140,17 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
             ) : (
               data.items.map((item) => (
                 <tr key={item.id} className="border-b border-border/50">
-                  <td className="py-3 px-2 text-foreground break-words" style={{ width: '50%' }}>
+                  <td className="py-3 px-2 text-foreground break-words">
                     {item.description || "-"}
                   </td>
-                  <td 
-                    className={`py-3 px-2 text-center text-foreground ${data.hideQuantity ? 'hidden-column' : ''}`}
-                    style={{ width: '15%' }}
-                  >
-                    {item.quantity || 0}
+                  <td className={showQuantity ? "py-3 px-2 text-center text-foreground" : ""} style={!showQuantity ? hiddenStyle : {}}>
+                    {showQuantity ? (item.quantity || 0) : ''}
                   </td>
-                  <td 
-                    className={`py-3 px-2 text-right text-foreground ${data.hideUnitPrice ? 'hidden-column' : ''}`}
-                    style={{ width: '18%' }}
-                  >
-                    {data.currencySymbol} {(item.unitPrice || 0).toFixed(2)}
+                  <td className={showUnitPrice ? "py-3 px-2 text-right text-foreground" : ""} style={!showUnitPrice ? hiddenStyle : {}}>
+                    {showUnitPrice ? `${data.currencySymbol} ${(item.unitPrice || 0).toFixed(2)}` : ''}
                   </td>
-                  <td 
-                    className={`py-3 px-2 text-right font-medium text-foreground ${data.hideTotalCost ? 'hidden-column' : ''}`}
-                    style={{ width: '17%' }}
-                  >
-                    {data.currencySymbol} {((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}
+                  <td className={showTotalCost ? "py-3 px-2 text-right font-medium text-foreground" : ""} style={!showTotalCost ? hiddenStyle : {}}>
+                    {showTotalCost ? `${data.currencySymbol} ${((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}` : ''}
                   </td>
                 </tr>
               ))

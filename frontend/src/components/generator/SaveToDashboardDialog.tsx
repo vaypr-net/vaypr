@@ -133,6 +133,9 @@ export function SaveToDashboardDialog({
       return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
     };
 
+    const toBool = (value: unknown): boolean =>
+      value === true || value === 'true' || value === 1 || value === '1';
+
     try {
       if (documentType === "invoice" && invoiceData) {
         const subtotal = invoiceData.items.reduce(
@@ -142,12 +145,26 @@ export function SaveToDashboardDialog({
         
         // Calculate discount as percentage of subtotal
         const discountAmount = (subtotal * invoiceData.discount) / 100;
-        const total = invoiceData.useManualGrandTotal
-          ? invoiceData.manualGrandTotal
+        const normalizedManualGrandTotal = Number(invoiceData.manualGrandTotal) || 0;
+        const hasQuantifiableItems = invoiceData.items.some(
+          (item) => Number(item.quantity) > 0 || Number(item.unitPrice) > 0,
+        );
+        const useManualGrandTotal =
+          toBool(invoiceData.useManualGrandTotal) &&
+          (normalizedManualGrandTotal > 0 || !hasQuantifiableItems);
+        const total = useManualGrandTotal
+          ? normalizedManualGrandTotal
           : Math.max(0, subtotal - discountAmount + invoiceData.deliveryFee); // Ensure total is never negative
 
         const paymentTermsText = invoiceData.paymentTerms?.trim() || '';
-        const showPaymentTerms = invoiceData.showPaymentTerms && paymentTermsText.length > 0;
+        const showPaymentMethod = toBool(invoiceData.showPaymentMethod);
+        const showBankAccount = toBool(invoiceData.showBankAccount);
+        const showPaymentTerms = toBool(invoiceData.showPaymentTerms) && paymentTermsText.length > 0;
+        const hideQuantity = toBool(invoiceData.hideQuantity);
+        const hideUnitPrice = toBool(invoiceData.hideUnitPrice);
+        const hideTotalCost = toBool(invoiceData.hideTotalCost);
+        const forceShowItemColumns =
+          hasQuantifiableItems && hideQuantity && hideUnitPrice && hideTotalCost;
 
         // Prepare invoice data for API
         const apiInvoiceData = {
@@ -184,9 +201,9 @@ export function SaveToDashboardDialog({
             officePhone: invoiceData.companyFooter.officePhone || '',
             websiteEmail: invoiceData.companyFooter.websiteEmail || '',
           },
-          showPaymentMethod: invoiceData.showPaymentMethod,
+          showPaymentMethod,
           paymentMethodType: invoiceData.paymentMethodType || 'cash',
-          showBankAccount: invoiceData.showBankAccount,
+          showBankAccount,
           bankAccount: {
             bankName: invoiceData.bankAccount?.bankName || '',
             accountName: invoiceData.bankAccount?.accountName || '',
@@ -196,12 +213,12 @@ export function SaveToDashboardDialog({
           paymentTerms: showPaymentTerms ? paymentTermsText : undefined,
           logoScale: invoiceData.logoScale || 1.0,
           tableHeaderColor: invoiceData.tableHeaderColor,
-          hideQuantity: invoiceData.hideQuantity,
-          hideUnitPrice: invoiceData.hideUnitPrice,
-          hideTotalCost: invoiceData.hideTotalCost,
-          hideSubTotal: invoiceData.hideSubTotal,
-          useManualGrandTotal: invoiceData.useManualGrandTotal,
-          manualGrandTotal: invoiceData.manualGrandTotal,
+          hideQuantity: forceShowItemColumns ? false : hideQuantity,
+          hideUnitPrice: forceShowItemColumns ? false : hideUnitPrice,
+          hideTotalCost: forceShowItemColumns ? false : hideTotalCost,
+          hideSubTotal: toBool(invoiceData.hideSubTotal),
+          useManualGrandTotal,
+          manualGrandTotal: normalizedManualGrandTotal,
         };
 
         // Convert logo to File if it's a base64 string
@@ -233,9 +250,24 @@ export function SaveToDashboardDialog({
         
         // Calculate discount as percentage of subtotal
         const discountAmount = (subtotal * quoteData.discount) / 100;
-        const total = quoteData.useManualGrandTotal
-          ? quoteData.manualGrandTotal
+        const normalizedManualGrandTotal = Number(quoteData.manualGrandTotal) || 0;
+        const hasQuantifiableItems = quoteData.items.some(
+          (item) => Number(item.quantity) > 0 || Number(item.unitPrice) > 0,
+        );
+        const useManualGrandTotal =
+          toBool(quoteData.useManualGrandTotal) &&
+          (normalizedManualGrandTotal > 0 || !hasQuantifiableItems);
+        const total = useManualGrandTotal
+          ? normalizedManualGrandTotal
           : Math.max(0, subtotal - discountAmount + quoteData.deliveryFee); // Ensure total is never negative
+        const showPaymentMethod = toBool(quoteData.showPaymentMethod);
+        const showBankAccount = toBool(quoteData.showBankAccount);
+        const showPaymentTerms = toBool(quoteData.showPaymentTerms);
+        const hideQuantity = toBool(quoteData.hideQuantity);
+        const hideUnitPrice = toBool(quoteData.hideUnitPrice);
+        const hideTotalCost = toBool(quoteData.hideTotalCost);
+        const forceShowItemColumns =
+          hasQuantifiableItems && hideQuantity && hideUnitPrice && hideTotalCost;
 
         // Prepare quote data for API
         const apiQuoteData = {
@@ -271,24 +303,24 @@ export function SaveToDashboardDialog({
             officePhone: quoteData.companyFooter.officePhone || '',
             websiteEmail: quoteData.companyFooter.websiteEmail || '',
           },
-          showPaymentMethod: quoteData.showPaymentMethod,
+          showPaymentMethod,
           paymentMethodType: quoteData.paymentMethodType || 'cash',
-          showBankAccount: quoteData.showBankAccount,
+          showBankAccount,
           bankAccount: {
             bankName: quoteData.bankAccount?.bankName || '',
             accountName: quoteData.bankAccount?.accountName || '',
             iban: quoteData.bankAccount?.iban || '',
           },
-          showPaymentTerms: quoteData.showPaymentTerms,
+          showPaymentTerms,
           paymentTerms: quoteData.paymentTerms || '',
           logoScale: quoteData.logoScale || 1.0,
           tableHeaderColor: quoteData.tableHeaderColor,
-          hideQuantity: quoteData.hideQuantity,
-          hideUnitPrice: quoteData.hideUnitPrice,
-          hideTotalCost: quoteData.hideTotalCost,
-          hideSubTotal: quoteData.hideSubTotal,
-          useManualGrandTotal: quoteData.useManualGrandTotal,
-          manualGrandTotal: quoteData.manualGrandTotal,
+          hideQuantity: forceShowItemColumns ? false : hideQuantity,
+          hideUnitPrice: forceShowItemColumns ? false : hideUnitPrice,
+          hideTotalCost: forceShowItemColumns ? false : hideTotalCost,
+          hideSubTotal: toBool(quoteData.hideSubTotal),
+          useManualGrandTotal,
+          manualGrandTotal: normalizedManualGrandTotal,
           notes: quoteData.notes || '',
           paymentDetails: quoteData.paymentDetails || '',
         };

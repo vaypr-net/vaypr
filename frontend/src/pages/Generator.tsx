@@ -113,18 +113,18 @@ const Index = () => {
                   websiteEmail: parsedData.companyEmail || "",
                 },
                 paymentDetails: "",
-                showPaymentMethod: parsedData.showPaymentMethod || false,
+                showPaymentMethod: toBool(parsedData.showPaymentMethod),
                 paymentMethodType: parsedData.paymentMethod === 'Cash' ? 'cash' :
                                    parsedData.paymentMethod === 'Bank Transfer' ? 'bank_transfer' :
                                    parsedData.paymentMethod === 'Cheque' ? 'cheque' :
                                    parsedData.paymentMethod === 'Online Payment' ? 'online_payment' : 'cash',
-                showBankAccount: parsedData.showBankAccount || false,
+                showBankAccount: toBool(parsedData.showBankAccount),
                 bankAccount: {
                   bankName: parsedData.bankName || "",
                   accountName: parsedData.bankAccountName || "",
                   iban: parsedData.bankIban || "",
                 },
-                showPaymentTerms: parsedData.showPaymentTerms || false,
+                showPaymentTerms: toBool(parsedData.showPaymentTerms),
                 paymentTerms: parsedData.paymentTerms || parsedData.notes || "",
                 hideQuantity: toBool(parsedData.hideQuantity),
                 hideUnitPrice: toBool(parsedData.hideUnitPrice),
@@ -546,6 +546,11 @@ const Index = () => {
         billTo: prev.billTo,
         discount: prev.discount,
         deliveryFee: prev.deliveryFee,
+        // Keep column visibility at defaults (show all columns) unless user explicitly changed them
+        hideQuantity: false,
+        hideUnitPrice: false,
+        hideTotalCost: false,
+        hideSubTotal: false,
       }));
     } else if (template.type === "receipt") {
       const templateData = template.data as ReceiptData;
@@ -568,6 +573,11 @@ const Index = () => {
         billTo: prev.billTo,
         discount: prev.discount,
         deliveryFee: prev.deliveryFee,
+        // Keep column visibility at defaults (show all columns)
+        hideQuantity: false,
+        hideUnitPrice: false,
+        hideTotalCost: false,
+        hideSubTotal: false,
       }));
     }
     toast.success(`Template "${template.name}" applied`);
@@ -722,6 +732,7 @@ const Index = () => {
           id: item.id,
           description: item.description,
           quantity: sanitizeNumber(item.quantity),
+          unitPrice: sanitizeNumber(item.unitPrice),
           rate: sanitizeNumber(item.unitPrice),
           amount: sanitizeNumber(item.quantity) * sanitizeNumber(item.unitPrice),
         })),

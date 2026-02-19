@@ -119,6 +119,23 @@ export default function Invoices() {
     return qty * price;
   };
 
+  // Wait for a DOM element to be present and visible before attempting PDF capture
+  const waitForElementAndDownload = async (elementId: string, filename: string) => {
+    const timeout = 3000; // ms
+    const interval = 100; // ms
+    let waited = 0;
+    while (waited < timeout) {
+      const el = document.getElementById(elementId);
+      if (el && el.offsetWidth > 0 && el.offsetHeight > 0) break;
+      // element not ready yet
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, interval));
+      waited += interval;
+    }
+    // attempt download whether or not the element reached visible size
+    downloadPDF(elementId, filename);
+  };
+
   const calculateSubtotal = () => {
     return formData.items.reduce((sum, item) => {
       const amount = typeof item.amount === 'number' && !isNaN(item.amount) ? item.amount : 0;
@@ -167,6 +184,9 @@ export default function Invoices() {
     return typeof num === 'number' && !isNaN(num) && isFinite(num) ? num : 0;
   };
 
+  const toBool = (value: unknown): boolean =>
+    value === true || value === 'true' || value === 1 || value === '1';
+
   const handleCreate = async () => {
     const client = clientsArray.find(c => c._id === formData.clientId);
     if (!client) {
@@ -203,8 +223,23 @@ export default function Invoices() {
       tax: 0,
       discount: sanitizeNumber(formData.discount),
       total: sanitizeNumber(total),
-      currency: 'USD',
+      currency: 'KWD',
+      currencySymbol: 'KWD',
       notes: formData.notes,
+      // Column visibility settings - default to showing all columns
+      hideQuantity: false,
+      hideUnitPrice: false,
+      hideTotalCost: false,
+      hideSubTotal: false,
+      useManualGrandTotal: false,
+      manualGrandTotal: 0,
+      // Payment and styling defaults
+      showPaymentMethod: false,
+      paymentMethodType: 'cash',
+      showBankAccount: false,
+      showPaymentTerms: false,
+      tableHeaderColor: '#000000',
+      logoScale: 1,
     };
 
     console.log('📤 Sending invoice data:', JSON.stringify(invoiceData, null, 2));
@@ -516,9 +551,8 @@ export default function Invoices() {
                             <DropdownMenuItem onClick={() => {
                               setSelectedInvoice(invoice);
                               setIsViewOpen(true);
-                              setTimeout(() => {
-                                downloadPDF('invoice-preview', `Invoice-${invoice.invoiceNumber}`);
-                              }, 300);
+                              // wait for the preview to render before capturing
+                              waitForElementAndDownload('invoice-preview', `Invoice-${invoice.invoiceNumber}`);
                             }}>
                               <Download className="h-4 w-4 mr-2" />
                               Download PDF
@@ -746,21 +780,21 @@ export default function Invoices() {
                       websiteEmail: '',
                     },
                     paymentDetails: selectedInvoice.paymentMethodType || '',
-                    showPaymentMethod: selectedInvoice.showPaymentMethod || false,
+                    showPaymentMethod: toBool(selectedInvoice.showPaymentMethod),
                     paymentMethodType: selectedInvoice.paymentMethodType || 'cash',
-                    showBankAccount: selectedInvoice.showBankAccount || false,
+                    showBankAccount: toBool(selectedInvoice.showBankAccount),
                     bankAccount: selectedInvoice.bankAccount || {
                       bankName: '',
                       accountName: '',
                       iban: '',
                     },
-                    showPaymentTerms: selectedInvoice.showPaymentTerms || false,
+                    showPaymentTerms: toBool(selectedInvoice.showPaymentTerms),
                     paymentTerms: selectedInvoice.paymentTerms || '',
-                    hideQuantity: selectedInvoice.hideQuantity || false,
-                    hideUnitPrice: selectedInvoice.hideUnitPrice || false,
-                    hideTotalCost: selectedInvoice.hideTotalCost || false,
-                    hideSubTotal: selectedInvoice.hideSubTotal || false,
-                    useManualGrandTotal: selectedInvoice.useManualGrandTotal || false,
+                    hideQuantity: toBool(selectedInvoice.hideQuantity),
+                    hideUnitPrice: toBool(selectedInvoice.hideUnitPrice),
+                    hideTotalCost: toBool(selectedInvoice.hideTotalCost),
+                    hideSubTotal: toBool(selectedInvoice.hideSubTotal),
+                    useManualGrandTotal: toBool(selectedInvoice.useManualGrandTotal),
                     manualGrandTotal: selectedInvoice.manualGrandTotal || 0,
                     tableHeaderColor: selectedInvoice.tableHeaderColor || '#000000',
                   } as InvoiceData}
@@ -898,21 +932,21 @@ export default function Invoices() {
                       websiteEmail: '',
                     },
                     paymentDetails: selectedInvoice.paymentMethodType || '',
-                    showPaymentMethod: selectedInvoice.showPaymentMethod || false,
+                    showPaymentMethod: toBool(selectedInvoice.showPaymentMethod),
                     paymentMethodType: selectedInvoice.paymentMethodType || 'cash',
-                    showBankAccount: selectedInvoice.showBankAccount || false,
+                    showBankAccount: toBool(selectedInvoice.showBankAccount),
                     bankAccount: selectedInvoice.bankAccount || {
                       bankName: '',
                       accountName: '',
                       iban: '',
                     },
-                    showPaymentTerms: selectedInvoice.showPaymentTerms || false,
+                    showPaymentTerms: toBool(selectedInvoice.showPaymentTerms),
                     paymentTerms: selectedInvoice.paymentTerms || '',
-                    hideQuantity: selectedInvoice.hideQuantity || false,
-                    hideUnitPrice: selectedInvoice.hideUnitPrice || false,
-                    hideTotalCost: selectedInvoice.hideTotalCost || false,
-                    hideSubTotal: selectedInvoice.hideSubTotal || false,
-                    useManualGrandTotal: selectedInvoice.useManualGrandTotal || false,
+                    hideQuantity: toBool(selectedInvoice.hideQuantity),
+                    hideUnitPrice: toBool(selectedInvoice.hideUnitPrice),
+                    hideTotalCost: toBool(selectedInvoice.hideTotalCost),
+                    hideSubTotal: toBool(selectedInvoice.hideSubTotal),
+                    useManualGrandTotal: toBool(selectedInvoice.useManualGrandTotal),
                     manualGrandTotal: selectedInvoice.manualGrandTotal || 0,
                     tableHeaderColor: selectedInvoice.tableHeaderColor || '#000000',
                   } as InvoiceData}
