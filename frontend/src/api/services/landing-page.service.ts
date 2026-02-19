@@ -116,6 +116,9 @@ export interface FooterSection {
   supportLinks: FooterLink[];
   corporateLinks: FooterLink[];
   showSocialLinks: boolean;
+  // Optional CTA for corporate login
+  corporateLoginLabel?: string;
+  corporateLoginHref?: string;
 }
 
 // Main Landing Page Interface

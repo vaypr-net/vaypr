@@ -34,9 +34,11 @@ export default function Login() {
   const [tempToken, setTempToken] = useState<string | null>(null);
   const [twoFACode, setTwoFACode] = useState('');
   const [verifying2FA, setVerifying2FA] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       const res = await AuthService.login({ email, password });
       if (res.two_factor_required) {
@@ -64,6 +66,8 @@ export default function Login() {
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Invalid credentials';
       toast({ title: 'Login failed', description: msg, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -177,7 +181,7 @@ export default function Login() {
                 variant="outline" 
                 className="w-full h-11 gap-3 font-medium"
                 onClick={handleGoogleLogin}
-                disabled={loginMutation.isPending}
+                disabled={submitting}
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -236,8 +240,8 @@ export default function Login() {
                     </button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 shadow-glow" disabled={loginMutation.isPending}>
-                  {loginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 shadow-glow" disabled={submitting}>
+                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign In
                 </Button>
               </form>

@@ -7,6 +7,7 @@ interface InvoicePreviewProps {
 }
 
 export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoicePreviewProps) {
+  // kept simple rendering to match existing muted dot styling
   const subtotal = data.items.reduce((sum, item) => {
     const qty = typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : 0;
     const price = typeof item.unitPrice === 'number' && !isNaN(item.unitPrice) ? item.unitPrice : 0;
@@ -233,9 +234,10 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
               {data.companyFooter.companyName && (
                 <span className="font-semibold text-foreground mr-2">{data.companyFooter.companyName}</span>
               )}
-              {[data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail]
-                .filter(Boolean)
-                .join(' • ')}
+              {([data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail]
+                .filter(Boolean) as string[]).length > 0 && (
+                <span className="text-muted-foreground">• {([data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail].filter(Boolean) as string[]).join(' • ')}</span>
+              )}
             </p>
           </div>
         )}

@@ -93,7 +93,11 @@ export function CorporatePagesManagement() {
   };
 
   const handleToggleFooter = async (id: string) => {
-    await toggleFooterMutation.mutateAsync(id);
+    try {
+      await toggleFooterMutation.mutateAsync(id);
+    } catch (e) {
+      // handled by hook toasts
+    }
   };
 
   const handleInitializeDefaults = async () => {

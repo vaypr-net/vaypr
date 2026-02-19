@@ -7,6 +7,7 @@ interface QuotePreviewProps {
 }
 
 export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreviewProps) {
+  // kept simple rendering to match existing muted dot styling
   const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const discountAmount = (subtotal * data.discount) / 100;
   const calculatedGrandTotal = subtotal - discountAmount + data.deliveryFee;
@@ -199,9 +200,9 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
             {data.companyFooter.companyName && (
               <span className="font-semibold text-foreground mr-2">{data.companyFooter.companyName}</span>
             )}
-            {[data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail]
-              .filter(Boolean)
-              .join(' • ')}
+            {([data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail].filter(Boolean) as string[]).length > 0 && (
+              <span className="text-muted-foreground">• {([data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail].filter(Boolean) as string[]).join(' • ')}</span>
+            )}
           </p>
         </div>
       )}

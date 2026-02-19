@@ -7,6 +7,12 @@ interface ReceiptPreviewProps {
 }
 
 export function ReceiptPreview({ data, previewId = "receipt-preview" }: ReceiptPreviewProps) {
+  const appendDot = (s?: string) => {
+    if (!s) return s;
+    const trimmed = s.trim();
+    return trimmed.endsWith('.') ? trimmed : `${trimmed}.`;
+  };
+  // kept simple rendering to match existing muted dot styling
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "-";
     try {
@@ -86,7 +92,9 @@ export function ReceiptPreview({ data, previewId = "receipt-preview" }: ReceiptP
             {data.companyName && (
               <span className="font-semibold text-foreground mr-2">{data.companyName}</span>
             )}
-            {[data.companyAddress, data.companyPhone].filter(Boolean).join(' • ')}
+            {([data.companyAddress, data.companyPhone].filter(Boolean) as string[]).length > 0 && (
+              <span className="text-muted-foreground">• {([data.companyAddress, data.companyPhone].filter(Boolean) as string[]).join(' • ')}</span>
+            )}
           </p>
         </div>
       )}

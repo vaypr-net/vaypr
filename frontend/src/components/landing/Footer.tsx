@@ -184,6 +184,32 @@ export function Footer() {
                   )}
                 </li>)}
             </ul>
+            <div className="mt-3 flex justify-start">
+              {(() => {
+                const href = landingPage?.footerSection?.corporateLoginHref || '/login';
+                const label = landingPage?.footerSection?.corporateLoginLabel || 'Corporate Login';
+                const baseClasses = 'inline-block px-5 py-2 rounded-lg border border-foreground text-base font-medium text-foreground bg-background hover:bg-muted/5 transition-colors';
+                return isExternalHref(href) ? (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={baseClasses}
+                    style={{ borderWidth: 1 }}
+                  >
+                    {label}
+                  </a>
+                ) : (
+                  <Link
+                    to={href}
+                    className={baseClasses}
+                    style={{ borderWidth: 1 }}
+                  >
+                    {label}
+                  </Link>
+                );
+              })()}
+            </div>
           </div>
         </div>
 
