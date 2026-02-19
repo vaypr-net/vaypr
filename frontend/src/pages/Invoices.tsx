@@ -5,6 +5,7 @@ import { useClients as useClientsAPI } from '@/hooks/api/useClients';
 import { usePayments, useReminders } from '@/hooks/useData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DocumentDateInput } from '@/components/ui/document-date-input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmailService } from '@/api/services/email.service';
@@ -47,6 +48,7 @@ import { Invoice, InvoiceItem, BillTo } from '@/types/app';
 import { InvoicePreview } from '@/components/invoice/InvoicePreview';
 import { InvoiceData } from '@/types/invoice';
 import { useDocumentActions } from '@/hooks/useDocumentActions';
+import { formatDateDMY } from '@/lib/document-date';
 import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 export default function Invoices() {
@@ -305,8 +307,8 @@ export default function Invoices() {
                 
                 <div class="invoice-details">
                   <p><strong>Invoice Number:</strong> ${selectedInvoice.invoiceNumber}</p>
-                  <p><strong>Issue Date:</strong> ${format(new Date(selectedInvoice.issueDate), 'MMMM d, yyyy')}</p>
-                  <p><strong>Due Date:</strong> ${format(new Date(selectedInvoice.dueDate), 'MMMM d, yyyy')}</p>
+                  <p><strong>Issue Date:</strong> ${formatDateDMY(selectedInvoice.issueDate) || '-'}</p>
+                  <p><strong>Due Date:</strong> ${formatDateDMY(selectedInvoice.dueDate) || '-'}</p>
                   <p><strong>Amount Due:</strong> <span class="amount">${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}</span></p>
                 </div>
 
@@ -486,7 +488,7 @@ export default function Invoices() {
                       <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                       <TableCell>{invoice.billTo.name}</TableCell>
                       <TableCell>{formatCurrency(invoice.total, invoice.currency)}</TableCell>
-                      <TableCell>{format(new Date(invoice.dueDate), 'MMM d, yyyy')}</TableCell>
+                      <TableCell>{formatDateDMY(invoice.dueDate) || '-'}</TableCell>
                       <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -590,10 +592,9 @@ export default function Invoices() {
                 </div>
                 <div className="space-y-2">
                   <Label>Due Date</Label>
-                  <Input
-                    type="date"
+                  <DocumentDateInput
                     value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, dueDate: value })}
                   />
                 </div>
               </div>
@@ -911,7 +912,7 @@ export default function Invoices() {
                     sendEmail({
                       to: clientEmail,
                       subject: `Invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.companyFooter?.name || 'Our Company'}`,
-                      body: `Dear ${selectedInvoice.billTo.name},\n\nPlease find attached Invoice ${selectedInvoice.invoiceNumber}.\n\nAmount Due: ${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}\nDue Date: ${format(new Date(selectedInvoice.dueDate), 'MMM d, yyyy')}\n\nThank you for your business.\n\nBest regards,\n${selectedInvoice.companyFooter?.name || 'Our Company'}`,
+                      body: `Dear ${selectedInvoice.billTo.name},\n\nPlease find attached Invoice ${selectedInvoice.invoiceNumber}.\n\nAmount Due: ${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}\nDue Date: ${formatDateDMY(selectedInvoice.dueDate) || '-'}\n\nThank you for your business.\n\nBest regards,\n${selectedInvoice.companyFooter?.name || 'Our Company'}`,
                     });
                     setIsEmailDialogOpen(false);
                   }

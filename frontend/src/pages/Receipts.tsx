@@ -7,6 +7,7 @@ import { useReceiptsAPI, useDeleteReceipt } from '@/hooks/api/useReceipts';
 import { ReceiptVoucher } from '@/types/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DocumentDateInput } from '@/components/ui/document-date-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +63,7 @@ import { Link } from 'react-router-dom';
 import { ReceiptPreview } from '@/components/receipt/ReceiptPreview';
 import { ReceiptData } from '@/types/receipt';
 import { useDocumentActions } from '@/hooks/useDocumentActions';
+import { formatDateDMY } from '@/lib/document-date';
 
 const CURRENCIES = [
   { value: 'USD', symbol: '$', label: 'USD ($)' },
@@ -329,7 +331,7 @@ export default function Receipts() {
                 
                 <div class="receipt-details">
                   <p><strong>Receipt Number:</strong> ${selectedReceipt.receiptNumber}</p>
-                  <p><strong>Date:</strong> ${format(new Date(selectedReceipt.receiptDate), 'MMMM d, yyyy')}</p>
+                  <p><strong>Date:</strong> ${formatDateDMY(selectedReceipt.receiptDate) || '-'}</p>
                   <p><strong>Amount Received:</strong> <span class="amount">${selectedReceipt.currencySymbol}${selectedReceipt.amount.toFixed(2)}</span></p>
                   <p><strong>Payment Method:</strong> ${PAYMENT_METHODS.find(pm => pm.value === selectedReceipt.paymentMethod)?.label || selectedReceipt.paymentMethod}</p>
                   ${selectedReceipt.reason ? `<p><strong>Payment For:</strong> ${selectedReceipt.reason}</p>` : ''}
@@ -521,7 +523,7 @@ export default function Receipts() {
                   <TableRow key={receipt.id}>
                     <TableCell className="font-medium">{receipt.receiptNumber}</TableCell>
                     <TableCell>{receipt.receivedFrom}</TableCell>
-                    <TableCell>{format(new Date(receipt.receiptDate), 'MMM d, yyyy')}</TableCell>
+                    <TableCell>{formatDateDMY(receipt.receiptDate) || '-'}</TableCell>
                     <TableCell>{getPaymentMethodLabel(receipt.paymentMethod)}</TableCell>
                     <TableCell className="font-medium">
                       {formatCurrency(receipt.amount, receipt.currencySymbol)}
@@ -712,10 +714,9 @@ export default function Receipts() {
             {/* Date */}
             <div className="space-y-2">
               <Label>Receipt Date</Label>
-              <Input
-                type="date"
+              <DocumentDateInput
                 value={formData.receiptDate}
-                onChange={(e) => setFormData(prev => ({ ...prev, receiptDate: e.target.value }))}
+                onChange={(value) => setFormData(prev => ({ ...prev, receiptDate: value }))}
               />
             </div>
 
@@ -881,7 +882,7 @@ export default function Receipts() {
                   sendEmail({
                     to: clientEmail,
                     subject: `Receipt ${selectedReceipt.receiptNumber} from ${selectedReceipt.companyName || 'Our Company'}`,
-                    body: `Dear ${selectedReceipt.receivedFrom},\n\nPlease find attached Receipt ${selectedReceipt.receiptNumber}.\n\nAmount: ${selectedReceipt.currencySymbol}${selectedReceipt.amount.toFixed(2)}\nDate: ${format(new Date(selectedReceipt.receiptDate), 'MMM d, yyyy')}\n\nThank you for your payment.\n\nBest regards,\n${selectedReceipt.companyName || 'Our Company'}`,
+                    body: `Dear ${selectedReceipt.receivedFrom},\n\nPlease find attached Receipt ${selectedReceipt.receiptNumber}.\n\nAmount: ${selectedReceipt.currencySymbol}${selectedReceipt.amount.toFixed(2)}\nDate: ${formatDateDMY(selectedReceipt.receiptDate) || '-'}\n\nThank you for your payment.\n\nBest regards,\n${selectedReceipt.companyName || 'Our Company'}`,
                   });
                   setIsEmailDialogOpen(false);
                 }

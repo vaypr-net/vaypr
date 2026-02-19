@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { DocumentDateInput } from "@/components/ui/document-date-input";
 import { Label } from "@/components/ui/label";
 
 interface InvoiceInfoProps {
@@ -29,11 +30,10 @@ export function InvoiceInfo({
         </div>
         <div className="space-y-2">
           <Label htmlFor="invoiceDate">Invoice Date</Label>
-          <Input
+          <DocumentDateInput
             id="invoiceDate"
-            type="date"
             value={invoiceDate}
-            onChange={(e) => onInvoiceDateChange(e.target.value)}
+            onChange={onInvoiceDateChange}
           />
         </div>
       </div>

@@ -9,6 +9,7 @@ import { Quote, QuoteItem } from '@/types/app';
 import { QuoteData } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DocumentDateInput } from '@/components/ui/document-date-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +75,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useDocumentActions } from '@/hooks/useDocumentActions';
+import { formatDateDMY, toISODateTimeString, toISODateOnly } from '@/lib/document-date';
 import { QuoteTimeline } from '@/components/quote/QuoteTimeline';
 import { QuoteEmailTemplate } from '@/components/quote/QuoteEmailTemplate';
 import { QuoteEditForm } from '@/components/quote/QuoteEditForm';
@@ -383,25 +385,10 @@ export default function Quotes() {
   const handleEditQuote = (quote: Quote) => {
     setEditingQuoteId(quote.id);
     
-    // Convert ISO dates to YYYY-MM-DD format for date input fields
+    // Convert stored dates to YYYY-MM-DD format used internally by the form.
     const formatDateForInput = (date: any) => {
       if (!date) return format(new Date(), 'yyyy-MM-dd');
-      
-      // If it's already in YYYY-MM-DD format, return as-is
-      if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        return date;
-      }
-      
-      // If it's an ISO string or Date object, convert to YYYY-MM-DD
-      if (typeof date === 'string') {
-        return format(new Date(date), 'yyyy-MM-dd');
-      }
-      
-      if (date instanceof Date) {
-        return format(date, 'yyyy-MM-dd');
-      }
-      
-      return format(new Date(date), 'yyyy-MM-dd');
+      return toISODateOnly(typeof date === 'string' ? date : String(date)) || format(new Date(), 'yyyy-MM-dd');
     };
     
     // Populate editQuoteData with full QuoteData structure from the quote
@@ -473,29 +460,12 @@ export default function Quotes() {
       amount: item.quantity * item.unitPrice,
     }));
 
-    // Format dates as strict ISO 8601 strings and reject invalid values
+    // Format dates as strict ISO 8601 strings and reject invalid values.
     const formatDateToISO = (date: unknown): string | null => {
       if (!date) return null;
-
-      if (typeof date === 'string') {
-        const trimmed = date.trim();
-        if (!trimmed) return null;
-
-        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-          const dateOnly = new Date(`${trimmed}T00:00:00.000Z`);
-          return Number.isNaN(dateOnly.getTime()) ? null : dateOnly.toISOString();
-        }
-
-        const parsed = new Date(trimmed);
-        return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
-      }
-
-      if (date instanceof Date) {
-        return Number.isNaN(date.getTime()) ? null : date.toISOString();
-      }
-
-      const parsed = new Date(date as string | number | Date);
-      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+      if (typeof date === 'string') return toISODateTimeString(date);
+      if (date instanceof Date) return toISODateTimeString(date.toISOString());
+      return toISODateTimeString(String(date));
     };
 
     const normalizedQuoteDate = formatDateToISO(editQuoteData.quoteDate);
@@ -718,8 +688,8 @@ export default function Quotes() {
                 
                 <div class="quote-details">
                   <p><strong>Quote Number:</strong> ${selectedQuote.quoteNumber}</p>
-                  <p><strong>Date:</strong> ${format(new Date(selectedQuote.quoteDate), 'MMMM d, yyyy')}</p>
-                  <p><strong>Valid Until:</strong> ${format(new Date(selectedQuote.validUntil), 'MMMM d, yyyy')}</p>
+                  <p><strong>Date:</strong> ${formatDateDMY(selectedQuote.quoteDate) || '-'}</p>
+                  <p><strong>Valid Until:</strong> ${formatDateDMY(selectedQuote.validUntil) || '-'}</p>
                   <p><strong>Total Amount:</strong> <span class="amount">${formatCurrency(selectedQuote.total, selectedQuote.currency)}</span></p>
                 </div>
 
@@ -1000,8 +970,8 @@ export default function Quotes() {
                   <TableRow key={quote.id}>
                     <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
                     <TableCell>{quote.clientName}</TableCell>
-                    <TableCell>{format(new Date(quote.quoteDate), 'MMM d, yyyy')}</TableCell>
-                    <TableCell>{format(new Date(quote.validUntil), 'MMM d, yyyy')}</TableCell>
+                    <TableCell>{formatDateDMY(quote.quoteDate) || '-'}</TableCell>
+                    <TableCell>{formatDateDMY(quote.validUntil) || '-'}</TableCell>
                     <TableCell className="font-medium">
                       {formatCurrency(quote.total, quote.currencySymbol)}
                     </TableCell>
@@ -1194,18 +1164,16 @@ export default function Quotes() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Quote Date</Label>
-                <Input
-                  type="date"
+                <DocumentDateInput
                   value={formData.quoteDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, quoteDate: e.target.value }))}
+                  onChange={(value) => setFormData(prev => ({ ...prev, quoteDate: value }))}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Valid Until</Label>
-                <Input
-                  type="date"
+                <DocumentDateInput
                   value={formData.validUntil}
-                  onChange={(e) => setFormData(prev => ({ ...prev, validUntil: e.target.value }))}
+                  onChange={(value) => setFormData(prev => ({ ...prev, validUntil: value }))}
                 />
               </div>
               <div className="space-y-2">
@@ -1506,9 +1474,9 @@ export default function Quotes() {
                     </div>
                     <div className="sm:text-right">
                       <p className="text-sm text-muted-foreground">Quote Date</p>
-                      <p className="font-medium">{format(new Date(selectedQuote.quoteDate), 'MMM d, yyyy')}</p>
+                      <p className="font-medium">{formatDateDMY(selectedQuote.quoteDate) || '-'}</p>
                       <p className="text-sm text-muted-foreground mt-2">Valid Until</p>
-                      <p className="font-medium">{format(new Date(selectedQuote.validUntil), 'MMM d, yyyy')}</p>
+                      <p className="font-medium">{formatDateDMY(selectedQuote.validUntil) || '-'}</p>
                     </div>
                   </div>
 
@@ -1763,7 +1731,7 @@ export default function Quotes() {
                 sendEmail({
                   to: clientEmail,
                   subject: `Quote ${selectedQuote.quoteNumber} from ${selectedQuote.companyName || 'Our Company'}`,
-                  body: `Dear ${selectedQuote.clientName},\n\nPlease find attached Quote ${selectedQuote.quoteNumber}.\n\nTotal: ${selectedQuote.currencySymbol}${selectedQuote.total.toFixed(2)}\nValid Until: ${format(new Date(selectedQuote.validUntil), 'MMM d, yyyy')}\n\nThank you for your business.\n\nBest regards,\n${selectedQuote.companyName || 'Our Company'}`,
+                  body: `Dear ${selectedQuote.clientName},\n\nPlease find attached Quote ${selectedQuote.quoteNumber}.\n\nTotal: ${selectedQuote.currencySymbol}${selectedQuote.total.toFixed(2)}\nValid Until: ${formatDateDMY(selectedQuote.validUntil) || '-'}\n\nThank you for your business.\n\nBest regards,\n${selectedQuote.companyName || 'Our Company'}`,
                 });
                 setIsEmailDialogOpen(false);
               }

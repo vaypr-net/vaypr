@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { DocumentDateInput } from "@/components/ui/document-date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -68,11 +69,10 @@ export function ReceiptForm({ data, onChange }: ReceiptFormProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="receiptDate">Date</Label>
-            <Input
+            <DocumentDateInput
               id="receiptDate"
-              type="date"
               value={data.receiptDate}
-              onChange={(e) => updateField("receiptDate", e.target.value)}
+              onChange={(value) => updateField("receiptDate", value)}
             />
           </div>
         </div>

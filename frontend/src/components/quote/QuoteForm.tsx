@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { DocumentDateInput } from "@/components/ui/document-date-input";
 import { Label } from "@/components/ui/label";
 import { QuoteData } from "@/types/quote";
 
@@ -27,20 +28,18 @@ export function QuoteForm({ data, onChange }: QuoteFormProps) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="quoteDate">Quote Date</Label>
-          <Input
+          <DocumentDateInput
             id="quoteDate"
-            type="date"
             value={data.quoteDate}
-            onChange={(e) => updateField("quoteDate", e.target.value)}
+            onChange={(value) => updateField("quoteDate", value)}
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="validUntil">Valid Until</Label>
-          <Input
+          <DocumentDateInput
             id="validUntil"
-            type="date"
             value={data.validUntil}
-            onChange={(e) => updateField("validUntil", e.target.value)}
+            onChange={(value) => updateField("validUntil", value)}
           />
         </div>
       </div>

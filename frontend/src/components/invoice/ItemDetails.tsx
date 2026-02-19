@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,14 @@ export function ItemDetails({
   tableHeaderColor = "#000000",
   onTableHeaderColorChange,
 }: ItemDetailsProps) {
+  const [headerColorInput, setHeaderColorInput] = useState(
+    /^#[0-9A-F]{6}$/i.test(tableHeaderColor) ? tableHeaderColor : "#000000",
+  );
+
+  useEffect(() => {
+    setHeaderColorInput(/^#[0-9A-F]{6}$/i.test(tableHeaderColor) ? tableHeaderColor : "#000000");
+  }, [tableHeaderColor]);
+
   const addItem = () => {
     const newItem: InvoiceItem = {
       id: crypto.randomUUID(),
@@ -113,22 +122,37 @@ export function ItemDetails({
                   type="color"
                   id="tableHeaderColor"
                   value={/^#[0-9A-F]{6}$/i.test(tableHeaderColor) ? tableHeaderColor : '#000000'}
-                  onChange={(e) => onTableHeaderColorChange(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setHeaderColorInput(next);
+                    onTableHeaderColorChange(next);
+                  }}
                   className="w-8 h-8 rounded cursor-pointer border border-border"
                 />
                 <Input
-                  value={tableHeaderColor}
+                  value={headerColorInput}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    // Only allow valid hex colors (#rrggbb format)
-                    if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
-                      if (value === '' || /^#[0-9A-Fa-f]{6}$/.test(value)) {
-                        onTableHeaderColorChange(value || '#000000');
-                      } else if (/^#[0-9A-Fa-f]{0,5}$/.test(value)) {
-                        // Allow partial input for better UX
+                    let value = e.target.value.trim();
+                    if (value && !value.startsWith("#")) {
+                      value = `#${value}`;
+                    }
+
+                    if (value === "" || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                      setHeaderColorInput(value);
+                      if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
                         onTableHeaderColorChange(value);
                       }
                     }
+                  }}
+                  onBlur={() => {
+                    if (/^#[0-9A-Fa-f]{6}$/.test(headerColorInput)) {
+                      onTableHeaderColorChange(headerColorInput);
+                      return;
+                    }
+
+                    const fallback = /^#[0-9A-F]{6}$/i.test(tableHeaderColor) ? tableHeaderColor : "#000000";
+                    setHeaderColorInput(fallback);
+                    onTableHeaderColorChange(fallback);
                   }}
                   placeholder="#000000"
                   className="w-24 h-8 text-xs font-mono"

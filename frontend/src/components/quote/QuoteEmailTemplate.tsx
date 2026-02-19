@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Copy, Mail, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { formatDateDMY } from '@/lib/document-date';
 
 interface QuoteEmailTemplateProps {
   quote: Quote;
@@ -25,7 +25,7 @@ Thank you for considering our services. Please find your quote details below.
 
 Quote Number: ${quote.quoteNumber}
 Total Amount: ${quote.currencySymbol}${quote.total.toFixed(2)}
-Valid Until: ${format(new Date(quote.validUntil), 'MMMM d, yyyy')}
+Valid Until: ${formatDateDMY(quote.validUntil) || '-'}
 
 To view the full quote details and respond, please click the link below:
 

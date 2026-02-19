@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatDateDMY } from "@/lib/document-date";
 import { QuoteData } from "@/types/quote";
 
 interface QuotePreviewProps {
@@ -13,14 +13,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
   const calculatedGrandTotal = subtotal - discountAmount + data.deliveryFee;
   const grandTotal = data.useManualGrandTotal ? data.manualGrandTotal : calculatedGrandTotal;
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "-";
-    try {
-      return format(new Date(dateStr), "MMM dd, yyyy");
-    } catch {
-      return dateStr;
-    }
-  };
+  const formatDate = (dateStr: string) => formatDateDMY(dateStr) || "-";
 
   return (
     <div className="bg-card rounded-xl shadow-card p-8 max-w-2xl mx-auto print:shadow-none" id={previewId}>

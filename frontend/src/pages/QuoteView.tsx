@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { QuoteService } from '@/api/services/quote.service';
+import { formatDateDMY } from '@/lib/document-date';
 
 export default function QuoteView() {
   const { token } = useParams();
@@ -433,7 +434,7 @@ export default function QuoteView() {
                       <Calendar className="h-4 w-4" />
                       Quote Date
                     </span>
-                    <span className="font-medium">{format(new Date(quote.quoteDate), 'MMM d, yyyy')}</span>
+                    <span className="font-medium">{formatDateDMY(quote.quoteDate) || '-'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground text-sm flex items-center gap-2">
@@ -441,7 +442,7 @@ export default function QuoteView() {
                       Valid Until
                     </span>
                     <span className={`font-medium ${isExpired ? 'text-destructive' : 'text-green-600'}`}>
-                      {format(new Date(quote.validUntil), 'MMM d, yyyy')}
+                      {formatDateDMY(quote.validUntil) || '-'}
                       {isExpired && ' (Expired)'}
                     </span>
                   </div>

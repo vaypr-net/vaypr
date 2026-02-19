@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatDateDMY } from "@/lib/document-date";
 import { ReceiptData } from "@/types/receipt";
 
 interface ReceiptPreviewProps {
@@ -13,14 +13,7 @@ export function ReceiptPreview({ data, previewId = "receipt-preview" }: ReceiptP
     return trimmed.endsWith('.') ? trimmed : `${trimmed}.`;
   };
   // kept simple rendering to match existing muted dot styling
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "-";
-    try {
-      return format(new Date(dateStr), "MMM dd, yyyy");
-    } catch {
-      return dateStr;
-    }
-  };
+  const formatDate = (dateStr: string) => formatDateDMY(dateStr) || "-";
 
   return (
     <div className="bg-card rounded-xl shadow-card p-8 max-w-md mx-auto print:shadow-none" id={previewId}>

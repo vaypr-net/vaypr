@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatDateDMY } from "@/lib/document-date";
 import { InvoiceData } from "@/types/invoice";
 
 interface InvoicePreviewProps {
@@ -17,14 +17,7 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
   const calculatedGrandTotal = subtotal - discountAmount + (data.deliveryFee || 0);
   const grandTotal = data.useManualGrandTotal ? (data.manualGrandTotal || 0) : calculatedGrandTotal;
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "-";
-    try {
-      return format(new Date(dateStr), "MMM d, yyyy");
-    } catch {
-      return dateStr;
-    }
-  };
+  const formatDate = (dateStr: string) => formatDateDMY(dateStr) || "-";
 
   const formatCurrency = (amount: number) => {
     const validAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
