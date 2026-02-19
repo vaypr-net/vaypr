@@ -459,7 +459,7 @@ export class StripeService {
     }
 
     // Cast planId as a plan object since it's populated
-    const plan = user.planId as any;
+    let plan = user.planId as any;
     
     // Use stored subscription amount if available, otherwise fetch from Stripe
     let actualPrice = user.subscriptionAmount || plan?.price || 0;
@@ -533,6 +533,19 @@ export class StripeService {
       }
     }
 
+    // Backward-compatibility: if user is canceled but still points to paid plan,
+    // force Free plan in response.
+    if (subscriptionStatus === 'canceled' && plan?.name !== 'Free') {
+      const freePlan = await this.billingPlanModel
+        .findOne({ name: 'Free' })
+        .select('name price currency limits features')
+        .lean();
+      if (freePlan) {
+        plan = freePlan;
+        actualPrice = 0;
+      }
+    }
+
     const planObject = (plan?.toObject?.() || plan) || { price: actualPrice };
     
     // Convert AED price to display currency (KWD)
@@ -551,6 +564,8 @@ export class StripeService {
       billingCycle: user.billingCycle,
       currentPeriodEnd: user.currentPeriodEnd,
       subscriptionStartedAt: user.subscriptionStartedAt,
+      cancellationDate: user.subscriptionCanceledAt || null,
+      accessUntilDate: user.cancellationScheduledFor || null,
     };
   }
 
@@ -777,6 +792,8 @@ export class StripeService {
     }
 
     try {
+      const freePlan = await this.billingPlanModel.findOne({ name: 'Free' });
+
       // Fetch subscription from Stripe
       let subscription: any;
       try {
@@ -793,6 +810,9 @@ export class StripeService {
           // Update user to canceled status
           await this.userModel.findByIdAndUpdate(userId, {
             subscriptionStatus: 'canceled',
+            planId: freePlan?._id || null,
+            stripeSubscriptionId: null,
+            subscriptionCanceledAt: new Date(),
             cancellationMethod: 'immediate',
             cancellationReason: reason || 'subscription_not_found',
             cancellationFeedback: feedback,
@@ -819,6 +839,9 @@ export class StripeService {
         // Update user to canceled status
         await this.userModel.findByIdAndUpdate(userId, {
           subscriptionStatus: 'canceled',
+          planId: freePlan?._id || null,
+          stripeSubscriptionId: null,
+          subscriptionCanceledAt: new Date(),
           cancellationMethod: 'immediate',
           cancellationReason: reason || 'already_canceled',
           cancellationFeedback: feedback,
@@ -895,6 +918,15 @@ export class StripeService {
       await this.userModel.findByIdAndUpdate(userId, {
         subscriptionStatus:
           cancellationMethod === 'immediate' ? 'canceled' : 'active', // Active until period end
+        ...(cancellationMethod === 'immediate'
+          ? {
+              planId: freePlan?._id || null,
+              stripeSubscriptionId: null,
+              subscriptionCanceledAt: new Date(),
+            }
+          : {
+              subscriptionCanceledAt: null,
+            }),
         cancellationMethod,
         cancellationScheduledFor: cancellationScheduledDate,
         cancellationReason: reason,

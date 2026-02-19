@@ -4,6 +4,7 @@ import {
   NotFoundException,
   OnModuleInit,
   Inject,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -80,7 +81,16 @@ export class InvoiceService implements OnModuleInit {
         : undefined,
     });
 
-    return invoice.save();
+    try {
+      return await invoice.save();
+    } catch (error: any) {
+      if (this.isDuplicateInvoiceNumberError(error)) {
+        throw new ConflictException(
+          `Invoice number "${createInvoiceDto.invoiceNumber}" already exists. Please use a different invoice number.`,
+        );
+      }
+      throw error;
+    }
   }
 
   async findAll(userId: string): Promise<Invoice[]> {
@@ -152,19 +162,31 @@ export class InvoiceService implements OnModuleInit {
       }
     }
 
-    const updatedInvoice = await this.invoiceModel
-      .findByIdAndUpdate(
-        id,
-        {
-          ...updateInvoiceDto,
-          clientId: updateInvoiceDto.clientId
-            ? new Types.ObjectId(updateInvoiceDto.clientId)
-            : existingInvoice.clientId,
-        },
-        { new: true },
-      )
-      .populate('clientId', 'name email phone clientType')
-      .exec();
+    let updatedInvoice: Invoice | null = null;
+    try {
+      updatedInvoice = await this.invoiceModel
+        .findByIdAndUpdate(
+          id,
+          {
+            ...updateInvoiceDto,
+            clientId: updateInvoiceDto.clientId
+              ? new Types.ObjectId(updateInvoiceDto.clientId)
+              : existingInvoice.clientId,
+          },
+          { new: true },
+        )
+        .populate('clientId', 'name email phone clientType')
+        .exec();
+    } catch (error: any) {
+      if (this.isDuplicateInvoiceNumberError(error)) {
+        const duplicateNumber =
+          updateInvoiceDto.invoiceNumber || existingInvoice.invoiceNumber;
+        throw new ConflictException(
+          `Invoice number "${duplicateNumber}" already exists. Please use a different invoice number.`,
+        );
+      }
+      throw error;
+    }
 
     if (!updatedInvoice) {
       throw new NotFoundException(`Invoice with ID ${id} not found`);
@@ -248,6 +270,15 @@ export class InvoiceService implements OnModuleInit {
       dto.useManualGrandTotal = false;
       dto.manualGrandTotal = 0;
     }
+  }
+
+  private isDuplicateInvoiceNumberError(error: any): boolean {
+    return (
+      !!error &&
+      error.code === 11000 &&
+      (error.keyPattern?.invoiceNumber === 1 ||
+        Object.prototype.hasOwnProperty.call(error.keyValue || {}, 'invoiceNumber'))
+    );
   }
 
   async remove(id: string, userId: string): Promise<Invoice> {
