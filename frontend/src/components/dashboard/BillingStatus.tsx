@@ -51,12 +51,14 @@ export function BillingStatus() {
   }
 
   const currentPlan = subscription?.plan;
-  // Check if subscription is active: status is 'active' OR 'trialing', AND NOT cancelled
-  const isActive = (subscription?.status === 'active' || subscription?.status === 'trialing') && !subscription?.cancellationDate;
-  const isCancelled = !!subscription?.cancellationDate;
+  const isCanceledStatus = subscription?.status === 'canceled';
+  const hasScheduledCancellation = !!subscription?.accessUntilDate && !isCanceledStatus;
+  // Active means still usable right now. Scheduled cancellations remain active until end date.
+  const isActive = subscription?.status === 'active' || subscription?.status === 'trialing';
+  const isCancelled = isCanceledStatus || hasScheduledCancellation;
   
-  // If cancelled, show Free plan. Otherwise show current plan.
-  const displayPlanName = isCancelled ? 'Free' : (currentPlan?.name || 'Free');
+  // Show Free plan only when cancellation already took effect.
+  const displayPlanName = isCanceledStatus ? 'Free' : (currentPlan?.name || 'Free');
   
   const renewalDate = subscription?.currentPeriodEnd
     ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
@@ -170,28 +172,28 @@ export function BillingStatus() {
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               Current Plan:{' '}
               <span className="text-primary">{displayPlanName}</span>
-              {isActive && currentPlan?.price > 0 && (
+              {isActive && !hasScheduledCancellation && currentPlan?.price > 0 && (
                 <span className="inline-block px-2.5 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
                   Active
                 </span>
               )}
               {isCancelled && currentPlan?.price > 0 && (
                 <span className="inline-block px-2.5 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded-full">
-                  Cancelled
+                  {isCanceledStatus ? 'Cancelled' : 'Cancellation Scheduled'}
                 </span>
               )}
             </h2>
-            {!isCancelled && currentPlan && currentPlan.price > 0 && (
+            {!isCanceledStatus && currentPlan && currentPlan.price > 0 && (
               <p className="text-sm text-muted-foreground mt-1">
                 {CURRENCY_CONFIG.displayCurrency}{' '}
                 {(currentPlan.priceInDisplayCurrency || (currentPlan.price * CURRENCY_CONFIG.conversionRate)).toFixed(2)}
                 /{subscription?.billingCycle === 'yearly' ? 'year' : 'month'}
               </p>
             )}
-            {isActive && renewalDate && currentPlan?.price > 0 && (
+            {isActive && !hasScheduledCancellation && renewalDate && currentPlan?.price > 0 && (
               <p className="text-sm text-muted-foreground mt-1">Renews: {renewalDate}</p>
             )}
-            {isCancelled && subscription?.accessUntilDate && (
+            {hasScheduledCancellation && subscription?.accessUntilDate && (
               <p className="text-sm text-red-600 mt-1">
                 Access until: {new Date(subscription.accessUntilDate).toLocaleDateString()}
               </p>
@@ -206,7 +208,7 @@ export function BillingStatus() {
 
           <div className="flex gap-2 shrink-0">
             {/* Show "Upgrade" button if on Free plan */}
-            {!isActive || currentPlan?.price === 0 ? (
+            {isCanceledStatus || !isActive || currentPlan?.price === 0 ? (
               <Button onClick={() => navigate('/pricing')} size="sm" className="bg-primary">
                 <Zap className="w-4 h-4 mr-2" />
                 {currentPlan?.price === 0 ? 'Upgrade to Paid Plan' : 'Choose Plan'}
@@ -218,7 +220,7 @@ export function BillingStatus() {
             )}
             
             {/* Cancel button for active paid subscriptions */}
-            {isActive && currentPlan?.price > 0 && (
+            {isActive && !hasScheduledCancellation && currentPlan?.price > 0 && (
               <Button
                 onClick={() => setShowCancelDialog(true)}
                 variant="destructive"

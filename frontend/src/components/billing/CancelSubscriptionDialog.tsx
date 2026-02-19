@@ -72,7 +72,7 @@ export default function CancelSubscriptionDialog({
 
   // Form state
   const [currentStep, setCurrentStep] = useState<CancellationStep['step']>('initial');
-  const [cancellationMethod, setCancellationMethod] = useState<'immediate' | 'at_period_end'>('at_period_end');
+  const [cancellationMethod, setCancellationMethod] = useState<'immediate' | 'at_period_end'>('immediate');
   const [refundStrategy, setRefundStrategy] = useState<'full_prorated' | 'account_credit' | 'no_refund'>('full_prorated');
   const [reason, setReason] = useState<string>('');
   const [feedback, setFeedback] = useState<string>('');

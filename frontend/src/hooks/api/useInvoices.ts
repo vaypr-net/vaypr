@@ -4,6 +4,13 @@ import { useToast } from '@/hooks/use-toast';
 
 const QUERY_KEY = 'invoices';
 
+const getErrorMessage = (error: any, fallback: string) => {
+  const msg = error?.response?.data?.message;
+  if (Array.isArray(msg)) return msg.join(', ');
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  return fallback;
+};
+
 export function useInvoices(status?: string) {
   return useQuery({
     queryKey: [QUERY_KEY, { status }],
@@ -55,7 +62,7 @@ export function useCreateInvoice() {
     onError: (error: any) => {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to create invoice.',
+        description: getErrorMessage(error, 'Failed to create invoice.'),
         variant: 'destructive',
       });
     },
@@ -79,7 +86,7 @@ export function useUpdateInvoice() {
     onError: (error: any) => {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to update invoice.',
+        description: getErrorMessage(error, 'Failed to update invoice.'),
         variant: 'destructive',
       });
     },
@@ -102,7 +109,7 @@ export function useDeleteInvoice() {
     onError: (error: any) => {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to delete invoice.',
+        description: getErrorMessage(error, 'Failed to delete invoice.'),
         variant: 'destructive',
       });
     },

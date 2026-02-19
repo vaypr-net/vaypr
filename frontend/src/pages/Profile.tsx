@@ -304,26 +304,37 @@ export default function Profile() {
   }
 
   const currentPlanId = subscriptionInfo?.plan?._id || '';
-  const isCancelledSubscription = !!subscriptionInfo?.cancellationDate;
-  // If cancelled, show Free plan. Otherwise show current plan name.
-  const currentPlanName = isCancelledSubscription 
-    ? 'Free' 
+  const hasScheduledCancellation = !!subscriptionInfo?.accessUntilDate;
+  const isCancelledSubscription =
+    subscriptionInfo?.status === 'canceled' ||
+    !!subscriptionInfo?.cancellationDate ||
+    hasScheduledCancellation;
+  // For profile subscription tab, show Free once cancellation is initiated.
+  const currentPlanName = isCancelledSubscription
+    ? 'Free'
     : (subscriptionInfo?.plan?.name || currentPlanInfo.name);
-  // Determine actual subscription status: if cancelled date exists, it's cancelled
-  const currentPlanStatus = subscriptionInfo?.cancellationDate 
-    ? 'cancelled' 
+  const currentPlanStatus = isCancelledSubscription
+    ? 'cancelled'
     : (subscriptionInfo?.status || subscription?.status || 'active');
-  const currentPeriodEnd = subscriptionInfo?.currentPeriodEnd || subscription.endDate || null;
+  const currentPeriodEnd =
+    subscriptionInfo?.accessUntilDate ||
+    subscriptionInfo?.currentPeriodEnd ||
+    subscription.endDate ||
+    null;
   // When cancelled, use free plan limits instead of the old plan limits
   const currentPlanLimits = isCancelledSubscription 
     ? null 
     : (subscriptionInfo?.plan?.limits || null);
-  const fallbackLimits = subscription?.limits || DEFAULT_SUBSCRIPTION.limits;
+  const fallbackLimits = isCancelledSubscription
+    ? DEFAULT_SUBSCRIPTION.limits
+    : (subscription?.limits || DEFAULT_SUBSCRIPTION.limits);
   const fallbackUsage = subscription?.usage || DEFAULT_SUBSCRIPTION.usage;
   const invoicesUsed = dashboardStats?.overview?.totalInvoices ?? fallbackUsage.invoicesThisMonth ?? 0;
   const quotesUsed = dashboardStats?.overview?.totalQuotes ?? fallbackUsage.quotesThisMonth ?? 0;
   const clientsUsed = dashboardStats?.overview?.totalClients ?? fallbackUsage.currentClients ?? 0;
-  const hasPaidPlan = subscriptionInfo?.plan
+  const hasPaidPlan = isCancelledSubscription
+    ? false
+    : subscriptionInfo?.plan
     ? subscriptionInfo.plan.price > 0
     : subscription.plan !== 'free';
   const availableUpgradePlans = useMemo(

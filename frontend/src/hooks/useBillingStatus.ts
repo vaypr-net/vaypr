@@ -41,12 +41,13 @@ export function useBillingStatus(): UseBillingStatusReturn {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  const planName = subscription?.plan?.name || 'Free';
+  const isCanceledStatus = subscription?.status === 'canceled';
+  const planName = isCanceledStatus ? 'Free' : (subscription?.plan?.name || 'Free');
   const status = subscription?.status || 'free';
   const isActive = status === 'active' || status === 'trialing';
   const isTrialing = status === 'trialing';
   const isPastDue = status === 'past_due';
-  const isCanceled = status === 'canceled';
+  const isCanceled = status === 'canceled' || !!subscription?.cancellationDate;
 
   // Feature access based on plan
   const featureAccess: Record<string, Record<string, boolean>> = {

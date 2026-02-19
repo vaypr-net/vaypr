@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types/app';
+import axios from '@/api/axios';
 
 interface AuthContextType {
   user: User | null;
@@ -28,6 +29,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const normalizeUser = (raw: any, existing?: User | null): User => ({
+    ...(existing || {}),
+    ...(raw || {}),
+    fullName: raw?.fullName || raw?.name || existing?.fullName || '',
+    name: raw?.name || raw?.fullName || existing?.name || existing?.fullName || '',
+    avatar:
+      raw?.avatar ||
+      raw?.profileImage ||
+      raw?.profilePicture ||
+      existing?.avatar ||
+      null,
+  });
+
+  const hydrateAvatarIfMissing = async (baseUser: User) => {
+    if (!baseUser || baseUser.avatar) return;
+    try {
+      const profile = await axios.get('/userprofile');
+      const profileImage = profile.data?.profileImage || null;
+      if (!profileImage) return;
+
+      setUser((prev) => {
+        const merged = normalizeUser(
+          {
+            ...(prev || baseUser),
+            avatar: profileImage,
+          },
+          prev || baseUser,
+        );
+        localStorage.setItem('user', JSON.stringify(merged));
+        return merged;
+      });
+    } catch {
+      // Profile document may not exist yet for some users.
+    }
+  };
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     const storedToken = localStorage.getItem('accessToken');
@@ -35,15 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedUser && storedToken) {
       try {
         const parsed = JSON.parse(storedUser);
-        // Normalize avatar/name fields from multiple possible backend shapes
-        const normalized = {
-          ...parsed,
-          fullName: parsed.fullName || parsed.name || parsed.fullName,
-          name: parsed.name || parsed.fullName || parsed.name,
-          avatar: parsed.avatar || parsed.profileImage || parsed.profilePicture || null,
-        };
+        const normalized = normalizeUser(parsed);
         setUser(normalized);
         setToken(storedToken);
+        void hydrateAvatarIfMissing(normalized);
       } catch {
         localStorage.removeItem('user');
         localStorage.removeItem('accessToken');
@@ -62,8 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUser = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
+    setUser((prev) => {
+      const normalized = normalizeUser(userData, prev);
+      localStorage.setItem('user', JSON.stringify(normalized));
+      return normalized;
+    });
+    void hydrateAvatarIfMissing(normalizeUser(userData, user));
   };
 
   return (
