@@ -2,6 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QuoteService } from '@/api/services/quote.service';
 import { useToast } from '@/hooks/use-toast';
 
+const getErrorMessage = (error: any, fallback: string) => {
+  const msg = error?.response?.data?.message;
+  if (Array.isArray(msg)) return msg.join(', ');
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  return fallback;
+};
+
 export const useQuotesAPI = (status?: string) => {
   return useQuery({
     queryKey: ['quotes', status],
@@ -44,7 +51,7 @@ export const useCreateQuote = () => {
     onError: (error: any) => {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to create quote',
+        description: getErrorMessage(error, 'Failed to create quote'),
         variant: 'destructive',
       });
     },
@@ -68,7 +75,7 @@ export const useUpdateQuote = () => {
     onError: (error: any) => {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to update quote',
+        description: getErrorMessage(error, 'Failed to update quote'),
         variant: 'destructive',
       });
     },
@@ -91,7 +98,7 @@ export const useDeleteQuote = () => {
     onError: (error: any) => {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to delete quote',
+        description: getErrorMessage(error, 'Failed to delete quote'),
         variant: 'destructive',
       });
     },

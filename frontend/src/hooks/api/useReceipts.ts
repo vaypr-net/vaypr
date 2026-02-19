@@ -2,6 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ReceiptService } from '@/api/services/receipt.service';
 import { useToast } from '@/hooks/use-toast';
 
+const getErrorMessage = (error: any, fallback: string) => {
+  const msg = error?.response?.data?.message;
+  if (Array.isArray(msg)) return msg.join(', ');
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  return fallback;
+};
+
 export const useReceiptsAPI = (status?: string) => {
   return useQuery({
     queryKey: ['receipts', status],
@@ -53,7 +60,7 @@ export const useCreateReceipt = () => {
     onError: (error: any) => {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to create receipt',
+        description: getErrorMessage(error, 'Failed to create receipt'),
         variant: 'destructive',
       });
     },
@@ -77,7 +84,7 @@ export const useUpdateReceipt = () => {
     onError: (error: any) => {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to update receipt',
+        description: getErrorMessage(error, 'Failed to update receipt'),
         variant: 'destructive',
       });
     },
@@ -100,7 +107,7 @@ export const useDeleteReceipt = () => {
     onError: (error: any) => {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to delete receipt',
+        description: getErrorMessage(error, 'Failed to delete receipt'),
         variant: 'destructive',
       });
     },
