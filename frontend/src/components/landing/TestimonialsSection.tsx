@@ -1,6 +1,7 @@
 import { Star } from "lucide-react";
+import { useLandingPage } from "@/hooks/useLandingPage";
 
-const testimonials = [
+const defaultTestimonials = [
   {
     name: "Sarah Chen",
     role: "Freelance Designer",
@@ -25,6 +26,20 @@ const testimonials = [
 ];
 
 export function TestimonialsSection() {
+  const { data: landingPage } = useLandingPage();
+  
+  const section = landingPage?.testimonialsSection;
+  const isEnabled = section?.enabled ?? true;
+  const badge = section?.badge ?? "Testimonials";
+  const headline = section?.headline ?? "Loved by businesses everywhere";
+  const testimonials = section?.testimonials && section.testimonials.length > 0 
+    ? section.testimonials 
+    : defaultTestimonials;
+
+  if (!isEnabled) {
+    return null;
+  }
+
   return (
     <section className="py-24 relative overflow-hidden">
       {/* Background */}
@@ -34,12 +49,11 @@ export function TestimonialsSection() {
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="text-primary font-semibold text-sm uppercase tracking-wider mb-4 block">
-            Testimonials
+            {badge}
           </span>
           <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
-            Loved by{" "}
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              businesses everywhere
+              {headline}
             </span>
           </h2>
         </div>

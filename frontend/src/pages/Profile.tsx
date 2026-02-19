@@ -304,10 +304,20 @@ export default function Profile() {
   }
 
   const currentPlanId = subscriptionInfo?.plan?._id || '';
-  const currentPlanName = subscriptionInfo?.plan?.name || currentPlanInfo.name;
-  const currentPlanStatus = subscriptionInfo?.status || subscription?.status || 'active';
+  const isCancelledSubscription = !!subscriptionInfo?.cancellationDate;
+  // If cancelled, show Free plan. Otherwise show current plan name.
+  const currentPlanName = isCancelledSubscription 
+    ? 'Free' 
+    : (subscriptionInfo?.plan?.name || currentPlanInfo.name);
+  // Determine actual subscription status: if cancelled date exists, it's cancelled
+  const currentPlanStatus = subscriptionInfo?.cancellationDate 
+    ? 'cancelled' 
+    : (subscriptionInfo?.status || subscription?.status || 'active');
   const currentPeriodEnd = subscriptionInfo?.currentPeriodEnd || subscription.endDate || null;
-  const currentPlanLimits = subscriptionInfo?.plan?.limits || null;
+  // When cancelled, use free plan limits instead of the old plan limits
+  const currentPlanLimits = isCancelledSubscription 
+    ? null 
+    : (subscriptionInfo?.plan?.limits || null);
   const fallbackLimits = subscription?.limits || DEFAULT_SUBSCRIPTION.limits;
   const fallbackUsage = subscription?.usage || DEFAULT_SUBSCRIPTION.usage;
   const invoicesUsed = dashboardStats?.overview?.totalInvoices ?? fallbackUsage.invoicesThisMonth ?? 0;

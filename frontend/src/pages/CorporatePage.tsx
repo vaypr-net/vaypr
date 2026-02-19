@@ -35,10 +35,35 @@ const CorporatePage = () => {
             <p className="text-xl text-muted-foreground mb-8">{page.description}</p>
           )}
           
-          <div 
-            className="prose prose-lg max-w-none dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: page.content }}
-          />
+          {/* Render page.content (if present) */}
+          {page.content && (
+            <div
+              className="prose prose-lg max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: page.content }}
+            />
+          )}
+
+          {/* Render structured sections as plain text with paragraph breaks */}
+          {page.sections && page.sections.length > 0 && (
+            <div className="space-y-8 mt-6">
+              {page.sections.map((s: any, idx: number) => (
+                <section key={`${s.order ?? idx}-${s.title ?? idx}`}>
+                  {s.title && <h2 className="text-2xl font-semibold mb-4">{s.title}</h2>}
+                  {/* Render content as plain text, converting paragraphs separated by newlines */}
+                  <div className="space-y-4 text-foreground leading-relaxed">
+                    {(s.content || "")
+                      .split(/\n\n+/)
+                      .filter(Boolean)
+                      .map((paragraph: string, pIdx: number) => (
+                        <p key={pIdx} className="whitespace-pre-wrap">
+                          {paragraph.trim()}
+                        </p>
+                      ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
           
           {page.updatedAt && (
             <div className="mt-12 pt-6 border-t border-border">

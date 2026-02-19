@@ -24,6 +24,12 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
     return `${data.currency} ${validAmount.toFixed(2)}`;
   };
 
+  const showQuantity = !data.hideQuantity;
+  const showUnitPrice = !data.hideUnitPrice;
+  const showTotalCost = !data.hideTotalCost;
+  const visibleColumnCount =
+    1 + (showQuantity ? 1 : 0) + (showUnitPrice ? 1 : 0) + (showTotalCost ? 1 : 0);
+
   return (
     <div className="bg-background max-w-2xl mx-auto print:shadow-none" id={previewId}>
       {/* Document Container */}
@@ -92,22 +98,34 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
         </div>
 
         {/* Items Table */}
-        <div className="mb-8">
-          <table className="w-full text-sm">
+        <div className="mb-8 print:mb-8" style={{ width: '100%', overflow: 'visible' }}>
+          <table className="w-full text-sm border-collapse" style={{ width: '100%' }}>
+            <colgroup>
+              <col style={{ width: '50%' }} />
+              {showQuantity && <col style={{ width: '15%' }} />}
+              {showUnitPrice && <col style={{ width: '18%' }} />}
+              {showTotalCost && <col style={{ width: '17%' }} />}
+            </colgroup>
             <thead>
               <tr 
                 className="text-white"
                 style={{ backgroundColor: data.tableHeaderColor || '#000000' }}
               >
-                <th className="text-left py-3 px-4 font-semibold">Item description</th>
-                {!data.hideQuantity && (
-                  <th className="text-center py-3 px-3 font-semibold w-16">Qty.</th>
+                <th className="text-left py-3 px-4 font-semibold" style={{ width: '50%' }}>Item description</th>
+                {showQuantity && (
+                  <th className="text-center py-3 px-3 font-semibold" style={{ width: '15%' }}>
+                    Qty.
+                  </th>
                 )}
-                {!data.hideUnitPrice && (
-                  <th className="text-right py-3 px-3 font-semibold w-28">Unit Price</th>
+                {showUnitPrice && (
+                  <th className="text-right py-3 px-3 font-semibold" style={{ width: '18%' }}>
+                    Unit Price
+                  </th>
                 )}
-                {!data.hideTotalCost && (
-                  <th className="text-right py-3 px-4 font-semibold w-28">Total Cost</th>
+                {showTotalCost && (
+                  <th className="text-right py-3 px-4 font-semibold" style={{ width: '17%' }}>
+                    Total Cost
+                  </th>
                 )}
               </tr>
             </thead>
@@ -115,7 +133,7 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
               {data.items.length === 0 ? (
                 <tr>
                   <td 
-                    colSpan={1 + (data.hideQuantity ? 0 : 1) + (data.hideUnitPrice ? 0 : 1) + (data.hideTotalCost ? 0 : 1)} 
+                    colSpan={visibleColumnCount}
                     className="py-6 text-center text-muted-foreground border-b border-border"
                   >
                     No items added
@@ -124,18 +142,22 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
               ) : (
                 data.items.map((item) => (
                   <tr key={item.id} className="border-b border-border">
-                    <td className="py-4 px-4 text-foreground">{item.description || "-"}</td>
-                    {!data.hideQuantity && (
-                      <td className="py-4 px-3 text-center text-foreground">{item.quantity}</td>
-                    )}
-                    {!data.hideUnitPrice && (
-                      <td className="py-4 px-3 text-right text-foreground">
-                        {formatCurrency(item.unitPrice)}
+                    <td className="py-4 px-4 text-foreground break-words" style={{ width: '50%' }}>
+                      {item.description || "-"}
+                    </td>
+                    {showQuantity && (
+                      <td className="py-4 px-3 text-center text-foreground" style={{ width: '15%' }}>
+                        {item.quantity || 0}
                       </td>
                     )}
-                    {!data.hideTotalCost && (
-                      <td className="py-4 px-4 text-right text-foreground">
-                        {formatCurrency(item.quantity * item.unitPrice)}
+                    {showUnitPrice && (
+                      <td className="py-4 px-3 text-right text-foreground" style={{ width: '18%' }}>
+                        {formatCurrency(item.unitPrice || 0)}
+                      </td>
+                    )}
+                    {showTotalCost && (
+                      <td className="py-4 px-4 text-right text-foreground" style={{ width: '17%' }}>
+                        {formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}
                       </td>
                     )}
                   </tr>

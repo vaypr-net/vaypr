@@ -34,12 +34,25 @@ export function useDocumentActions() {
         description: 'Please wait while we generate your document...',
       });
 
+      // Ensure element is visible during capture
+      const originalStyle = element.style.display;
+      element.style.display = 'block';
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
+        logging: false,
+        removeContainer: false,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
       });
+
+      // Restore original display
+      element.style.display = originalStyle;
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
@@ -85,12 +98,25 @@ export function useDocumentActions() {
     try {
       toast({ title: 'Generating Printable PDF', description: 'Preparing document for print without headers...' });
 
+      // Ensure element is visible during capture
+      const originalStyle = element.style.display;
+      element.style.display = 'block';
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
+        logging: false,
+        removeContainer: false,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
       });
+
+      // Restore original display
+      element.style.display = originalStyle;
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });

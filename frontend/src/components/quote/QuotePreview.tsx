@@ -75,17 +75,72 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
       </div>
 
       {/* Items Table */}
-      <div className="mb-8">
-        <table className="w-full">
+      <div className="mb-8 print:mb-8">
+        <style>{`
+          #quote-preview table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          #quote-preview table th,
+          #quote-preview table td {
+            overflow: hidden;
+            word-wrap: break-word;
+          }
+          #quote-preview table th:nth-child(1),
+          #quote-preview table td:nth-child(1) { width: 50%; }
+          #quote-preview table th:nth-child(2),
+          #quote-preview table td:nth-child(2) { width: 15%; }
+          #quote-preview table th:nth-child(3),
+          #quote-preview table td:nth-child(3) { width: 18%; }
+          #quote-preview table th:nth-child(4),
+          #quote-preview table td:nth-child(4) { width: 17%; }
+          #quote-preview table .hidden-column {
+            visibility: hidden !important;
+            width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            height: 0 !important;
+            line-height: 0 !important;
+            font-size: 0 !important;
+          }
+          @media print {
+            #quote-preview table { width: 100%; }
+            #quote-preview table th,
+            #quote-preview table td { padding: 8px; }
+          }
+        `}</style>
+        <table className="w-full border-collapse" style={{ width: '100%' }}>
+          <colgroup>
+            <col style={{ width: '50%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '17%' }} />
+          </colgroup>
           <thead>
             <tr 
               className="border-b border-border"
               style={{ backgroundColor: data.tableHeaderColor, color: '#fff' }}
             >
-              <th className="text-left py-3 px-2 text-sm font-semibold">Description</th>
-              {!data.hideQuantity && <th className="text-center py-3 px-2 text-sm font-semibold">Qty</th>}
-              {!data.hideUnitPrice && <th className="text-right py-3 px-2 text-sm font-semibold">Price</th>}
-              {!data.hideTotalCost && <th className="text-right py-3 px-2 text-sm font-semibold">Total</th>}
+              <th className="text-left py-3 px-2 text-sm font-semibold" style={{ width: '50%' }}>Description</th>
+              <th 
+                className={`text-center py-3 px-2 text-sm font-semibold ${data.hideQuantity ? 'hidden-column' : ''}`}
+                style={{ width: '15%' }}
+              >
+                Qty
+              </th>
+              <th 
+                className={`text-right py-3 px-2 text-sm font-semibold ${data.hideUnitPrice ? 'hidden-column' : ''}`}
+                style={{ width: '18%' }}
+              >
+                Price
+              </th>
+              <th 
+                className={`text-right py-3 px-2 text-sm font-semibold ${data.hideTotalCost ? 'hidden-column' : ''}`}
+                style={{ width: '17%' }}
+              >
+                Total
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -98,18 +153,27 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
             ) : (
               data.items.map((item) => (
                 <tr key={item.id} className="border-b border-border/50">
-                  <td className="py-3 px-2 text-foreground">{item.description || "-"}</td>
-                  {!data.hideQuantity && <td className="py-3 px-2 text-center text-foreground">{item.quantity}</td>}
-                  {!data.hideUnitPrice && (
-                    <td className="py-3 px-2 text-right text-foreground">
-                      {data.currencySymbol} {item.unitPrice.toFixed(2)}
-                    </td>
-                  )}
-                  {!data.hideTotalCost && (
-                    <td className="py-3 px-2 text-right font-medium text-foreground">
-                      {data.currencySymbol} {(item.quantity * item.unitPrice).toFixed(2)}
-                    </td>
-                  )}
+                  <td className="py-3 px-2 text-foreground break-words" style={{ width: '50%' }}>
+                    {item.description || "-"}
+                  </td>
+                  <td 
+                    className={`py-3 px-2 text-center text-foreground ${data.hideQuantity ? 'hidden-column' : ''}`}
+                    style={{ width: '15%' }}
+                  >
+                    {item.quantity || 0}
+                  </td>
+                  <td 
+                    className={`py-3 px-2 text-right text-foreground ${data.hideUnitPrice ? 'hidden-column' : ''}`}
+                    style={{ width: '18%' }}
+                  >
+                    {data.currencySymbol} {(item.unitPrice || 0).toFixed(2)}
+                  </td>
+                  <td 
+                    className={`py-3 px-2 text-right font-medium text-foreground ${data.hideTotalCost ? 'hidden-column' : ''}`}
+                    style={{ width: '17%' }}
+                  >
+                    {data.currencySymbol} {((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}
+                  </td>
                 </tr>
               ))
             )}

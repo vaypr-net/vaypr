@@ -547,6 +547,53 @@ function CorporatePagesEditor() {
                       />
                     </div>
 
+                    {/* Section Content Editor */}
+                    <div className="border-t pt-4">
+                      <Label className="text-xs font-semibold mb-3 block">Page Sections</Label>
+                      <div className="space-y-4">
+                        {(pageForm[page._id]?.sections || page.sections || []).map((section: any, sIdx: number) => (
+                          <div key={sIdx} className="p-3 bg-secondary/30 rounded space-y-3">
+                            <div>
+                              <Label className="text-xs">Section Title</Label>
+                              <Input
+                                value={section.title || ""}
+                                onChange={(e) =>
+                                  setPageForm((prev) => {
+                                    const sections = [...(prev[page._id]?.sections || page.sections || [])];
+                                    sections[sIdx] = { ...sections[sIdx], title: e.target.value };
+                                    return {
+                                      ...prev,
+                                      [page._id]: { ...(prev[page._id] || {}), sections },
+                                    };
+                                  })
+                                }
+                                placeholder="Section title..."
+                                className="mt-1 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Section Content</Label>
+                              <Textarea
+                                value={section.content || ""}
+                                onChange={(e) =>
+                                  setPageForm((prev) => {
+                                    const sections = [...(prev[page._id]?.sections || page.sections || [])];
+                                    sections[sIdx] = { ...sections[sIdx], content: e.target.value };
+                                    return {
+                                      ...prev,
+                                      [page._id]: { ...(prev[page._id] || {}), sections },
+                                    };
+                                  })
+                                }
+                                placeholder="Enter section content here..."
+                                className="mt-1 min-h-[120px] text-sm"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
                         Cancel
@@ -854,6 +901,13 @@ function LandingPageEditor() {
     showSocialLinks: true,
   });
 
+  const [testimonialsForm, setTestimonialsForm] = useState({
+    badge: "",
+    headline: "",
+    enabled: true,
+    testimonials: [] as Array<{ name: string; role: string; content: string; rating: number }>,
+  });
+
   // Initialize forms when data loads
   useEffect(() => {
     if (landingPage) {
@@ -869,6 +923,12 @@ function LandingPageEditor() {
         description: landingPage.footerSection.description,
         copyright: landingPage.footerSection.copyright,
         showSocialLinks: landingPage.footerSection.showSocialLinks,
+      });
+      setTestimonialsForm({
+        badge: landingPage.testimonialsSection.badge,
+        headline: landingPage.testimonialsSection.headline,
+        enabled: landingPage.testimonialsSection.enabled,
+        testimonials: landingPage.testimonialsSection.testimonials || [],
       });
     }
   }, [landingPage]);
@@ -904,6 +964,30 @@ function LandingPageEditor() {
     updateSection.mutate({
       section: 'footerSection',
       data: footerForm,
+    });
+  };
+
+  const handleUpdateTestimonials = () => {
+    if (!testimonialsForm.badge.trim()) {
+      toast({
+        title: "Required fields missing",
+        description: "Please fill: Badge.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!testimonialsForm.headline.trim()) {
+      toast({
+        title: "Required fields missing",
+        description: "Please fill: Headline.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateSection.mutate({
+      section: 'testimonialsSection',
+      data: testimonialsForm,
     });
   };
 
@@ -1096,12 +1180,22 @@ function LandingPageEditor() {
           <CardContent className="space-y-4">
             <div>
               <Label>Badge</Label>
-              <Input defaultValue={landingPage.testimonialsSection.badge} className="mt-1" />
+              <Input 
+                value={testimonialsForm.badge}
+                onChange={(e) => setTestimonialsForm({ ...testimonialsForm, badge: e.target.value })}
+                className="mt-1"
+                placeholder="e.g., Testimonials"
+              />
             </div>
 
             <div>
               <Label>Headline</Label>
-              <Input defaultValue={landingPage.testimonialsSection.headline} className="mt-1" />
+              <Input 
+                value={testimonialsForm.headline}
+                onChange={(e) => setTestimonialsForm({ ...testimonialsForm, headline: e.target.value })}
+                className="mt-1"
+                placeholder="e.g., Loved by businesses everywhere"
+              />
             </div>
 
             <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
@@ -1109,16 +1203,134 @@ function LandingPageEditor() {
                 <h4 className="font-medium">Enable Testimonials Section</h4>
                 <p className="text-sm text-muted-foreground">Show/hide testimonials on landing page</p>
               </div>
-              <Switch checked={landingPage.testimonialsSection.enabled} />
+              <Switch 
+                checked={testimonialsForm.enabled}
+                onCheckedChange={(checked) => setTestimonialsForm({ ...testimonialsForm, enabled: checked })}
+              />
             </div>
 
             <Separator />
 
-            <div className="space-y-3">
-              <Label>Testimonials ({landingPage.testimonialsSection.testimonials.length})</Label>
-              <p className="text-xs text-muted-foreground">
-                Testimonial management coming soon. Currently displaying {landingPage.testimonialsSection.testimonials.length} testimonials.
-              </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Testimonials ({testimonialsForm.testimonials.length})</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newTestimonial = {
+                      name: "New Customer",
+                      role: "Job Title",
+                      content: "Their feedback here...",
+                      rating: 5,
+                    };
+                    setTestimonialsForm({
+                      ...testimonialsForm,
+                      testimonials: [...testimonialsForm.testimonials, newTestimonial],
+                    });
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Testimonial
+                </Button>
+              </div>
+
+              {testimonialsForm.testimonials.length > 0 && (
+                <div className="space-y-4">
+                  {testimonialsForm.testimonials.map((testimonial, index) => (
+                    <div key={index} className="p-4 border rounded-lg space-y-2 bg-muted/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Testimonial {index + 1}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setTestimonialsForm({
+                              ...testimonialsForm,
+                              testimonials: testimonialsForm.testimonials.filter((_, i) => i !== index),
+                            });
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Name</Label>
+                          <Input 
+                            value={testimonial.name}
+                            onChange={(e) => {
+                              const updated = [...testimonialsForm.testimonials];
+                              updated[index].name = e.target.value;
+                              setTestimonialsForm({ ...testimonialsForm, testimonials: updated });
+                            }}
+                            className="mt-1 text-sm"
+                            placeholder="Customer name"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Role</Label>
+                          <Input 
+                            value={testimonial.role}
+                            onChange={(e) => {
+                              const updated = [...testimonialsForm.testimonials];
+                              updated[index].role = e.target.value;
+                              setTestimonialsForm({ ...testimonialsForm, testimonials: updated });
+                            }}
+                            className="mt-1 text-sm"
+                            placeholder="Job title or company"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Testimonial Content</Label>
+                        <Textarea 
+                          value={testimonial.content}
+                          onChange={(e) => {
+                            const updated = [...testimonialsForm.testimonials];
+                            updated[index].content = e.target.value;
+                            setTestimonialsForm({ ...testimonialsForm, testimonials: updated });
+                          }}
+                          className="mt-1 text-sm min-h-[80px]"
+                          placeholder="What they said..."
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Rating (1-5)</Label>
+                        <Input 
+                          type="number"
+                          min="1"
+                          max="5"
+                          value={testimonial.rating}
+                          onChange={(e) => {
+                            const updated = [...testimonialsForm.testimonials];
+                            updated[index].rating = Math.min(5, Math.max(1, parseInt(e.target.value) || 1));
+                            setTestimonialsForm({ ...testimonialsForm, testimonials: updated });
+                          }}
+                          className="mt-1 text-sm"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {testimonialsForm.testimonials.length === 0 && (
+                <p className="text-sm text-muted-foreground italic p-4 bg-muted/30 rounded-lg">
+                  No testimonials yet. Click "Add Testimonial" to create one.
+                </p>
+              )}
+            </div>
+
+            <div className="pt-4 flex gap-2">
+              <Button onClick={handleUpdateTestimonials} disabled={updateSection.isPending}>
+                {updateSection.isPending ? 'Saving...' : 'Save Testimonials Section'}
+              </Button>
             </div>
           </CardContent>
         </Card>

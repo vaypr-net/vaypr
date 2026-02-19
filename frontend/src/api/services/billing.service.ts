@@ -40,6 +40,8 @@ export interface SubscriptionInfo {
   billingCycle: 'monthly' | 'yearly' | null;
   currentPeriodEnd: string | null;
   subscriptionStartedAt: string | null;
+  cancellationDate?: string | null;
+  accessUntilDate?: string | null;
 }
 
 export interface CancellationPreviewResponse {

@@ -149,8 +149,15 @@ export default function CancelSubscriptionDialog({
       });
       setConfirmation(response);
 
-      // Invalidate subscription cache
-      await queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      // Force immediate refetch of all subscription and billing related caches
+      // This ensures the dashboard, profile, and settings all update immediately
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['subscription'] }),
+        queryClient.refetchQueries({ queryKey: ['billing', 'me'] }),
+        queryClient.refetchQueries({ queryKey: ['billing', 'history'] }),
+        queryClient.refetchQueries({ queryKey: ['user'] }),
+        queryClient.refetchQueries({ queryKey: ['auth'] }),
+      ]);
 
       setCurrentStep('confirmation');
     } catch (err: any) {

@@ -51,7 +51,13 @@ export function BillingStatus() {
   }
 
   const currentPlan = subscription?.plan;
-  const isActive = subscription?.status === 'active' || subscription?.status === 'trialing';
+  // Check if subscription is active: status is 'active' OR 'trialing', AND NOT cancelled
+  const isActive = (subscription?.status === 'active' || subscription?.status === 'trialing') && !subscription?.cancellationDate;
+  const isCancelled = !!subscription?.cancellationDate;
+  
+  // If cancelled, show Free plan. Otherwise show current plan.
+  const displayPlanName = isCancelled ? 'Free' : (currentPlan?.name || 'Free');
+  
   const renewalDate = subscription?.currentPeriodEnd
     ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
     : null;
@@ -163,14 +169,19 @@ export function BillingStatus() {
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               Current Plan:{' '}
-              <span className="text-primary">{currentPlan?.name || 'Free'}</span>
+              <span className="text-primary">{displayPlanName}</span>
               {isActive && currentPlan?.price > 0 && (
                 <span className="inline-block px-2.5 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
                   Active
                 </span>
               )}
+              {isCancelled && currentPlan?.price > 0 && (
+                <span className="inline-block px-2.5 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+                  Cancelled
+                </span>
+              )}
             </h2>
-            {currentPlan && currentPlan.price > 0 && (
+            {!isCancelled && currentPlan && currentPlan.price > 0 && (
               <p className="text-sm text-muted-foreground mt-1">
                 {CURRENCY_CONFIG.displayCurrency}{' '}
                 {(currentPlan.priceInDisplayCurrency || (currentPlan.price * CURRENCY_CONFIG.conversionRate)).toFixed(2)}
@@ -179,6 +190,11 @@ export function BillingStatus() {
             )}
             {isActive && renewalDate && currentPlan?.price > 0 && (
               <p className="text-sm text-muted-foreground mt-1">Renews: {renewalDate}</p>
+            )}
+            {isCancelled && subscription?.accessUntilDate && (
+              <p className="text-sm text-red-600 mt-1">
+                Access until: {new Date(subscription.accessUntilDate).toLocaleDateString()}
+              </p>
             )}
             {subscription?.status === 'past_due' && (
               <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
