@@ -570,7 +570,14 @@ const Index = () => {
       if (!invoiceData.items || invoiceData.items.length === 0) {
         errors.push("At least one item is required");
       }
-      if (invoiceData.items.some(item => !item.description.trim() || item.quantity === 0 || item.unitPrice === 0)) {
+      if (
+        invoiceData.items.some(
+          (item) =>
+            !item.description.trim() ||
+            (!invoiceData.hideQuantity && item.quantity === 0) ||
+            (!invoiceData.hideUnitPrice && item.unitPrice === 0),
+        )
+      ) {
         errors.push("All items must have description, quantity, and unit price");
       }
     } else if (activeTab === "receipt") {
@@ -605,7 +612,14 @@ const Index = () => {
       if (!quoteData.items || quoteData.items.length === 0) {
         errors.push("At least one item is required");
       }
-      if (quoteData.items.some(item => !item.description.trim() || item.quantity === 0 || item.unitPrice === 0)) {
+      if (
+        quoteData.items.some(
+          (item) =>
+            !item.description.trim() ||
+            (!quoteData.hideQuantity && item.quantity === 0) ||
+            (!quoteData.hideUnitPrice && item.unitPrice === 0),
+        )
+      ) {
         errors.push("All items must have description, quantity, and unit price");
       }
     }
