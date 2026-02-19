@@ -63,6 +63,9 @@ export class QuotesService implements OnModuleInit {
       }
     }
 
+    this.normalizeItemColumnVisibilityOnCreate(createQuoteDto);
+    this.normalizeManualGrandTotalOnCreate(createQuoteDto);
+
     const quote = new this.quoteModel({
       ...createQuoteDto,
       userId: new Types.ObjectId(userId),
@@ -117,6 +120,8 @@ export class QuotesService implements OnModuleInit {
     userId: string,
   ): Promise<Quote> {
     const existingQuote = await this.findOne(id, userId);
+    this.normalizeItemColumnVisibilityOnUpdate(updateQuoteDto, existingQuote);
+    this.normalizeManualGrandTotalOnUpdate(updateQuoteDto, existingQuote);
 
     if (
       updateQuoteDto.clientId &&
@@ -156,6 +161,78 @@ export class QuotesService implements OnModuleInit {
     }
 
     return updatedQuote;
+  }
+
+  private normalizeItemColumnVisibilityOnCreate(dto: CreateQuoteDto): void {
+    const hasQuantifiableItems = (dto.items ?? []).some(
+      (item) => Number(item?.quantity) > 0 || Number(item?.unitPrice) > 0,
+    );
+    const allHidden =
+      dto.hideQuantity === true &&
+      dto.hideUnitPrice === true &&
+      dto.hideTotalCost === true;
+
+    if (hasQuantifiableItems && allHidden) {
+      dto.hideQuantity = false;
+      dto.hideUnitPrice = false;
+      dto.hideTotalCost = false;
+    }
+  }
+
+  private normalizeItemColumnVisibilityOnUpdate(
+    dto: UpdateQuoteDto,
+    existingQuote: Quote,
+  ): void {
+    const nextItems = dto.items ?? existingQuote.items ?? [];
+    const nextHideQuantity = dto.hideQuantity ?? existingQuote.hideQuantity;
+    const nextHideUnitPrice = dto.hideUnitPrice ?? existingQuote.hideUnitPrice;
+    const nextHideTotalCost = dto.hideTotalCost ?? existingQuote.hideTotalCost;
+    const hasQuantifiableItems = nextItems.some(
+      (item) => Number(item?.quantity) > 0 || Number(item?.unitPrice) > 0,
+    );
+    const allHidden =
+      nextHideQuantity === true &&
+      nextHideUnitPrice === true &&
+      nextHideTotalCost === true;
+
+    if (hasQuantifiableItems && allHidden) {
+      dto.hideQuantity = false;
+      dto.hideUnitPrice = false;
+      dto.hideTotalCost = false;
+    }
+  }
+
+  private normalizeManualGrandTotalOnCreate(dto: CreateQuoteDto): void {
+    const hasQuantifiableItems = (dto.items ?? []).some(
+      (item) => Number(item?.quantity) > 0 || Number(item?.unitPrice) > 0,
+    );
+    const manualGrandTotal = Number(dto.manualGrandTotal ?? 0);
+    const useManualGrandTotal = dto.useManualGrandTotal === true;
+
+    if (hasQuantifiableItems && useManualGrandTotal && manualGrandTotal <= 0) {
+      dto.useManualGrandTotal = false;
+      dto.manualGrandTotal = 0;
+    }
+  }
+
+  private normalizeManualGrandTotalOnUpdate(
+    dto: UpdateQuoteDto,
+    existingQuote: Quote,
+  ): void {
+    const nextItems = dto.items ?? existingQuote.items ?? [];
+    const nextUseManualGrandTotal =
+      dto.useManualGrandTotal ?? existingQuote.useManualGrandTotal;
+    const nextManualGrandTotal = Number(
+      dto.manualGrandTotal ?? existingQuote.manualGrandTotal ?? 0,
+    );
+    const hasQuantifiableItems = nextItems.some(
+      (item) => Number(item?.quantity) > 0 || Number(item?.unitPrice) > 0,
+    );
+
+    if (hasQuantifiableItems && nextUseManualGrandTotal === true && nextManualGrandTotal <= 0) {
+      dto.useManualGrandTotal = false;
+      dto.manualGrandTotal = 0;
+    }
   }
 
   async remove(id: string, userId: string): Promise<Quote> {

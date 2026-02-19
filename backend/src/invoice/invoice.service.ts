@@ -69,6 +69,9 @@ export class InvoiceService implements OnModuleInit {
       }
     }
 
+    this.normalizeItemColumnVisibilityOnCreate(createInvoiceDto);
+    this.normalizeManualGrandTotalOnCreate(createInvoiceDto);
+
     const invoice = new this.invoiceModel({
       ...createInvoiceDto,
       userId: new Types.ObjectId(userId),
@@ -124,6 +127,8 @@ export class InvoiceService implements OnModuleInit {
   ): Promise<Invoice> {
     // First check if invoice exists and belongs to user
     const existingInvoice = await this.findOne(id, userId);
+    this.normalizeItemColumnVisibilityOnUpdate(updateInvoiceDto, existingInvoice);
+    this.normalizeManualGrandTotalOnUpdate(updateInvoiceDto, existingInvoice);
 
     // Validate client ownership if clientId is being updated
     if (
@@ -166,6 +171,83 @@ export class InvoiceService implements OnModuleInit {
     }
 
     return updatedInvoice;
+  }
+
+  /**
+   * Safety guard: prevent accidental "all item columns hidden" state when the
+   * invoice clearly has quantity/unit price item data.
+   */
+  private normalizeItemColumnVisibilityOnCreate(dto: CreateInvoiceDto): void {
+    const hasQuantifiableItems = (dto.items ?? []).some(
+      (item) => Number(item?.quantity) > 0 || Number(item?.unitPrice) > 0,
+    );
+    const allHidden =
+      dto.hideQuantity === true &&
+      dto.hideUnitPrice === true &&
+      dto.hideTotalCost === true;
+
+    if (hasQuantifiableItems && allHidden) {
+      dto.hideQuantity = false;
+      dto.hideUnitPrice = false;
+      dto.hideTotalCost = false;
+    }
+  }
+
+  private normalizeItemColumnVisibilityOnUpdate(
+    dto: UpdateInvoiceDto,
+    existingInvoice: Invoice,
+  ): void {
+    const nextItems = dto.items ?? existingInvoice.items ?? [];
+    const nextHideQuantity = dto.hideQuantity ?? existingInvoice.hideQuantity;
+    const nextHideUnitPrice = dto.hideUnitPrice ?? existingInvoice.hideUnitPrice;
+    const nextHideTotalCost = dto.hideTotalCost ?? existingInvoice.hideTotalCost;
+
+    const hasQuantifiableItems = nextItems.some(
+      (item) => Number(item?.quantity) > 0 || Number(item?.unitPrice) > 0,
+    );
+    const allHidden =
+      nextHideQuantity === true &&
+      nextHideUnitPrice === true &&
+      nextHideTotalCost === true;
+
+    if (hasQuantifiableItems && allHidden) {
+      dto.hideQuantity = false;
+      dto.hideUnitPrice = false;
+      dto.hideTotalCost = false;
+    }
+  }
+
+  private normalizeManualGrandTotalOnCreate(dto: CreateInvoiceDto): void {
+    const hasQuantifiableItems = (dto.items ?? []).some(
+      (item) => Number(item?.quantity) > 0 || Number(item?.unitPrice) > 0,
+    );
+    const manualGrandTotal = Number(dto.manualGrandTotal ?? 0);
+    const useManualGrandTotal = dto.useManualGrandTotal === true;
+
+    if (hasQuantifiableItems && useManualGrandTotal && manualGrandTotal <= 0) {
+      dto.useManualGrandTotal = false;
+      dto.manualGrandTotal = 0;
+    }
+  }
+
+  private normalizeManualGrandTotalOnUpdate(
+    dto: UpdateInvoiceDto,
+    existingInvoice: Invoice,
+  ): void {
+    const nextItems = dto.items ?? existingInvoice.items ?? [];
+    const nextUseManualGrandTotal =
+      dto.useManualGrandTotal ?? existingInvoice.useManualGrandTotal;
+    const nextManualGrandTotal = Number(
+      dto.manualGrandTotal ?? existingInvoice.manualGrandTotal ?? 0,
+    );
+    const hasQuantifiableItems = nextItems.some(
+      (item) => Number(item?.quantity) > 0 || Number(item?.unitPrice) > 0,
+    );
+
+    if (hasQuantifiableItems && nextUseManualGrandTotal === true && nextManualGrandTotal <= 0) {
+      dto.useManualGrandTotal = false;
+      dto.manualGrandTotal = 0;
+    }
   }
 
   async remove(id: string, userId: string): Promise<Invoice> {
