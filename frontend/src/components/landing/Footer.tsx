@@ -74,8 +74,11 @@ const mapPageLinks = (
           }
         }
 
+        // Normalize the label for some known pages (use short label in footer)
+        const footerLabel = slugLower === 'guides' ? 'Guides' : page.title;
+
         return {
-          label: page.title,
+          label: footerLabel,
           href: `/${slugLower}`,
         };
       }
@@ -128,6 +131,37 @@ export function Footer() {
     : corporateLinksFromPages.length > 0
       ? corporateLinksFromPages
       : mapLandingLinks(landingPage?.footerSection?.corporateLinks);
+
+  // Reorder corporate links so Guides appears first, then About, then B2B
+  const reorderPriority = ['guides', 'about', 'b2b'];
+  const orderedCorporateLinks = (() => {
+    if (!corporateLinks || corporateLinks.length === 0) return corporateLinks;
+
+    const prioritized: FooterLinkItem[] = [];
+    const others: FooterLinkItem[] = [];
+
+    const lower = (s: string) => s.toLowerCase();
+
+    // Place prioritized items first by matching href or label to known slugs
+    for (const key of reorderPriority) {
+      const idx = corporateLinks.findIndex((link) => {
+        const href = lower(link.href || '');
+        const label = lower(link.label || '');
+        return href.endsWith(`/${key}`) || href === `/${key}` || label.includes(key);
+      });
+      if (idx !== -1) {
+        prioritized.push(corporateLinks[idx]);
+      }
+    }
+
+    // Add remaining links preserving original order, excluding already added
+    for (const link of corporateLinks) {
+      const exists = prioritized.find((p) => p.label === link.label && p.href === link.href);
+      if (!exists) others.push(link);
+    }
+
+    return [...prioritized, ...others];
+  })();
 
   return <footer className="py-16 border-t border-border">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -199,7 +233,7 @@ export function Footer() {
           <div>
             <h3 className="font-semibold text-foreground mb-4">Corporate</h3>
             <ul className="space-y-3">
-              {corporateLinks.map(link => <li key={link.label}>
+              {(orderedCorporateLinks || corporateLinks).map(link => <li key={link.label}>
                   {isExternalHref(link.href) ? (
                     <a
                       href={link.href}
