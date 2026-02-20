@@ -157,7 +157,7 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
               ) : (
                 data.items.map((item) => (
                   <tr key={item.id} className="border-b border-border">
-                    <td className="py-4 px-4 text-foreground break-words">
+                    <td className="py-4 px-4 text-foreground" style={{ wordBreak: 'break-word', overflowWrap: 'break-word', wordWrap: 'break-word', lineHeight: '1.5', hyphens: 'auto' }}>
                       {item.description || "-"}
                     </td>
                     <td className={showQuantity ? "py-4 px-3 text-center text-foreground" : ""} style={!showQuantity ? { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 } : {}}>
@@ -194,7 +194,7 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
             {data.showPaymentTerms && data.paymentTerms && (
               <div className="bg-muted/30 rounded-md p-2.5 border border-border/50">
                 <p className="font-semibold text-foreground mb-1.5 text-sm">Payment Terms</p>
-                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{data.paymentTerms}</p>
+                <p className="text-xs text-muted-foreground" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', lineHeight: '1.4' }}>{data.paymentTerms}</p>
               </div>
             )}
             {data.showBankAccount && (data.bankAccount.bankName || data.bankAccount.accountName || data.bankAccount.iban) && (
@@ -214,7 +214,7 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
                     </p>
                   )}
                   {data.bankAccount.iban && (
-                    <p className="text-foreground font-mono break-all">
+                    <p className="text-foreground font-mono" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                       <span className="text-muted-foreground font-sans">IBAN: </span>
                       {data.bankAccount.iban}
                     </p>
@@ -254,7 +254,7 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
         {/* Company Footer Details */}
         {(data.companyFooter.companyName || data.companyFooter.address || data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
           <div className="border-t border-border pt-6 print:mt-auto">
-            <div className="text-xs text-muted-foreground flex items-center justify-center gap-2 whitespace-nowrap">
+            <div className="text-xs text-muted-foreground flex flex-wrap items-center justify-center gap-2" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
               {data.companyFooter.companyName && (
                 <span className="font-semibold text-foreground">{data.companyFooter.companyName}</span>
               )}

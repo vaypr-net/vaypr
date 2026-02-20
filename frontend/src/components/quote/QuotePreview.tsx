@@ -138,7 +138,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
             ) : (
               data.items.map((item) => (
                 <tr key={item.id} className="border-b border-border/50">
-                  <td className="py-3 px-2 text-foreground break-words">
+                  <td className="py-3 px-2 text-foreground" style={{ wordBreak: 'break-word', overflowWrap: 'break-word', wordWrap: 'break-word', lineHeight: '1.5', hyphens: 'auto' }}>
                     {item.description || "-"}
                   </td>
                   <td className={showQuantity ? "py-3 px-2 text-center text-foreground" : ""} style={!showQuantity ? hiddenStyle : {}}>
@@ -189,7 +189,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
       {data.showPaymentTerms && data.paymentTerms && (
         <div className="mb-6 p-4 bg-secondary/50 rounded-lg">
           <p className="text-sm font-semibold text-foreground mb-1">Terms & Conditions</p>
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{data.paymentTerms}</p>
+          <p className="text-sm text-muted-foreground" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', lineHeight: '1.4' }}>{data.paymentTerms}</p>
         </div>
       )}
 
@@ -197,7 +197,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
       {data.notes && (
         <div className="mb-6 p-4 bg-secondary/50 rounded-lg">
           <p className="text-sm font-semibold text-foreground mb-1">Notes</p>
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{data.notes}</p>
+          <p className="text-sm text-muted-foreground" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', lineHeight: '1.4' }}>{data.notes}</p>
         </div>
       )}
 
@@ -229,7 +229,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
       {/* Footer */}
       {(data.companyFooter.companyName || data.companyFooter.address || data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
         <div className="pt-6 border-t border-border print:mt-auto">
-          <div className="text-sm text-muted-foreground flex items-center justify-center gap-2 whitespace-nowrap">
+          <div className="text-sm text-muted-foreground flex flex-wrap items-center justify-center gap-2" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
             {data.companyFooter.companyName && (
               <span className="font-semibold text-foreground">{data.companyFooter.companyName}</span>
             )}
