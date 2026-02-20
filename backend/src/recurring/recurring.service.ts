@@ -265,13 +265,13 @@ export class RecurringService {
       paymentMethodType: recurring.paymentType,
       showBankAccount: recurring.showBankDetails,
       bankAccount: recurring.bankDetails,
-      // Hide item columns, show only total (as per frontend)
-      hideQuantity: true,
-      hideUnitPrice: true,
-      hideTotalCost: true,
-      hideSubTotal: true,
-      useManualGrandTotal: true,
-      manualGrandTotal: recurring.total,
+      // Keep recurring-generated invoices aligned with standard invoice preview/export columns.
+      hideQuantity: false,
+      hideUnitPrice: false,
+      hideTotalCost: false,
+      hideSubTotal: false,
+      useManualGrandTotal: false,
+      manualGrandTotal: 0,
       billTo: {
         name: client?.name || 'N/A',
         phone: client?.phone || '',

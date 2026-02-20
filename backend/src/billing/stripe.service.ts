@@ -426,6 +426,12 @@ export class StripeService {
         user.stripeSubscriptionId = subscription.id;
         user.subscriptionStatus = 'active';
         user.planId = session.metadata?.planId as any;
+        // Clear stale cancellation metadata when subscription is reactivated.
+        user.set('subscriptionCanceledAt', undefined);
+        user.cancellationMethod = undefined;
+        user.cancellationScheduledFor = undefined;
+        user.cancellationReason = undefined;
+        user.cancellationFeedback = undefined;
         await user.save();
         
         this.logger.log(`Verified session ${sessionId} for user ${userId}, subscription ${subscription.id}`);
@@ -552,6 +558,15 @@ export class StripeService {
     const displayCurrency = this.currencyService.getDisplayCurrency();
     const priceInDisplayCurrency = this.currencyService.convertToDisplayCurrency(actualPrice);
     
+    const isCanceledStatus = subscriptionStatus === 'canceled';
+    const isScheduledCancellation =
+      (subscriptionStatus === 'active' ||
+        subscriptionStatus === 'trialing' ||
+        subscriptionStatus === 'past_due' ||
+        subscriptionStatus === 'incomplete') &&
+      user.cancellationMethod === 'at_period_end' &&
+      !!user.cancellationScheduledFor;
+
     return {
       plan: {
         ...planObject,
@@ -564,8 +579,8 @@ export class StripeService {
       billingCycle: user.billingCycle,
       currentPeriodEnd: user.currentPeriodEnd,
       subscriptionStartedAt: user.subscriptionStartedAt,
-      cancellationDate: user.subscriptionCanceledAt || null,
-      accessUntilDate: user.cancellationScheduledFor || null,
+      cancellationDate: isCanceledStatus ? user.subscriptionCanceledAt || null : null,
+      accessUntilDate: isScheduledCancellation ? user.cancellationScheduledFor || null : null,
     };
   }
 
@@ -1138,6 +1153,12 @@ export class StripeService {
       billingCycle: billingCycle,
       subscriptionAmount: subscriptionAmount, // Store actual charged amount
       subscriptionStartedAt: new Date(),
+      // Clear cancellation state on successful checkout/re-subscribe.
+      subscriptionCanceledAt: null,
+      cancellationMethod: null,
+      cancellationScheduledFor: null,
+      cancellationReason: null,
+      cancellationFeedback: null,
     };
 
     // Set currentPeriodEnd from real Stripe period boundaries (top-level or item-level).
@@ -1269,6 +1290,22 @@ export class StripeService {
     const updateData: any = {
       subscriptionStatus: subscription.status,
     };
+
+    const isCancelAtPeriodEnd = (subscription as any)?.cancel_at_period_end === true;
+    const isActiveLikeStatus =
+      subscription.status === 'active' ||
+      subscription.status === 'trialing' ||
+      subscription.status === 'past_due' ||
+      subscription.status === 'incomplete';
+
+    if (isActiveLikeStatus && !isCancelAtPeriodEnd) {
+      // Subscription is active again without pending cancellation: clear stale cancellation fields.
+      updateData.subscriptionCanceledAt = null;
+      updateData.cancellationMethod = null;
+      updateData.cancellationScheduledFor = null;
+      updateData.cancellationReason = null;
+      updateData.cancellationFeedback = null;
+    }
 
     // Set currentPeriodEnd from real Stripe period boundaries (top-level or item-level).
     const { periodEnd: updatedPeriodEnd } = this.getSubscriptionPeriodBounds(subscription);
