@@ -21,13 +21,13 @@ export class ActivityController {
     return this.activityService.getUnreadCount();
   }
 
-  @Patch(':id/read')
-  markAsRead(@Param('id') id: string) {
-    return this.activityService.markAsRead(id);
-  }
-
   @Patch('all/read')
   markAllAsRead() {
     return this.activityService.markAllAsRead();
+  }
+
+  @Patch(':id/read')
+  markAsRead(@Param('id') id: string) {
+    return this.activityService.markAsRead(id);
   }
 }
