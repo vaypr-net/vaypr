@@ -26,7 +26,8 @@ import {
   useGetTickets, 
   useGetTicketStats, 
   useCreateTicket,
-  useUpdateTicketStatus 
+  useUpdateTicketStatus,
+  useUpdateTicket, 
 } from "@/hooks/api/useTickets";
 import { Ticket } from "@/api/services/ticket.service";
 import { toast } from "sonner";
@@ -148,6 +149,7 @@ export default function Support() {
   const { data: stats } = useGetTicketStats();
   const createTicketMutation = useCreateTicket();
   const updateStatusMutation = useUpdateTicketStatus();
+  const updateTicketMutation = useUpdateTicket();
 
   const displayTickets = ticketsData?.items || [];
 
@@ -411,7 +413,21 @@ export default function Support() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Priority</p>
-                    <Select defaultValue={selectedTicket.priority}>
+                    <Select
+                      key={`priority-${selectedTicket._id}`}
+                      defaultValue={selectedTicket.priority}
+                      onValueChange={async (value) => {
+                        try {
+                          const updated = await updateTicketMutation.mutateAsync({
+                            id: selectedTicket._id,
+                            data: { priority: value },
+                          });
+                          setSelectedTicket(updated);
+                        } catch (error) {
+                          console.error('Failed to update priority', error);
+                        }
+                      }}
+                    >
                       <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
@@ -425,7 +441,21 @@ export default function Support() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Assigned To</p>
-                    <Select defaultValue={selectedTicket.assignedTo}>
+                    <Select
+                      key={`assigned-${selectedTicket._id}`}
+                      defaultValue={selectedTicket.assignedTo}
+                      onValueChange={async (value) => {
+                        try {
+                          const updated = await updateTicketMutation.mutateAsync({
+                            id: selectedTicket._id,
+                            data: { assignedTo: value },
+                          });
+                          setSelectedTicket(updated);
+                        } catch (error) {
+                          console.error('Failed to update assignedTo', error);
+                        }
+                      }}
+                    >
                       <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
