@@ -9,6 +9,7 @@ import { Quote, QuoteSchema } from '../quotes/entities/quote.entity';
 import { Recurring, RecurringSchema } from '../recurring/entities/recurring.entity';
 import { Client, ClientSchema } from '../clients/entities/client.entity';
 import { Expense, ExpenseSchema } from '../expense/entities/expense.entity';
+import { Receipt, ReceiptSchema } from '../reciept/entities/reciept.entity';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @Module({
@@ -19,6 +20,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
       { name: Recurring.name, schema: RecurringSchema },
       { name: Client.name, schema: ClientSchema },
       { name: Expense.name, schema: ExpenseSchema },
+      { name: Receipt.name, schema: ReceiptSchema },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

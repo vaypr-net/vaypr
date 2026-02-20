@@ -11,9 +11,12 @@ async function bootstrap() {
   // Must be BEFORE JSON body parser
   app.use('/billing/webhook', bodyParser.raw({ type: 'application/json' }));
 
-  // Increase body size limit for PDF attachments (10MB)
-  app.use(bodyParser.json({ limit: '10mb' }));
-  app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
+  // Increase body size limit for PDF attachments (50MB)
+  // NOTE: This raises the allowed JSON/form payload size to accommodate large
+  // base64-encoded attachments. For production scale it's better to switch to
+  // multipart/form-data or object storage, but this is a temporary mitigation.
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
   // CORS Configuration - Read from environment or use defaults
   const allowedOrigins = [

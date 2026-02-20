@@ -6,6 +6,7 @@ import { Quote } from '../quotes/entities/quote.entity';
 import { Recurring } from '../recurring/entities/recurring.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Expense } from '../expense/entities/expense.entity';
+import { Receipt } from '../reciept/entities/reciept.entity';
 
 @Injectable()
 export class DashboardService {
@@ -15,6 +16,7 @@ export class DashboardService {
     @InjectModel(Recurring.name) private recurringModel: Model<Recurring>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
     @InjectModel(Expense.name) private expenseModel: Model<Expense>,
+    @InjectModel(Receipt.name) private receiptModel: Model<Receipt>,
   ) {}
 
   async getStats(userId: string) {
@@ -33,6 +35,7 @@ export class DashboardService {
       recurringBillings,
       clients,
       expenses,
+      receipts,
     ] = await Promise.all([
       this.invoiceModel.find({ userId: userObjectId, isDeleted: false }).exec(),
       this.quoteModel.find({ userId: userObjectId, isDeleted: false }).exec(),
@@ -43,6 +46,7 @@ export class DashboardService {
         isDeleted: false,
         date: { $gte: startOfMonth, $lte: endOfMonth }
       }).exec(),
+      this.receiptModel.find({ userId: userObjectId, isDeleted: false }).exec(),
     ]);
 
     // Calculate invoice stats
@@ -121,6 +125,7 @@ export class DashboardService {
       overview: {
         totalClients: clients.length,
         totalInvoices: invoices.length,
+        totalReceipts: receipts.length,
         totalQuotes: quotes.length,
         totalRecurring: recurringBillings.length,
         totalRevenue,
@@ -151,6 +156,9 @@ export class DashboardService {
         total: recurringBillings.length,
         active: activeRecurring,
         thisMonth: recurringThisMonth,
+      },
+      receipts: {
+        total: receipts.length,
       },
       expenses: {
         totalThisMonth: totalExpenses,
