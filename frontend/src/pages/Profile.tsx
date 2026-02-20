@@ -47,6 +47,7 @@ import axios from '@/api/axios';
 import { billingService } from '@/api/services/billing.service';
 import { BillingPlanService, BillingPlan } from '@/api/services/billing-plan.service';
 import { useDashboardStats } from '@/hooks/api/useDashboard';
+import CancelSubscriptionDialog from '@/components/billing/CancelSubscriptionDialog';
 import {
   User,
   Mail,
@@ -205,6 +206,7 @@ export default function Profile() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isSessionsDialogOpen, setIsSessionsDialogOpen] = useState(false);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -322,6 +324,14 @@ export default function Profile() {
   const currentPlanStatus = isCancelledSubscription
     ? 'cancelled'
     : subscriptionStatus;
+  const currentPlanBadgeName = currentPlanName || currentPlanInfo.name;
+  const normalizedCurrentPlanName = currentPlanBadgeName.toLowerCase();
+  const currentPlanBadgeStyle =
+    normalizedCurrentPlanName.includes('business')
+      ? SUBSCRIPTION_PLANS.business
+      : normalizedCurrentPlanName.includes('pro') || normalizedCurrentPlanName.includes('premium')
+      ? SUBSCRIPTION_PLANS.pro
+      : SUBSCRIPTION_PLANS.free;
   const currentPeriodEnd =
     subscriptionInfo?.accessUntilDate ||
     subscriptionInfo?.currentPeriodEnd ||
@@ -648,13 +658,6 @@ export default function Profile() {
     }
   };
 
-  const handleCancelSubscription = () => {
-    toast({
-      title: 'Subscription Cancelled',
-      description: 'Your subscription will remain active until the end of the billing period.',
-    });
-  };
-
   const getUsagePercentage = (used: number, limit: number) => {
     if (limit === -1) return 0; // Unlimited
     return Math.min((used / limit) * 100, 100);
@@ -817,9 +820,9 @@ export default function Profile() {
                     <h3 className="text-xl font-semibold">{user?.name}</h3>
                     <p className="text-muted-foreground">{user?.email}</p>
                     <div className="flex items-center gap-2 mt-2">
-                      <Badge className={currentPlanInfo.color}>
-                        <currentPlanInfo.icon className="h-3 w-3 mr-1" />
-                        {currentPlanInfo.name} Plan
+                      <Badge className={currentPlanBadgeStyle.color}>
+                        <currentPlanBadgeStyle.icon className="h-3 w-3 mr-1" />
+                        {currentPlanBadgeName} Plan
                       </Badge>
                       <span className="text-sm text-muted-foreground">
                         Member since {format(new Date(user?.createdAt || Date.now()), 'MMMM yyyy')}
@@ -1199,32 +1202,13 @@ export default function Profile() {
                   )}
                   
                   {hasPaidPlan && currentPlanStatus !== 'cancelled' && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" className="text-destructive">
-                          Cancel Subscription
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Your subscription will remain active until the end of your current billing period. 
-                            After that, you'll be moved to the Free plan.
-                            {currentPeriodEnd ? ` Current period ends on ${format(new Date(currentPeriodEnd), 'MMMM d, yyyy')}.` : ''}
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={handleCancelSubscription}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Cancel Subscription
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button
+                      variant="outline"
+                      className="text-destructive"
+                      onClick={() => setIsCancelDialogOpen(true)}
+                    >
+                      Cancel Subscription
+                    </Button>
                   )}
                 </div>
               </CardContent>
@@ -1283,6 +1267,11 @@ export default function Profile() {
                 )}
               </CardContent>
             </Card>
+
+            <CancelSubscriptionDialog
+              isOpen={isCancelDialogOpen}
+              onClose={() => setIsCancelDialogOpen(false)}
+            />
           </TabsContent>
 
           {/* Security Tab */}
