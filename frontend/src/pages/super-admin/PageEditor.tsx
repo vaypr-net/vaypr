@@ -41,6 +41,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -58,6 +68,7 @@ import {
   useUpdateCorporatePage,
   useToggleCorporatePageEnabled,
   useToggleCorporatePageFooter,
+  useInitializeCorporatePages,
   useGuides,
   useCreateGuide,
   useUpdateGuide,
@@ -437,6 +448,14 @@ function CorporatePagesEditor() {
   const pagesCount = pages.length;
   const guidesCount = guides.length;
 
+  const [showInitDialog, setShowInitDialog] = useState(false);
+  const initializeMutation = useInitializeCorporatePages();
+
+  const handleInitializeDefaults = async () => {
+    await initializeMutation.mutateAsync();
+    setShowInitDialog(false);
+  };
+
   return (
     <Tabs defaultValue="pages" className="w-full">
       <TabsList className="mb-4">
@@ -448,14 +467,30 @@ function CorporatePagesEditor() {
       <TabsContent value="pages" className="space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{pagesCount} pages</span>
-          <Button variant="outline" size="sm" onClick={addCorporatePage} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Add Page
-          </Button>
+          {pages.length === 0 ? (
+            <Button onClick={() => setShowInitDialog(true)} variant="outline">
+              <Plus className="w-4 h-4 mr-2" />
+              Initialize Default Pages
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={addCorporatePage} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Page
+            </Button>
+          )}
         </div>
 
         {pagesLoading ? (
           <p className="text-sm text-muted-foreground">Loading corporate pages...</p>
+        ) : pages.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground border rounded-lg">
+            <Building2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-medium mb-1">No corporate pages found</p>
+            <p className="text-sm mb-4">Initialize default pages to get started</p>
+            <Button onClick={() => setShowInitDialog(true)}>
+              Initialize Default Pages
+            </Button>
+          </div>
         ) : pages.map((page: any) => (
           <div key={page._id} className="rounded-lg border bg-card overflow-hidden">
             <div className="flex items-center gap-4 p-4">
@@ -613,6 +648,25 @@ function CorporatePagesEditor() {
           </div>
         ))}
       </TabsContent>
+
+      {/* Initialize Defaults Dialog for Corporate Pages */}
+      <AlertDialog open={showInitDialog} onOpenChange={setShowInitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Initialize Default Corporate Pages?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will create default About Us and B2B Services pages with pre-filled content including team members and features.
+              You can customize them after initialization.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleInitializeDefaults} disabled={initializeMutation.isPending}>
+              Initialize Pages
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* -------------------- Guides Tab -------------------- */}
       <TabsContent value="guides" className="space-y-4">

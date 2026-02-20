@@ -21,6 +21,15 @@ interface PublicSocialLink {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+// Static corporate links shown when VITE_FORCE_STATIC_PAGES=true
+const STATIC_CORPORATE_LINKS: FooterLinkItem[] = [
+  { label: 'About', href: '/about' },
+  { label: 'B2B', href: '/b2b' },
+  { label: 'Guides', href: '/guides' },
+];
+
+const FORCE_STATIC_PAGES = import.meta.env.VITE_FORCE_STATIC_PAGES === 'true';
+
 const toHref = (slug: string): string => {
   if (!slug) return "/";
   if (/^https?:\/\//i.test(slug)) return slug;
@@ -30,7 +39,10 @@ const toHref = (slug: string): string => {
 
 const isExternalHref = (href: string): boolean => /^https?:\/\//i.test(href);
 
-const mapPageLinks = (pages: Array<{ title: string; slug: string; showInFooter: boolean; order: number }>, prefix?: string): FooterLinkItem[] =>
+const mapPageLinks = (
+  pages: Array<{ title: string; slug: string; showInFooter: boolean; order: number; createdAt?: string; updatedAt?: string }>,
+  prefix?: string
+): FooterLinkItem[] =>
   pages
     .filter((page) => page.showInFooter)
     .sort((a, b) => a.order - b.order)
@@ -42,14 +54,32 @@ const mapPageLinks = (pages: Array<{ title: string; slug: string; showInFooter: 
           href: toHref(page.slug),
         };
       }
-      // Special hardcoded pages that should not use prefix
+
+      // Special hardcoded pages
       const hardcodedPages = ['contact', 'privacy', 'refund', 'terms', 'faqs', 'about', 'b2b', 'guides'];
-      if (hardcodedPages.includes(page.slug.toLowerCase())) {
+      const slugLower = page.slug.toLowerCase();
+
+      if (hardcodedPages.includes(slugLower)) {
+        // If a prefix is provided (we're mapping corporate pages) prefer the static route
+        // (e.g. `/about`) unless the corporate DB page was edited (updatedAt > createdAt).
+        if (prefix && page.createdAt && page.updatedAt) {
+          try {
+            const created = new Date(page.createdAt);
+            const updated = new Date(page.updatedAt);
+            if (updated > created) {
+              return { label: page.title, href: `${prefix}/${slugLower}` };
+            }
+          } catch (e) {
+            // fallback to static route below
+          }
+        }
+
         return {
           label: page.title,
-          href: `/${page.slug}`,
+          href: `/${slugLower}`,
         };
       }
+
       // Add prefix if provided for dynamic pages
       return {
         label: page.title,
@@ -93,9 +123,11 @@ export function Footer() {
   const supportLinks = supportLinksFromPages.length > 0
     ? supportLinksFromPages
     : mapLandingLinks(landingPage?.footerSection?.supportLinks);
-  const corporateLinks = corporateLinksFromPages.length > 0
-    ? corporateLinksFromPages
-    : mapLandingLinks(landingPage?.footerSection?.corporateLinks);
+  const corporateLinks = FORCE_STATIC_PAGES
+    ? STATIC_CORPORATE_LINKS
+    : corporateLinksFromPages.length > 0
+      ? corporateLinksFromPages
+      : mapLandingLinks(landingPage?.footerSection?.corporateLinks);
 
   return <footer className="py-16 border-t border-border">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
