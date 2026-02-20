@@ -28,6 +28,41 @@ interface Plan {
   isPopular: boolean;
 }
 
+const FREE_PLAN_DESCRIPTION =
+  "Perfect for freelancers and small businesses just getting started with professional invoicing.";
+const BUSINESS_PLAN_DESCRIPTION =
+  "Ideal for growing businesses that need full access to invoicing, quotes, and expense tracking.";
+
+const staticFreePlanFallback: Plan = {
+  _id: "static-free-plan",
+  name: "Free",
+  price: 0,
+  currency: CURRENCY_CONFIG.displayCurrency,
+  interval: "monthly",
+  status: "active",
+  features: [
+    "Up to 3 Invoices per month",
+    "Up to 2 Quotes per month",
+    "Up to 3 Receipts per month",
+    "10 Clients",
+    "1 Recurring Subscription",
+    "Up to 5 Expense Tracking",
+    "1 Custom Template",
+  ],
+  limits: {
+    invoices: 3,
+    quotes: 2,
+    clients: 10,
+    teamMembers: 1,
+    storage: "1GB",
+    receipts: 3,
+    recurringInvoices: 1,
+    expenseTracking: true,
+    invoiceTemplates: "1",
+  },
+  isPopular: false,
+};
+
 // Static Enterprise Plan - Hardcoded (same as before)
 const staticEnterprisePlan = {
   name: "Enterprise",
@@ -57,6 +92,24 @@ export function PricingSection() {
 
   const supportedCurrencies = CURRENCY_CONFIG.supportedCurrencies;
 
+  const getPlanDescription = (plan: Plan): string => {
+    const normalizedName = plan.name.toLowerCase();
+
+    if (plan.price === 0 || normalizedName.includes("free") || normalizedName.includes("starter")) {
+      return FREE_PLAN_DESCRIPTION;
+    }
+
+    if (normalizedName.includes("business")) {
+      return BUSINESS_PLAN_DESCRIPTION;
+    }
+
+    return plan.features?.[0] || `${plan.name} plan for your business.`;
+  };
+
+  const isBusinessPlan = (plan: Plan): boolean => {
+    return plan.name.toLowerCase().includes("business");
+  };
+
   // Fetch plans from API
   useEffect(() => {
     const fetchPlans = async () => {
@@ -65,7 +118,13 @@ export function PricingSection() {
         const response = await fetch(`${apiBaseUrl}/billing-plans`);
         if (!response.ok) throw new Error('Failed to fetch plans');
         const data = await response.json();
-        setPlans(data.items || []);
+        const apiPlans: Plan[] = data.items || [];
+        const hasFreePlan = apiPlans.some((plan) => {
+          const normalizedName = plan.name.toLowerCase();
+          return plan.price === 0 || normalizedName.includes("free") || normalizedName.includes("starter");
+        });
+
+        setPlans(hasFreePlan ? apiPlans : [staticFreePlanFallback, ...apiPlans]);
       } catch (err) {
         console.error('Error fetching plans:', err);
         setError('Failed to load plans');
@@ -240,9 +299,9 @@ export function PricingSection() {
   const displayPlans = plans.filter(p => p.name !== "Enterprise");
 
   return (
-    <section className="py-24 relative overflow-hidden">
+    <section id="pricing" className="py-24 relative overflow-hidden bg-[#f7f7fb]">
       {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background via-primary/5 to-background" />
+      <div className="absolute inset-0 bg-[#f7f7fb]" />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Section Header */}
@@ -250,7 +309,7 @@ export function PricingSection() {
           <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
             Choose your right plan!
           </h2>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-[#6b6b76] text-lg">
             Select from best plans, ensuring a perfect match. Need more or less?
             <br />
             Customize your subscription for a seamless fit!
@@ -259,14 +318,14 @@ export function PricingSection() {
 
         {/* Billing Toggle */}
         <div className="flex justify-center mb-12">
-          <div className="inline-flex items-center bg-muted rounded-full p-1">
+          <div className="inline-flex items-center bg-[#ececf3] rounded-full p-1">
             <button
               onClick={() => setIsYearly(false)}
               className={cn(
                 "px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
                 !isYearly
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-[#7c4dff] text-white shadow-sm"
+                  : "text-[#6b6b76] hover:text-[#1c1c26]"
               )}
             >
               Monthly
@@ -276,8 +335,8 @@ export function PricingSection() {
               className={cn(
                 "px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
                 isYearly
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-[#7c4dff] text-white shadow-sm"
+                  : "text-[#6b6b76] hover:text-[#1c1c26]"
               )}
             >
               Yearly (save 15%)
@@ -305,113 +364,134 @@ export function PricingSection() {
 
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          {displayPlans.map((plan, index) => (
-            <div
-              key={plan._id}
-              className={cn(
-                "relative p-8 rounded-2xl transition-all duration-300 hover-lift",
-                plan.isPopular
-                  ? "bg-card border-2 border-primary shadow-xl"
-                  : "bg-card border border-border hover:border-primary/30"
-              )}
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              {/* Badge */}
-              <div className="mb-6">
-                <span
-                  className={cn(
-                    "inline-block px-4 py-1.5 rounded-lg text-sm font-semibold",
-                    plan.isPopular
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground border border-border"
-                  )}
-                >
-                  {plan.name}
-                </span>
-              </div>
+          {displayPlans.map((plan, index) => {
+            const price = getDisplayPrice(plan);
+            const formattedPrice = price === 0 ? 'Free' : (Number.isInteger(price) ? price.toString() : price.toFixed(2));
 
-              {/* Price */}
-              <div className="mb-8">
-                {plan.price === 0 ? (
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-foreground">Free</span>
-                  </div>
-                ) : (
-                  <div>
-                    {/* Show KWD Price (plan.price is already in KWD from backend) */}
-                    <div className="flex items-baseline gap-2 mb-2">
-                      <span className="text-4xl font-bold text-foreground">
-                        {getDisplayPrice(plan).toFixed(2)}
-                      </span>
-                      <span className="text-lg font-semibold text-foreground">
-                        {selectedCurrency}
-                      </span>
+            // Treat Business as highlighted even when backend does not set isPopular
+            if (plan.isPopular || isBusinessPlan(plan)) {
+              return (
+                <div key={plan._id} style={{ animationDelay: `${index * 0.1}s` }}>
+                  <div className="rounded-2xl border-2 border-primary flex justify-center shadow-[0_8px_18px_hsl(var(--primary)/0.18)]">
+                    <div className="relative p-8 rounded-2xl bg-white border border-transparent w-full">
+                      <div className="mb-6">
+                        <span className="inline-block px-4 py-1.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground">
+                          {plan.name}
+                        </span>
+                      </div>
+
+                      <p className="text-[#6b6b76] text-sm mb-6 min-h-[60px]">
+                        {getPlanDescription(plan)}
+                      </p>
+
+                      <div className="mb-8">
+                        {plan.price === 0 ? (
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-4xl font-bold text-[#151520]">Free</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="flex items-baseline gap-2 mb-2">
+                              <span className="text-4xl font-bold text-[#151520]">{selectedCurrency}{formattedPrice}</span>
+                              <span className="text-xs text-[#6b6b76]">/{isYearly ? 'year' : 'month'}</span>
+                            </div>
+                            {isYearly && <p className="text-xs text-green-600 font-medium mt-2">Save 15% annually</p>}
+                          </div>
+                        )}
+                      </div>
+
+                      <ul className="space-y-4 mb-8">
+                        {plan.features.map((feature) => (
+                          <li key={feature} className="flex items-start gap-3">
+                            <Check className="w-5 h-5 text-[#7c4dff] flex-shrink-0 mt-0.5" />
+                            <span className="text-[#2a2a35] text-sm">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <Button
+                        onClick={() => handleGetStarted(plan)}
+                        disabled={checkoutLoading === plan._id}
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 rounded-lg"
+                      >
+                        {checkoutLoading === plan._id ? 'Processing...' : 'Get Started'}
+                      </Button>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      /{isYearly ? "year" : "month"}
-                    </span>
-                    {selectedCurrency !== CURRENCY_CONFIG.displayCurrency && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        (Billing in {selectedCurrency} at checkout)
-                      </p>
-                    )}
-                    {isYearly && (
-                      <p className="text-xs text-green-600 font-medium mt-2">
-                        Save 15% annually
-                      </p>
-                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              );
+            }
 
-              {/* Features */}
-              <ul className="space-y-4 mb-8">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                    <span className="text-foreground text-sm">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* CTA Button */}
-              <Button
-                onClick={() => handleGetStarted(plan)}
-                disabled={checkoutLoading === plan._id}
-                className={cn(
-                  "w-full",
-                  plan.isPopular
-                    ? "bg-primary hover:bg-primary/90"
-                    : "bg-transparent border border-border hover:bg-muted"
-                )}
-                variant={plan.isPopular ? "default" : "outline"}
+            // Non-featured plans
+            return (
+              <div
+                key={plan._id}
+                className="relative p-8 rounded-2xl transition-all duration-300 bg-white border border-[#e5e5ef] hover:border-[#d8d8e6]"
+                style={{ animationDelay: `${index * 0.1}s` }}
               >
-                {checkoutLoading === plan._id ? 'Processing...' : 'Get Started'}
-              </Button>
-            </div>
-          ))}
+                <div className="mb-6">
+                  <span className="inline-block px-4 py-1.5 rounded-xl text-sm font-semibold bg-[#f0f0f4] text-[#1f1f2a] border border-[#e6e6ef]">
+                    {plan.name}
+                  </span>
+                </div>
+
+                <p className="text-[#6b6b76] text-sm mb-6 min-h-[60px]">
+                  {getPlanDescription(plan)}
+                </p>
+
+                <div className="mb-8">
+                  {plan.price === 0 ? (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-[#151520]">Free</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-baseline gap-2 mb-2">
+                        <span className="text-4xl font-bold text-[#151520]">{selectedCurrency}{formattedPrice}</span>
+                        <span className="text-xs text-[#6b6b76]">/{isYearly ? 'year' : 'month'}</span>
+                      </div>
+                      {isYearly && <p className="text-xs text-green-600 font-medium mt-2">Save 15% annually</p>}
+                    </div>
+                  )}
+                </div>
+
+                <ul className="space-y-4 mb-8">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-3">
+                      <Check className="w-5 h-5 text-[#7c4dff] flex-shrink-0 mt-0.5" />
+                      <span className="text-[#2a2a35] text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Button onClick={() => handleGetStarted(plan)} disabled={checkoutLoading === plan._id} className="w-full bg-white border border-[#e5e5ef] hover:bg-[#f7f7fb] text-[#151520] py-3 rounded-lg">
+                  {checkoutLoading === plan._id ? 'Processing...' : 'Get Started'}
+                </Button>
+              </div>
+            );
+          })}
 
           {/* Static Enterprise Card - Hardcoded (Same as before) */}
           <div
-            className="relative p-8 rounded-2xl transition-all duration-300 hover-lift bg-card border border-border hover:border-primary/30"
+            className="relative p-8 rounded-2xl transition-all duration-300 bg-white border border-[#e5e5ef] hover:border-[#d8d8e6]"
             style={{ animationDelay: `${displayPlans.length * 0.1}s` }}
           >
             {/* Badge */}
             <div className="mb-6">
-              <span className="inline-block px-4 py-1.5 rounded-lg text-sm font-semibold bg-muted text-foreground border border-border">
+              <span className="inline-block px-4 py-1.5 rounded-xl text-sm font-semibold bg-[#f0f0f4] text-[#1f1f2a] border border-[#e6e6ef]">
                 {staticEnterprisePlan.name}
               </span>
             </div>
 
             {/* Description */}
-            <p className="text-muted-foreground text-sm mb-6 min-h-[60px]">
+            <p className="text-[#6b6b76] text-sm mb-6 min-h-[60px]">
               {staticEnterprisePlan.description}
             </p>
 
             {/* Price - Let's Talk */}
             <div className="mb-8">
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-bold text-foreground">Let's Talk!</span>
+                <span className="text-4xl font-bold text-[#151520]">Let's Talk!</span>
               </div>
             </div>
 
@@ -419,8 +499,8 @@ export function PricingSection() {
             <ul className="space-y-4 mb-8">
               {staticEnterprisePlan.features.map((feature) => (
                 <li key={feature} className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <span className="text-foreground text-sm">{feature}</span>
+                  <Check className="w-5 h-5 text-[#7c4dff] flex-shrink-0 mt-0.5" />
+                  <span className="text-[#2a2a35] text-sm">{feature}</span>
                 </li>
               ))}
             </ul>
@@ -428,7 +508,7 @@ export function PricingSection() {
             {/* CTA Button - Book a Call */}
             <Button
               onClick={handleBookCall}
-              className="w-full bg-foreground text-background hover:bg-foreground/90"
+              className="w-full bg-[#11111c] text-white hover:bg-[#0c0c15]"
             >
               {staticEnterprisePlan.cta}
             </Button>

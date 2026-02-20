@@ -14,7 +14,7 @@ export function CTASection() {
   const secondary = cta?.secondaryButtonText ?? 'Sign In to Dashboard';
 
   return (
-    <section id="pricing" className="py-24 relative overflow-hidden">
+    <section id="get-started" className="py-24 relative overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="relative rounded-3xl bg-gradient-to-br from-primary via-accent to-primary p-[1px] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-accent to-primary animate-gradient opacity-80" />

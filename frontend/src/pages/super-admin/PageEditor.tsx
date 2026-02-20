@@ -61,13 +61,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
-import { useLandingPage, useUpdateLandingSection } from "@/hooks/useLandingPage";
+import { useLandingPage, useUpdateLandingSection, useResetLandingPage } from "@/hooks/useLandingPage";
 import {
   useCorporatePages,
   useCreateCorporatePage,
   useUpdateCorporatePage,
   useToggleCorporatePageEnabled,
-  useToggleCorporatePageFooter,
   useInitializeCorporatePages,
   useGuides,
   useCreateGuide,
@@ -310,7 +309,6 @@ function CorporatePagesEditor() {
   const createPageMutation = useCreateCorporatePage();
   const updatePageMutation = useUpdateCorporatePage();
   const togglePageMutation = useToggleCorporatePageEnabled();
-  const toggleFooterMutation = useToggleCorporatePageFooter();
   const createGuideMutation = useCreateGuide();
   const updateGuideMutation = useUpdateGuide();
   const toggleGuideMutation = useToggleGuidePublished();
@@ -450,10 +448,24 @@ function CorporatePagesEditor() {
 
   const [showInitDialog, setShowInitDialog] = useState(false);
   const initializeMutation = useInitializeCorporatePages();
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const resetLandingMutation = useResetLandingPage();
 
   const handleInitializeDefaults = async () => {
     await initializeMutation.mutateAsync();
     setShowInitDialog(false);
+  };
+
+  const handlePreviewPage = (page: any) => {
+    const rawSlug = (page?.slug || "").toString().trim();
+    const normalizedSlug = rawSlug.replace(/^\/+/, "");
+    const lowerSlug = normalizedSlug.toLowerCase();
+    const staticRoutes = new Set(["about", "b2b", "guides"]);
+    const previewPath = staticRoutes.has(lowerSlug)
+      ? `/${lowerSlug}`
+      : `/corporate/${normalizedSlug}`;
+
+    window.location.href = `${window.location.origin}${previewPath}`;
   };
 
   return (
@@ -521,8 +533,7 @@ function CorporatePagesEditor() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => toggleFooterMutation.mutate(page._id)}
-                  disabled={toggleFooterMutation.isPending}
+                  onClick={() => handlePreviewPage(page)}
                 >
                   <Eye className="w-4 h-4" />
                 </Button>
@@ -663,6 +674,35 @@ function CorporatePagesEditor() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleInitializeDefaults} disabled={initializeMutation.isPending}>
               Initialize Pages
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Landing Page Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Landing Page to Defaults?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will overwrite your current landing page settings with the default configuration. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                try {
+                  await resetLandingMutation.mutateAsync();
+                } catch (e) {
+                  // handled by hook's onError
+                } finally {
+                  setShowResetDialog(false);
+                }
+              }}
+              disabled={resetLandingMutation.isPending}
+            >
+              Reset
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1608,6 +1648,8 @@ function LandingPageEditor() {
 
 // -------------------- Main Page --------------------
 export default function PageEditor() {
+  const { data: landingPage } = useLandingPage();
+
   const handleSave = () => {
     toast({
       title: "Changes saved",
@@ -1616,10 +1658,34 @@ export default function PageEditor() {
   };
 
   const handlePreview = () => {
-    toast({
-      title: "Opening preview",
-      description: "Preview mode will open in a new tab.",
-    });
+    // If landing page settings are not loaded yet, show an error
+    if (!landingPage) {
+      toast({
+        title: "Preview unavailable",
+        description: "Landing page data is not ready yet. Please try again shortly.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Store current landing page data into sessionStorage so the preview
+      // tab can read it. Then open the site root with ?preview=true which
+      // is recognized by `useLandingPage` to render the draft payload.
+      sessionStorage.setItem('landing_preview', JSON.stringify(landingPage));
+      window.open(`${window.location.origin}/?preview=true`, '_blank');
+
+      toast({
+        title: "Opening preview",
+        description: "Preview opened in a new tab.",
+      });
+    } catch (e) {
+      toast({
+        title: "Preview failed",
+        description: "Could not open preview tab.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -1638,12 +1704,7 @@ export default function PageEditor() {
           </Button>
           <Button
             variant="outline"
-            onClick={() =>
-              toast({
-                title: "Reset",
-                description: "Wire this to reset state from server or initial config.",
-              })
-            }
+            onClick={() => setShowResetDialog(true)}
           >
             <RotateCcw className="w-4 h-4 mr-2" />
             Reset

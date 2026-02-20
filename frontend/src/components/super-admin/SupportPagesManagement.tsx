@@ -11,7 +11,6 @@ import {
   useSupportPages,
   useUpdateSupportPage,
   useToggleSupportPageEnabled,
-  useToggleSupportPageFooter,
   useInitializeSupportPages,
 } from "@/hooks/useSupportPages";
 import {
@@ -44,7 +43,6 @@ export function SupportPagesManagement() {
   const { data: pages = [], isLoading } = useSupportPages();
   const updatePageMutation = useUpdateSupportPage();
   const toggleEnabledMutation = useToggleSupportPageEnabled();
-  const toggleFooterMutation = useToggleSupportPageFooter();
   const initializeMutation = useInitializeSupportPages();
 
   // Form state for editing
@@ -84,12 +82,20 @@ export function SupportPagesManagement() {
     await toggleEnabledMutation.mutateAsync(id);
   };
 
-  const handleToggleFooter = async (id: string) => {
-    try {
-      await toggleFooterMutation.mutateAsync(id);
-    } catch (e) {
-      // handled by hooks
-    }
+  const handlePreviewPage = (page: SupportPage) => {
+    const rawSlug = (page?.slug || "").toString().trim();
+    const normalizedSlug = rawSlug.replace(/^\/+/, "");
+    const lowerSlug = normalizedSlug.toLowerCase();
+
+    let previewPath = `/support/${normalizedSlug}`;
+
+    if (page.type === PageType.CONTACT || lowerSlug === "contact") previewPath = "/contact";
+    else if (page.type === PageType.PRIVACY || lowerSlug === "privacy") previewPath = "/privacy";
+    else if (page.type === PageType.REFUND || lowerSlug === "refund") previewPath = "/refund";
+    else if (page.type === PageType.TERMS || lowerSlug === "terms") previewPath = "/terms";
+    else if (lowerSlug === "faqs") previewPath = "/faqs";
+
+    window.location.href = `${window.location.origin}${previewPath}`;
   };
 
   const handleInitializeDefaults = async () => {
@@ -227,8 +233,7 @@ export function SupportPagesManagement() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => handleToggleFooter(page._id)}
-                        disabled={toggleFooterMutation.isPending}
+                        onClick={() => handlePreviewPage(page)}
                       >
                         <Eye className="w-4 h-4" />
                       </Button>

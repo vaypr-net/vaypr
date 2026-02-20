@@ -21,7 +21,21 @@ export const landingPageKeys = {
 export function useLandingPage() {
   return useQuery({
     queryKey: landingPageKeys.settings(),
-    queryFn: () => landingPageService.getSettings(),
+    queryFn: async () => {
+      try {
+        if (typeof window !== 'undefined') {
+          const isPreview = new URLSearchParams(window.location.search).get('preview') === 'true';
+          const raw = sessionStorage.getItem('landing_preview');
+          if (isPreview && raw) {
+            return JSON.parse(raw) as LandingPage;
+          }
+        }
+      } catch (e) {
+        // ignore and fall back to API
+      }
+
+      return landingPageService.getSettings();
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
