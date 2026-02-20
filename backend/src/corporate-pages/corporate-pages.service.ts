@@ -276,6 +276,50 @@ export class CorporatePagesService {
         showInFooter: true,
         order: 2,
       },
+      {
+        slug: 'guides',
+        title: 'Guides & Tutorials',
+        type: CorporatePageType.GUIDES,
+        metaDescription: 'Guides and tutorials to help you use VAYPR effectively.',
+        icon: 'BookOpen',
+        heroTitle: 'Guides & Tutorials',
+        heroSubtitle: 'Learn how to get the most out of VAYPR with our guides',
+        sections: [
+          {
+            title: 'Getting Started',
+            content: 'Quick Start Guide - Get up and running with VAYPR in under 10 minutes.\n\nSetting Up Your Business Profile - Configure your company details, logo, and default settings.\n\nUnderstanding the Dashboard - Navigate the dashboard efficiently and discover key features.',
+            order: 1,
+          },
+          {
+            title: 'Invoicing',
+            content: 'Creating Professional Invoices - Master the art of creating clear, professional invoices.\n\nCustomizing Invoice Templates - Design stunning invoice templates that match your brand identity.\n\nSetting Up Recurring Invoices - Automate billing with recurring invoices.',
+            order: 2,
+          },
+          {
+            title: 'Client Management',
+            content: 'Managing Your Client Database - Organize and maintain client information.\n\nClient Portal Overview - Give your clients access to view and pay invoices.\n\nTracking Client Payment History - Monitor payment patterns and client histories.',
+            order: 3,
+          },
+          {
+            title: 'Payments & Billing',
+            content: 'Payment Methods Setup - Configure payment options including credit cards and bank transfers.\n\nHandling Partial Payments - Accept and track partial payments and payment plans.\n\nLate Payment Reminders - Set up automated reminders for overdue invoices.',
+            order: 4,
+          },
+          {
+            title: 'Reports & Analytics',
+            content: 'Understanding Your Reports - Make sense of your financial data with reporting tools.\n\nTax Preparation Guide - Export the right data for tax filing.\n\nCash Flow Analysis - Monitor your business cash flow and predict future income.',
+            order: 5,
+          },
+          {
+            title: 'Advanced Settings',
+            content: 'API Integration Guide - Connect VAYPR with your existing tools using our REST API.\n\nTeam & Permissions - Set up team members with appropriate access levels.\n\nWebhooks & Automation - Automate workflows by connecting VAYPR to external services.',
+            order: 6,
+          },
+        ],
+        enabled: true,
+        showInFooter: true,
+        order: 3,
+      },
     ];
 
     for (const pageData of defaultPages) {
