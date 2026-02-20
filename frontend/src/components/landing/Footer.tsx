@@ -60,8 +60,16 @@ const mapPageLinks = (
       const slugLower = page.slug.toLowerCase();
 
       if (hardcodedPages.includes(slugLower)) {
-        // If a prefix is provided (we're mapping corporate pages) prefer the static route
-        // (e.g. `/about`) unless the corporate DB page was edited (updatedAt > createdAt).
+        // Always prefer the frontend route for Guides so it uses the dedicated
+        // `/guides` page with the intended design, even if the corporate DB
+        // record was edited.
+        if (slugLower === 'guides') {
+          return { label: 'Guides', href: '/guides' };
+        }
+
+        // For other hardcoded pages, if a prefix is provided (we're mapping
+        // corporate pages) prefer the corporate route when the DB page has
+        // been updated after creation (indicating a custom page).
         if (prefix && page.createdAt && page.updatedAt) {
           try {
             const created = new Date(page.createdAt);
@@ -75,7 +83,7 @@ const mapPageLinks = (
         }
 
         // Normalize the label for some known pages (use short label in footer)
-        const footerLabel = slugLower === 'guides' ? 'Guides' : page.title;
+        const footerLabel = page.title;
 
         return {
           label: footerLabel,
