@@ -12,6 +12,75 @@ interface EmailOptions {
 export function useDocumentActions() {
   const { toast } = useToast();
   const previewRef = useRef<HTMLDivElement>(null);
+  const buildPaginatedPdf = useCallback(async (element: HTMLElement): Promise<jsPDF> => {
+    const originalStyle = element.style.display;
+    element.style.display = 'block';
+
+    try {
+      const sourceWidth = Math.max(1, Math.ceil(element.scrollWidth || element.clientWidth || element.offsetWidth));
+      const sourceHeight = Math.max(1, Math.ceil(element.scrollHeight || element.clientHeight || element.offsetHeight));
+
+      const baseScale = 2;
+      const maxCanvasEdge = 16384;
+      const scale = Math.max(
+        0.5,
+        Math.min(baseScale, maxCanvasEdge / sourceWidth, maxCanvasEdge / sourceHeight),
+      );
+
+      const canvas = await html2canvas(element, {
+        scale,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        removeContainer: false,
+        windowWidth: sourceWidth,
+        windowHeight: sourceHeight,
+        width: sourceWidth,
+        height: sourceHeight,
+      });
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidthPx = canvas.width;
+      const imgHeightPx = canvas.height;
+
+      const pxToMmRatio = pdfWidth / imgWidthPx;
+      const pageHeightPx = Math.max(1, Math.floor(pdfHeight / pxToMmRatio));
+
+      let yOffset = 0;
+      let pageIndex = 0;
+
+      while (yOffset < imgHeightPx) {
+        const sliceHeightPx = Math.min(pageHeightPx, imgHeightPx - yOffset);
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = imgWidthPx;
+        tmpCanvas.height = sliceHeightPx;
+        const tmpCtx = tmpCanvas.getContext('2d');
+        if (!tmpCtx) throw new Error('Could not create canvas context for PDF slice');
+
+        tmpCtx.drawImage(canvas, 0, yOffset, imgWidthPx, sliceHeightPx, 0, 0, imgWidthPx, sliceHeightPx);
+        const sliceData = tmpCanvas.toDataURL('image/png');
+        const sliceHeightMm = sliceHeightPx * pxToMmRatio;
+
+        if (pageIndex > 0) pdf.addPage();
+        pdf.addImage(sliceData, 'PNG', 0, 0, pdfWidth, sliceHeightMm);
+
+        yOffset += sliceHeightPx;
+        pageIndex += 1;
+      }
+
+      return pdf;
+    } finally {
+      element.style.display = originalStyle;
+    }
+  }, []);
 
   const downloadPDF = useCallback(async (
     elementId: string,
@@ -34,74 +103,7 @@ export function useDocumentActions() {
         description: 'Please wait while we generate your document...',
       });
 
-      // Ensure element is visible during capture
-      const originalStyle = element.style.display;
-      element.style.display = 'block';
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        removeContainer: false,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
-      });
-
-      // Restore original display
-      element.style.display = originalStyle;
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      // Page sizing and scaling
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidthPx = canvas.width;
-      const imgHeightPx = canvas.height;
-
-      // Scale so image width fits PDF width
-      const pxToMmRatio = pdfWidth / imgWidthPx; // mm per px
-
-      // Height of one PDF page in source (px)
-      const pageHeightPx = Math.floor(pdfHeight / pxToMmRatio);
-
-      let yOffset = 0;
-      let pageIndex = 0;
-
-      while (yOffset < imgHeightPx) {
-        const sliceHeightPx = Math.min(pageHeightPx, imgHeightPx - yOffset);
-
-        // Create a temporary canvas to hold page slice
-        const tmpCanvas = document.createElement('canvas');
-        tmpCanvas.width = imgWidthPx;
-        tmpCanvas.height = sliceHeightPx;
-        const tmpCtx = tmpCanvas.getContext('2d');
-        if (!tmpCtx) throw new Error('Could not create canvas context for PDF slice');
-
-        // Draw the slice from the full canvas
-        tmpCtx.drawImage(canvas, 0, yOffset, imgWidthPx, sliceHeightPx, 0, 0, imgWidthPx, sliceHeightPx);
-
-        const sliceData = tmpCanvas.toDataURL('image/png');
-
-        // Calculate displayed height in mm for this slice
-        const sliceHeightMm = sliceHeightPx * pxToMmRatio;
-        const imgX = 0; // fill full width
-        const imgY = 0;
-
-        if (pageIndex > 0) pdf.addPage();
-        pdf.addImage(sliceData, 'PNG', imgX, imgY, pdfWidth, sliceHeightMm);
-
-        yOffset += sliceHeightPx;
-        pageIndex += 1;
-      }
+      const pdf = await buildPaginatedPdf(element);
 
       pdf.save(`${filename}.pdf`);
 
@@ -119,7 +121,7 @@ export function useDocumentActions() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [buildPaginatedPdf, toast]);
 
   const printPDF = useCallback(async (elementId: string, filename = 'document') => {
     const element = document.getElementById(elementId);
@@ -131,61 +133,7 @@ export function useDocumentActions() {
     try {
       toast({ title: 'Generating Printable PDF', description: 'Preparing document for print without headers...' });
 
-      // Ensure element is visible during capture
-      const originalStyle = element.style.display;
-      element.style.display = 'block';
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        removeContainer: false,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
-      });
-
-      // Restore original display
-      element.style.display = originalStyle;
-
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidthPx = canvas.width;
-      const imgHeightPx = canvas.height;
-
-      const pxToMmRatio = pdfWidth / imgWidthPx; // mm per px
-      const pageHeightPx = Math.floor(pdfHeight / pxToMmRatio);
-
-      let yOffset = 0;
-      let pageIndex = 0;
-
-      while (yOffset < imgHeightPx) {
-        const sliceHeightPx = Math.min(pageHeightPx, imgHeightPx - yOffset);
-
-        const tmpCanvas = document.createElement('canvas');
-        tmpCanvas.width = imgWidthPx;
-        tmpCanvas.height = sliceHeightPx;
-        const tmpCtx = tmpCanvas.getContext('2d');
-        if (!tmpCtx) throw new Error('Could not create canvas context for PDF slice');
-
-        tmpCtx.drawImage(canvas, 0, yOffset, imgWidthPx, sliceHeightPx, 0, 0, imgWidthPx, sliceHeightPx);
-        const sliceData = tmpCanvas.toDataURL('image/png');
-
-        const sliceHeightMm = sliceHeightPx * pxToMmRatio;
-        const imgX = 0;
-        const imgY = 0;
-
-        if (pageIndex > 0) pdf.addPage();
-        pdf.addImage(sliceData, 'PNG', imgX, imgY, pdfWidth, sliceHeightMm);
-
-        yOffset += sliceHeightPx;
-        pageIndex += 1;
-      }
+      const pdf = await buildPaginatedPdf(element);
 
       // Open PDF in a new tab as a blob URL and trigger print on that PDF (browser will not add page URL header/footer)
       const blob = pdf.output('blob');
@@ -210,7 +158,16 @@ export function useDocumentActions() {
       console.error('Print PDF generation error:', error);
       toast({ title: 'Print Failed', description: 'Could not generate printable PDF', variant: 'destructive' });
     }
-  }, [toast]);
+  }, [buildPaginatedPdf, toast]);
+
+  const generatePdfBase64 = useCallback(async (elementId: string): Promise<string> => {
+    const element = document.getElementById(elementId);
+    if (!element) {
+      throw new Error('Could not find document preview');
+    }
+    const pdf = await buildPaginatedPdf(element);
+    return pdf.output('dataurlstring').split(',')[1];
+  }, [buildPaginatedPdf]);
 
   const printDocument = useCallback(async (elementId: string) => {
     const element = document.getElementById(elementId);
@@ -293,6 +250,7 @@ export function useDocumentActions() {
     downloadPDF,
     printDocument,
     printPDF,
+    generatePdfBase64,
     sendEmail,
     openInGenerator,
   };

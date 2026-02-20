@@ -64,7 +64,7 @@ export default function Invoices() {
   const { addPayment } = usePayments();
   const { addReminder } = useReminders();
   const { toast } = useToast();
-  const { downloadPDF, printDocument, sendEmail, openInGenerator } = useDocumentActions();
+  const { downloadPDF, printDocument, generatePdfBase64, sendEmail, openInGenerator } = useDocumentActions();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -352,36 +352,7 @@ export default function Invoices() {
         description: 'Please wait while we prepare your invoice...',
       });
 
-      // Generate PDF using html2canvas + jsPDF
-      const html2canvas = (await import('html2canvas')).default;
-      const jsPDF = (await import('jspdf')).default;
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 0;
-
-      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-      
-      // Convert PDF to base64
-      const pdfBase64 = pdf.output('dataurlstring').split(',')[1]; // Remove "data:application/pdf;base64," prefix
+      const pdfBase64 = await generatePdfBase64('invoice-preview-email');
 
       // Step 2: Create HTML email body
       const emailSubject = `Invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.companyFooter?.name || 'Our Company'}`;

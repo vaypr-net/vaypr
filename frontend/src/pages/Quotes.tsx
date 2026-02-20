@@ -95,7 +95,7 @@ const toBool = (value: unknown): boolean => value === true || value === 'true' |
 export default function Quotes() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { downloadPDF, sendEmail, openInGenerator } = useDocumentActions();
+  const { downloadPDF, generatePdfBase64, sendEmail, openInGenerator } = useDocumentActions();
   
   // State declarations
   const [searchQuery, setSearchQuery] = useState('');
@@ -285,7 +285,6 @@ export default function Quotes() {
     const hasQuantifiableItems = quote.items.some(
       (item) => Number(item.quantity) > 0 || Number(item.unitPrice) > 0,
     );
-    // Keep hide flags as-is so PDF/export matches preview toggles
     const shouldShowAllItemColumns =
       hasQuantifiableItems && hideQuantity && hideUnitPrice && hideTotalCost;
 
@@ -327,10 +326,9 @@ export default function Quotes() {
       },
       showPaymentTerms: toBool(quote.showPaymentTerms),
       paymentTerms: quote.paymentTerms || '',
-      // Do not override hide flags here — respect saved settings for exports
-      hideQuantity: hideQuantity,
-      hideUnitPrice: hideUnitPrice,
-      hideTotalCost: hideTotalCost,
+      hideQuantity: shouldShowAllItemColumns ? false : hideQuantity,
+      hideUnitPrice: shouldShowAllItemColumns ? false : hideUnitPrice,
+      hideTotalCost: shouldShowAllItemColumns ? false : hideTotalCost,
       hideSubTotal: toBool(quote.hideSubTotal),
       useManualGrandTotal: toBool(quote.useManualGrandTotal),
       manualGrandTotal: quote.manualGrandTotal || 0,
@@ -341,12 +339,21 @@ export default function Quotes() {
   const handleDownloadQuotePdf = (quote: Quote) => {
     setSelectedQuote(quote);
     const filename = `Quote-${quote.quoteNumber}`;
+    // Wait for the hidden preview element to be present and visible before capturing
+    const waitForElementAndDownload = async (elementId: string, filename: string, onComplete?: () => void) => {
+      const timeout = 3000;
+      const interval = 100;
+      let waited = 0;
+      while (waited < timeout) {
+        const el = document.getElementById(elementId);
+        if (el && el.offsetWidth > 0 && el.offsetHeight > 0) break;
+        await new Promise((r) => setTimeout(r, interval));
+        waited += interval;
+      }
+      downloadPDF(elementId, filename, onComplete);
+    };
 
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        downloadPDF('quote-preview', filename);
-      });
-    });
+    waitForElementAndDownload('quote-preview', filename, () => setSelectedQuote(null));
   };
 
   const filterPhoneInput = (value: string): string => {
@@ -700,36 +707,7 @@ export default function Quotes() {
         description: 'Please wait while we prepare your quote...',
       });
 
-      // Generate PDF using html2canvas + jsPDF
-      const html2canvas = (await import('html2canvas')).default;
-      const jsPDF = (await import('jspdf')).default;
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 0;
-
-      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-      
-      // Convert PDF to base64
-      const pdfBase64 = pdf.output('dataurlstring').split(',')[1];
+      const pdfBase64 = await generatePdfBase64('quote-preview-email');
 
       // Step 2: Create HTML email body
       const client = clientsArray.find(c => c._id === selectedQuote.clientId);
