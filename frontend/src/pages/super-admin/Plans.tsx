@@ -144,6 +144,18 @@ export default function Plans() {
   
   const displayPlans = plansData?.items || [];
   
+  // Billing configuration local state (persist to localStorage for now)
+  const [billingCurrency, setBillingCurrency] = useState<string>(() => {
+    return localStorage.getItem('superadmin:billing:currency') || 'KWD';
+  });
+  const [invoicePrefix, setInvoicePrefix] = useState<string>(() => {
+    return localStorage.getItem('superadmin:billing:invoicePrefix') || 'INV-';
+  });
+  const [autoApplyTax, setAutoApplyTax] = useState<boolean>(() => {
+    const v = localStorage.getItem('superadmin:billing:autoApplyTax');
+    return v === null ? true : v === 'true';
+  });
+  
   // Form state
   const [formData, setFormData] = useState({
     name: "",
@@ -728,7 +740,11 @@ export default function Plans() {
               <div className="space-y-4">
                 <div>
                   <Label>Default Currency</Label>
-                  <select className="w-full h-10 px-3 border border-input rounded-md mt-1 bg-background">
+                  <select
+                    className="w-full h-10 px-3 border border-input rounded-md mt-1 bg-background"
+                    value={billingCurrency}
+                    onChange={(e) => setBillingCurrency(e.target.value)}
+                  >
                     <option value="KWD">Kuwait - Kuwaiti Dinar (KWD)</option>
                     <option value="BHD">Bahrain - Bahraini Dinar (BHD)</option>
                     <option value="AED">UAE - Emirati Dirham (AED)</option>
@@ -742,16 +758,26 @@ export default function Plans() {
                 </div>
                 <div>
                   <Label>Invoice Number Prefix</Label>
-                  <Input defaultValue="INV-" />
+                  <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value)} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">Auto-apply tax</p>
                     <p className="text-sm text-muted-foreground">Automatically calculate and apply tax</p>
                   </div>
-                  <Switch />
+                  <Switch checked={autoApplyTax} onCheckedChange={(c) => setAutoApplyTax(Boolean(c))} />
                 </div>
-                <Button>Save Settings</Button>
+                <Button onClick={() => {
+                  try {
+                    localStorage.setItem('superadmin:billing:currency', billingCurrency);
+                    localStorage.setItem('superadmin:billing:invoicePrefix', invoicePrefix);
+                    localStorage.setItem('superadmin:billing:autoApplyTax', String(autoApplyTax));
+                    toast.success('Billing settings saved');
+                  } catch (err) {
+                    console.error('Failed to save billing settings', err);
+                    toast.error('Failed to save billing settings');
+                  }
+                }}>Save Settings</Button>
               </div>
             </motion.div>
 

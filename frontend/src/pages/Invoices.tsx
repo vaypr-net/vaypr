@@ -812,7 +812,7 @@ export default function Invoices() {
         {/* View Invoice Dialog */}
         <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto print:max-w-full print:h-full print:m-0 print:p-0">
-            <DialogHeader className="print:hidden">
+            <DialogHeader className="print:hidden pr-12">
               <DialogTitle className="flex items-center justify-between">
                 <span>Invoice {selectedInvoice?.invoiceNumber}</span>
                 {selectedInvoice && getStatusBadge(selectedInvoice.status)}
