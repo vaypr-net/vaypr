@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -194,6 +195,7 @@ const DEFAULT_SUBSCRIPTION: Subscription = {
 export default function Profile() {
   const { user, logout, updateUser } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -1452,11 +1454,28 @@ export default function Profile() {
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                          Delete Account
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={async () => {
+                                if (!user?._id) return;
+                                const t = toast({ title: 'Deleting account...', description: 'This will permanently remove your account.' });
+                                try {
+                                  await axios.delete(`/user/${user._id}`);
+                                  t.update({ title: 'Account deleted', description: 'Your account has been removed.' });
+                                  // clear local session and redirect home
+                                  logout();
+                                  // navigate to home
+                                  navigate('/');
+                                } catch (err: any) {
+                                  console.error('Failed to delete account', err);
+                                  t.update({ title: 'Failed to delete account', description: err?.response?.data?.message || err?.message || 'Please try again', variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              Delete Account
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
