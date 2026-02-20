@@ -9,6 +9,8 @@ import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
 
 const Index = () => {
+  const showTestimonials = false;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -16,7 +18,7 @@ const Index = () => {
         <HeroSection />
         <FeaturesSection />
         <HowItWorksSection />
-        <TestimonialsSection />
+        {showTestimonials && <TestimonialsSection />}
         <PricingSection />
         <FAQsSection />
         <CTASection />
