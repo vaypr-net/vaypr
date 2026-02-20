@@ -59,6 +59,26 @@ export default function Reports() {
   const planDistributionData = analytics?.planDistributionData || [];
   const affiliatePerformance = analytics?.affiliatePerformance || [];
 
+  const exportRevenueCSV = () => {
+    const rows = (mrrChartData || []).map((r) => ({ month: r.month, mrr: r.mrr }));
+    const header = ['Month', 'MRR', 'MRRFormatted'];
+    const lines = rows.map((row) =>
+      [row.month, String(row.mrr), formatCurrency(row.mrr)]
+        .map((c) => `"${String(c).replace(/"/g, '""')}"`)
+        .join(',')
+    );
+    const csv = [header.join(','), ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'revenue-by-month.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       <div className="page-header">
@@ -121,7 +141,7 @@ export default function Reports() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Revenue by Month</h3>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={exportRevenueCSV}>
                   <Download className="w-4 h-4 mr-2" /> Export
                 </Button>
               </div>
