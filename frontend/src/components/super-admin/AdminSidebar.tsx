@@ -95,7 +95,7 @@ export function AdminSidebar() {
         </div>
         <Button
           variant="ghost"
-          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-accent"
+          className="w-full justify-start text-muted-foreground hover:text-white hover:bg-accent"
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4 mr-2" />

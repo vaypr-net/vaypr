@@ -61,15 +61,48 @@ export function useDocumentActions() {
         format: 'a4',
       });
 
+      // Page sizing and scaling
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 0;
+      const imgWidthPx = canvas.width;
+      const imgHeightPx = canvas.height;
 
-      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      // Scale so image width fits PDF width
+      const pxToMmRatio = pdfWidth / imgWidthPx; // mm per px
+
+      // Height of one PDF page in source (px)
+      const pageHeightPx = Math.floor(pdfHeight / pxToMmRatio);
+
+      let yOffset = 0;
+      let pageIndex = 0;
+
+      while (yOffset < imgHeightPx) {
+        const sliceHeightPx = Math.min(pageHeightPx, imgHeightPx - yOffset);
+
+        // Create a temporary canvas to hold page slice
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = imgWidthPx;
+        tmpCanvas.height = sliceHeightPx;
+        const tmpCtx = tmpCanvas.getContext('2d');
+        if (!tmpCtx) throw new Error('Could not create canvas context for PDF slice');
+
+        // Draw the slice from the full canvas
+        tmpCtx.drawImage(canvas, 0, yOffset, imgWidthPx, sliceHeightPx, 0, 0, imgWidthPx, sliceHeightPx);
+
+        const sliceData = tmpCanvas.toDataURL('image/png');
+
+        // Calculate displayed height in mm for this slice
+        const sliceHeightMm = sliceHeightPx * pxToMmRatio;
+        const imgX = 0; // fill full width
+        const imgY = 0;
+
+        if (pageIndex > 0) pdf.addPage();
+        pdf.addImage(sliceData, 'PNG', imgX, imgY, pdfWidth, sliceHeightMm);
+
+        yOffset += sliceHeightPx;
+        pageIndex += 1;
+      }
+
       pdf.save(`${filename}.pdf`);
 
       toast({
@@ -118,18 +151,41 @@ export function useDocumentActions() {
       // Restore original display
       element.style.display = originalStyle;
 
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 0;
+      const imgWidthPx = canvas.width;
+      const imgHeightPx = canvas.height;
 
-      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      const pxToMmRatio = pdfWidth / imgWidthPx; // mm per px
+      const pageHeightPx = Math.floor(pdfHeight / pxToMmRatio);
+
+      let yOffset = 0;
+      let pageIndex = 0;
+
+      while (yOffset < imgHeightPx) {
+        const sliceHeightPx = Math.min(pageHeightPx, imgHeightPx - yOffset);
+
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = imgWidthPx;
+        tmpCanvas.height = sliceHeightPx;
+        const tmpCtx = tmpCanvas.getContext('2d');
+        if (!tmpCtx) throw new Error('Could not create canvas context for PDF slice');
+
+        tmpCtx.drawImage(canvas, 0, yOffset, imgWidthPx, sliceHeightPx, 0, 0, imgWidthPx, sliceHeightPx);
+        const sliceData = tmpCanvas.toDataURL('image/png');
+
+        const sliceHeightMm = sliceHeightPx * pxToMmRatio;
+        const imgX = 0;
+        const imgY = 0;
+
+        if (pageIndex > 0) pdf.addPage();
+        pdf.addImage(sliceData, 'PNG', imgX, imgY, pdfWidth, sliceHeightMm);
+
+        yOffset += sliceHeightPx;
+        pageIndex += 1;
+      }
 
       // Open PDF in a new tab as a blob URL and trigger print on that PDF (browser will not add page URL header/footer)
       const blob = pdf.output('blob');
