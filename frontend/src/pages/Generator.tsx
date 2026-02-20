@@ -98,11 +98,12 @@ const Index = () => {
                 invoiceNumber: parsedData.invoiceNumber || "",
                 invoiceDate: parsedData.issueDate || "",
                 paymentDate: parsedData.dueDate || "",
-                items: (parsedData.items || []).map((item: { id?: string; description: string; quantity: number; rate: number; amount: number }) => ({
+                items: (parsedData.items || []).map((item: any) => ({
                   id: item.id || crypto.randomUUID(),
                   description: item.description,
-                  quantity: item.quantity,
-                  unitPrice: item.rate, // Convert rate to unitPrice
+                  quantity: sanitizeNumber(item.quantity),
+                  // Accept multiple possible field names: `rate` (legacy), `unitPrice`, or `price`
+                  unitPrice: sanitizeNumber(item.rate ?? item.unitPrice ?? item.price ?? 0),
                 })),
                 discount: parsedData.discount || 0,
                 deliveryFee: parsedData.deliveryFee || 0,

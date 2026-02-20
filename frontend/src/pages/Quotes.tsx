@@ -285,6 +285,7 @@ export default function Quotes() {
     const hasQuantifiableItems = quote.items.some(
       (item) => Number(item.quantity) > 0 || Number(item.unitPrice) > 0,
     );
+    // Keep hide flags as-is so PDF/export matches preview toggles
     const shouldShowAllItemColumns =
       hasQuantifiableItems && hideQuantity && hideUnitPrice && hideTotalCost;
 
@@ -326,9 +327,10 @@ export default function Quotes() {
       },
       showPaymentTerms: toBool(quote.showPaymentTerms),
       paymentTerms: quote.paymentTerms || '',
-      hideQuantity: shouldShowAllItemColumns ? false : hideQuantity,
-      hideUnitPrice: shouldShowAllItemColumns ? false : hideUnitPrice,
-      hideTotalCost: shouldShowAllItemColumns ? false : hideTotalCost,
+      // Do not override hide flags here — respect saved settings for exports
+      hideQuantity: hideQuantity,
+      hideUnitPrice: hideUnitPrice,
+      hideTotalCost: hideTotalCost,
       hideSubTotal: toBool(quote.hideSubTotal),
       useManualGrandTotal: toBool(quote.useManualGrandTotal),
       manualGrandTotal: quote.manualGrandTotal || 0,
