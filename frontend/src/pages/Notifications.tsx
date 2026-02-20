@@ -74,7 +74,52 @@ export default function Notifications() {
     })),
   ];
 
-  const filteredNotifications = smartNotifications.filter(n => {
+  // Persist read state for generated notifications (overdue/expiring) in localStorage
+  const readGeneratedKey = 'notifications:readGeneratedIds';
+  const [readGeneratedIds, setReadGeneratedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(readGeneratedKey);
+      if (!raw) return new Set<string>();
+      return new Set<string>(JSON.parse(raw));
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  const persistReadGeneratedIds = (set: Set<string>) => {
+    try {
+      localStorage.setItem(readGeneratedKey, JSON.stringify(Array.from(set)));
+    } catch {
+      // ignore
+    }
+  };
+
+  const addReadGeneratedId = (id: string) => {
+    setReadGeneratedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      persistReadGeneratedIds(next);
+      return next;
+    });
+  };
+
+  const markAllGeneratedAsRead = (ids: string[]) => {
+    setReadGeneratedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      persistReadGeneratedIds(next);
+      return next;
+    });
+  };
+
+  const smartNotificationsWithGeneratedRead = smartNotifications.map((n) => {
+    if ((n.id as string).startsWith('overdue-') || (n.id as string).startsWith('expiring-')) {
+      return { ...n, isRead: readGeneratedIds.has(n.id) };
+    }
+    return n;
+  });
+
+  const filteredNotifications = smartNotificationsWithGeneratedRead.filter(n => {
     if (filter === 'unread') return !n.isRead;
     if (filter === 'read') return n.isRead;
     return true;
@@ -102,7 +147,7 @@ export default function Notifications() {
     return groups;
   }, {} as Record<string, typeof smartNotifications>);
 
-  const unreadCount = smartNotifications.filter(n => !n.isRead).length;
+  const unreadCount = smartNotificationsWithGeneratedRead.filter(n => !n.isRead).length;
   const groupOrder = ['Today', 'Yesterday', 'This Week', 'Earlier'];
 
   const getSeverityStyles = (severity: 'high' | 'medium' | 'low') => {
@@ -118,7 +163,8 @@ export default function Notifications() {
 
   const handleMarkAsRead = (id: string) => {
     if (id.startsWith('overdue-') || id.startsWith('expiring-')) {
-      // These are auto-generated, can't mark as read in local storage
+      // Persist generated notification as read
+      addReadGeneratedId(id);
       return;
     }
     markAsRead(id);
@@ -149,7 +195,16 @@ export default function Notifications() {
           {unreadCount > 0 && (
             <Button 
               variant="outline" 
-              onClick={markAllAsRead}
+              onClick={() => {
+                // mark local reminders as read
+                markAllAsRead();
+                // mark generated notifications (overdue/expiring) as read
+                const generatedIds = [
+                  ...overdueInvoices.map(inv => `overdue-${inv.id}`),
+                  ...expiringQuotes.map(q => `expiring-${q.id}`),
+                ];
+                markAllGeneratedAsRead(generatedIds);
+              }}
               className="gap-2"
             >
               <CheckCheck className="h-4 w-4" />

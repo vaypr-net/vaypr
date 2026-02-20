@@ -105,7 +105,21 @@ export function AdminHeader() {
   const markAsRead = async (id: string) => {
     try {
       await ActivityService.markAsRead(id);
-      await queryClient.invalidateQueries({ queryKey: ['activities'] });
+      // Optimistically update cache for activities lists so UI updates immediately
+      try {
+        const key = ['activities', 'list', { limit: 100, skip: 0 }];
+        queryClient.setQueryData(key, (old: any) => {
+          if (!old || !old.data) return old;
+          return {
+            ...old,
+            data: old.data.map((a: any) => a._id === id ? { ...a, isRead: true } : a),
+            unreadCount: 0,
+          };
+        });
+      } catch (e) {
+        // fallback to invalidation
+        await queryClient.invalidateQueries({ queryKey: ['activities'] });
+      }
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
@@ -114,7 +128,20 @@ export function AdminHeader() {
   const markAllAsRead = async () => {
     try {
       await ActivityService.markAllAsRead();
-      await queryClient.invalidateQueries({ queryKey: ['activities'] });
+      // Mark all cached activity items as read so UI updates immediately
+      try {
+        const key = ['activities', 'list', { limit: 100, skip: 0 }];
+        queryClient.setQueryData(key, (old: any) => {
+          if (!old || !old.data) return old;
+          return {
+            ...old,
+            data: old.data.map((a: any) => ({ ...a, isRead: true })),
+            unreadCount: 0,
+          };
+        });
+      } catch (e) {
+        await queryClient.invalidateQueries({ queryKey: ['activities'] });
+      }
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
     }
