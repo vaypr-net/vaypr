@@ -907,6 +907,20 @@ function LandingPageEditor() {
     enabled: true,
     testimonials: [] as Array<{ name: string; role: string; content: string; rating: number }>,
   });
+  const [featuresForm, setFeaturesForm] = useState({
+    badge: "",
+    headline: "",
+    description: "",
+  });
+
+  const [ctaForm, setCtaForm] = useState({
+    headline: "",
+    description: "",
+    primaryButtonText: "",
+    secondaryButtonText: "",
+    disclaimer: "",
+    enabled: true,
+  });
 
   // Initialize forms when data loads
   useEffect(() => {
@@ -929,6 +943,20 @@ function LandingPageEditor() {
         headline: landingPage.testimonialsSection.headline,
         enabled: landingPage.testimonialsSection.enabled,
         testimonials: landingPage.testimonialsSection.testimonials || [],
+      });
+      setFeaturesForm({
+        badge: landingPage.featuresSection.badge || "",
+        headline: landingPage.featuresSection.headline || "",
+        description: landingPage.featuresSection.description || "",
+      });
+
+      setCtaForm({
+        headline: landingPage.ctaSection.headline || "",
+        description: landingPage.ctaSection.description || "",
+        primaryButtonText: landingPage.ctaSection.primaryButtonText || "",
+        secondaryButtonText: landingPage.ctaSection.secondaryButtonText || "",
+        disclaimer: landingPage.ctaSection.disclaimer || "",
+        enabled: landingPage.ctaSection.enabled ?? true,
       });
     }
   }, [landingPage]);
@@ -988,6 +1016,20 @@ function LandingPageEditor() {
     updateSection.mutate({
       section: 'testimonialsSection',
       data: testimonialsForm,
+    });
+  };
+
+  const handleUpdateFeatures = () => {
+    updateSection.mutate({
+      section: 'featuresSection',
+      data: featuresForm,
+    });
+  };
+
+  const handleUpdateCTA = () => {
+    updateSection.mutate({
+      section: 'ctaSection',
+      data: ctaForm,
     });
   };
 
@@ -1095,17 +1137,17 @@ function LandingPageEditor() {
           <CardContent className="space-y-4">
             <div>
               <Label>Badge</Label>
-              <Input defaultValue={landingPage.featuresSection.badge} className="mt-1" />
+              <Input value={featuresForm.badge} onChange={(e) => setFeaturesForm({ ...featuresForm, badge: e.target.value })} className="mt-1" />
             </div>
 
             <div>
               <Label>Headline</Label>
-              <Input defaultValue={landingPage.featuresSection.headline} className="mt-1" />
+              <Input value={featuresForm.headline} onChange={(e) => setFeaturesForm({ ...featuresForm, headline: e.target.value })} className="mt-1" />
             </div>
 
             <div>
               <Label>Description</Label>
-              <Textarea defaultValue={landingPage.featuresSection.description} className="mt-1" />
+              <Textarea value={featuresForm.description} onChange={(e) => setFeaturesForm({ ...featuresForm, description: e.target.value })} className="mt-1" />
             </div>
 
             <Separator />
@@ -1115,6 +1157,11 @@ function LandingPageEditor() {
               <p className="text-xs text-muted-foreground">
                 Feature management coming soon. Currently displaying {landingPage.featuresSection.features.length} features.
               </p>
+            </div>
+            <div className="pt-4">
+              <Button onClick={handleUpdateFeatures} disabled={updateSection.isPending}>
+                {updateSection.isPending ? 'Saving...' : 'Save Features Section'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1392,28 +1439,28 @@ function LandingPageEditor() {
           <CardContent className="space-y-4">
             <div>
               <Label>Headline</Label>
-              <Input defaultValue={landingPage.ctaSection.headline} className="mt-1" />
+              <Input value={ctaForm.headline} onChange={(e) => setCtaForm({ ...ctaForm, headline: e.target.value })} className="mt-1" />
             </div>
 
             <div>
               <Label>Description</Label>
-              <Textarea defaultValue={landingPage.ctaSection.description} className="mt-1" rows={3} />
+              <Textarea value={ctaForm.description} onChange={(e) => setCtaForm({ ...ctaForm, description: e.target.value })} className="mt-1" rows={3} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Primary Button Text</Label>
-                <Input defaultValue={landingPage.ctaSection.primaryButtonText} className="mt-1" />
+                <Input value={ctaForm.primaryButtonText} onChange={(e) => setCtaForm({ ...ctaForm, primaryButtonText: e.target.value })} className="mt-1" />
               </div>
               <div>
                 <Label>Secondary Button Text</Label>
-                <Input defaultValue={landingPage.ctaSection.secondaryButtonText} className="mt-1" />
+                <Input value={ctaForm.secondaryButtonText} onChange={(e) => setCtaForm({ ...ctaForm, secondaryButtonText: e.target.value })} className="mt-1" />
               </div>
             </div>
 
             <div>
               <Label>Disclaimer</Label>
-              <Input defaultValue={landingPage.ctaSection.disclaimer} className="mt-1" />
+              <Input value={ctaForm.disclaimer} onChange={(e) => setCtaForm({ ...ctaForm, disclaimer: e.target.value })} className="mt-1" />
             </div>
 
             <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
@@ -1421,7 +1468,12 @@ function LandingPageEditor() {
                 <h4 className="font-medium">Enable CTA Section</h4>
                 <p className="text-sm text-muted-foreground">Show/hide CTA on landing page</p>
               </div>
-              <Switch checked={landingPage.ctaSection.enabled} />
+              <Switch checked={ctaForm.enabled} onCheckedChange={(checked) => setCtaForm({ ...ctaForm, enabled: checked })} />
+            </div>
+            <div className="pt-4">
+              <Button onClick={handleUpdateCTA} disabled={updateSection.isPending}>
+                {updateSection.isPending ? 'Saving...' : 'Save CTA Section'}
+              </Button>
             </div>
           </CardContent>
         </Card>
