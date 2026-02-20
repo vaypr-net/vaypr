@@ -205,6 +205,10 @@
 }
 
 @layer utilities {
+  .glass-effect {
+    @apply bg-background/70 backdrop-blur-xl border-b border-border/60;
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;

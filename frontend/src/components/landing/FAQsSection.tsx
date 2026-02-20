@@ -8,13 +8,6 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { usePublicFaqs, usePublicFaqCategories } from '@/hooks/usePublicFaqs';
 
 export function FAQsSection() {
@@ -24,27 +17,6 @@ export function FAQsSection() {
     selectedCategory === 'all' ? undefined : selectedCategory,
   );
   const { data: categories = [] } = usePublicFaqCategories();
-
-  // Group FAQs by category
-  const groupedFaqs = faqs.reduce(
-    (acc, faq) => {
-      if (!acc[faq.category]) {
-        acc[faq.category] = [];
-      }
-      acc[faq.category].push(faq);
-      return acc;
-    },
-    {} as Record<string, typeof faqs>,
-  );
-
-  const orderedCategories = Object.keys(groupedFaqs).sort((a, b) => {
-    // Show selected category first if not 'all'
-    if (selectedCategory !== 'all') {
-      if (a === selectedCategory) return -1;
-      if (b === selectedCategory) return 1;
-    }
-    return a.localeCompare(b);
-  });
 
   return (
     <section className="py-20 bg-gradient-to-b from-background via-muted/30 to-background">
@@ -65,23 +37,37 @@ export function FAQsSection() {
           </p>
         </div>
 
-        {/* Category Filter */}
+        {/* Category Tabs */}
         {categories.length > 0 && (
-          <div className="flex justify-center mb-12">
-            <div className="w-full max-w-sm">
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="mb-12">
+            <div className="max-w-4xl mx-auto overflow-x-auto pb-2 scrollbar-hide">
+              <div className="flex w-max mx-auto gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('all')}
+                className={`px-5 py-2.5 rounded-xl border text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedCategory === 'all'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-card text-foreground border-border hover:border-primary/40'
+                }`}
+              >
+                All
+              </button>
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-5 py-2.5 rounded-xl border text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedCategory === category
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-card text-foreground border-border hover:border-primary/40'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+              </div>
             </div>
           </div>
         )}
@@ -102,31 +88,23 @@ export function FAQsSection() {
           </div>
         ) : (
           !isLoading && (
-            <div className="max-w-4xl mx-auto space-y-12">
-              {orderedCategories.map((category) => (
-                <div key={category}>
-                  <h3 className="text-2xl font-display font-semibold text-foreground mb-6 flex items-center gap-3">
-                    <span className="w-1 h-6 bg-primary rounded-full" />
-                    {category}
-                  </h3>
-                  <Accordion type="single" collapsible className="space-y-3">
-                    {groupedFaqs[category].map((faq, idx) => (
-                      <AccordionItem
-                        key={faq._id}
-                        value={faq._id}
-                        className="border border-border rounded-lg px-6 data-[state=open]:bg-muted/30 transition-colors"
-                      >
-                        <AccordionTrigger className="text-left font-medium hover:no-underline py-4">
-                          <span className="text-foreground">{faq.question}</span>
-                        </AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground pb-4">
-                          {faq.answer}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </div>
-              ))}
+            <div className="max-w-4xl mx-auto">
+              <Accordion type="single" collapsible className="space-y-3">
+                {faqs.map((faq) => (
+                  <AccordionItem
+                    key={faq._id}
+                    value={faq._id}
+                    className="border border-border rounded-lg px-6 data-[state=open]:bg-muted/30 transition-colors"
+                  >
+                    <AccordionTrigger className="text-left font-medium hover:no-underline py-4">
+                      <span className="text-foreground">{faq.question}</span>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-muted-foreground pb-4">
+                      {faq.answer}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
           )
         )}
