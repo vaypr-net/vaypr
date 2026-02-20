@@ -278,52 +278,63 @@ export default function Quotes() {
     return `${symbol}${amount.toFixed(2)}`;
   };
 
-  const mapQuoteToPreviewData = (quote: Quote): QuoteData => ({
-    logo: quote.logo || null,
-    logoScale: quote.logoScale || 1.0,
-    currency: quote.currency,
-    currencySymbol: quote.currencySymbol || quote.currency,
-    billTo: {
-      name: quote.clientName,
-      phone: quote.clientPhone || '',
-      area: quote.clientArea || '',
-      block: quote.clientBlock || '',
-      street: quote.clientStreet || '',
-      house: quote.clientHouse || '',
-      other: '',
-    },
-    quoteNumber: quote.quoteNumber,
-    quoteDate: quote.quoteDate,
-    validUntil: quote.validUntil,
-    items: quote.items,
-    discount: quote.discount,
-    deliveryFee: quote.deliveryFee || 0,
-    notes: quote.notes || '',
-    companyFooter: {
-      companyName: quote.companyName || '',
-      officePhone: quote.companyPhone || '',
-      address: quote.companyAddress || '',
-      websiteEmail: quote.companyEmail || '',
-    },
-    paymentDetails: quote.paymentDetails || '',
-    showPaymentMethod: toBool(quote.showPaymentMethod),
-    paymentMethodType: quote.paymentMethodType || 'cash',
-    showBankAccount: toBool(quote.showBankAccount),
-    bankAccount: quote.bankAccount || {
-      bankName: '',
-      accountName: '',
-      iban: '',
-    },
-    showPaymentTerms: toBool(quote.showPaymentTerms),
-    paymentTerms: quote.paymentTerms || '',
-    hideQuantity: toBool(quote.hideQuantity),
-    hideUnitPrice: toBool(quote.hideUnitPrice),
-    hideTotalCost: toBool(quote.hideTotalCost),
-    hideSubTotal: toBool(quote.hideSubTotal),
-    useManualGrandTotal: toBool(quote.useManualGrandTotal),
-    manualGrandTotal: quote.manualGrandTotal || 0,
-    tableHeaderColor: quote.tableHeaderColor || '#000000',
-  });
+  const mapQuoteToPreviewData = (quote: Quote): QuoteData => {
+    const hideQuantity = toBool(quote.hideQuantity);
+    const hideUnitPrice = toBool(quote.hideUnitPrice);
+    const hideTotalCost = toBool(quote.hideTotalCost);
+    const hasQuantifiableItems = quote.items.some(
+      (item) => Number(item.quantity) > 0 || Number(item.unitPrice) > 0,
+    );
+    const shouldShowAllItemColumns =
+      hasQuantifiableItems && hideQuantity && hideUnitPrice && hideTotalCost;
+
+    return {
+      logo: quote.logo || null,
+      logoScale: quote.logoScale || 1.0,
+      currency: quote.currency,
+      currencySymbol: quote.currencySymbol || quote.currency,
+      billTo: {
+        name: quote.clientName,
+        phone: quote.clientPhone || '',
+        area: quote.clientArea || '',
+        block: quote.clientBlock || '',
+        street: quote.clientStreet || '',
+        house: quote.clientHouse || '',
+        other: '',
+      },
+      quoteNumber: quote.quoteNumber,
+      quoteDate: quote.quoteDate,
+      validUntil: quote.validUntil,
+      items: quote.items,
+      discount: quote.discount,
+      deliveryFee: quote.deliveryFee || 0,
+      notes: quote.notes || '',
+      companyFooter: {
+        companyName: quote.companyName || '',
+        officePhone: quote.companyPhone || '',
+        address: quote.companyAddress || '',
+        websiteEmail: quote.companyEmail || '',
+      },
+      paymentDetails: quote.paymentDetails || '',
+      showPaymentMethod: toBool(quote.showPaymentMethod),
+      paymentMethodType: quote.paymentMethodType || 'cash',
+      showBankAccount: toBool(quote.showBankAccount),
+      bankAccount: quote.bankAccount || {
+        bankName: '',
+        accountName: '',
+        iban: '',
+      },
+      showPaymentTerms: toBool(quote.showPaymentTerms),
+      paymentTerms: quote.paymentTerms || '',
+      hideQuantity: shouldShowAllItemColumns ? false : hideQuantity,
+      hideUnitPrice: shouldShowAllItemColumns ? false : hideUnitPrice,
+      hideTotalCost: shouldShowAllItemColumns ? false : hideTotalCost,
+      hideSubTotal: toBool(quote.hideSubTotal),
+      useManualGrandTotal: toBool(quote.useManualGrandTotal),
+      manualGrandTotal: quote.manualGrandTotal || 0,
+      tableHeaderColor: quote.tableHeaderColor || '#000000',
+    };
+  };
 
   const handleDownloadQuotePdf = (quote: Quote) => {
     setSelectedQuote(quote);

@@ -212,7 +212,8 @@ export class CreateInvoiceDto {
   showPaymentTerms?: boolean;
 
   @IsString()
-  @IsOptional()
+  @ValidateIf((o) => o.showPaymentTerms === true)
+  @IsNotEmpty()
   paymentTerms?: string;
 
   @IsBoolean()

@@ -75,6 +75,7 @@ export default function Invoices() {
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [clientEmail, setClientEmail] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [invoiceForDownload, setInvoiceForDownload] = useState<Invoice | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -119,8 +120,67 @@ export default function Invoices() {
     return qty * price;
   };
 
+  const mapInvoiceToPreviewData = (invoice: Invoice): InvoiceData => {
+    const hideQuantity = toBool(invoice.hideQuantity);
+    const hideUnitPrice = toBool(invoice.hideUnitPrice);
+    const hideTotalCost = toBool(invoice.hideTotalCost);
+    const hasQuantifiableItems = invoice.items.some(
+      (item) => Number(item.quantity) > 0 || Number(item.unitPrice) > 0,
+    );
+    const isRecurringInvoice = Boolean((invoice as { recurringId?: unknown }).recurringId);
+    const shouldShowAllItemColumns =
+      !isRecurringInvoice && hasQuantifiableItems && hideQuantity && hideUnitPrice && hideTotalCost;
+
+    return {
+      logo: invoice.logo || null,
+      logoScale: invoice.logoScale || 1.0,
+      currency: invoice.currency,
+      currencySymbol: invoice.currencySymbol || invoice.currency,
+      billTo: invoice.billTo,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceDate: invoice.issueDate,
+      paymentDate: invoice.dueDate,
+      items: invoice.items.map((item) => ({
+        id: item.id || crypto.randomUUID(),
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      })),
+      discount: invoice.discount,
+      deliveryFee: invoice.deliveryFee || 0,
+      companyFooter: invoice.companyFooter || {
+        companyName: '',
+        officePhone: '',
+        address: '',
+        websiteEmail: '',
+      },
+      paymentDetails: invoice.paymentMethodType || '',
+      showPaymentMethod: toBool(invoice.showPaymentMethod),
+      paymentMethodType: invoice.paymentMethodType || 'cash',
+      showBankAccount: toBool(invoice.showBankAccount),
+      bankAccount: invoice.bankAccount || {
+        bankName: '',
+        accountName: '',
+        iban: '',
+      },
+      showPaymentTerms: toBool(invoice.showPaymentTerms),
+      paymentTerms: invoice.paymentTerms || '',
+      hideQuantity: shouldShowAllItemColumns ? false : hideQuantity,
+      hideUnitPrice: shouldShowAllItemColumns ? false : hideUnitPrice,
+      hideTotalCost: shouldShowAllItemColumns ? false : hideTotalCost,
+      hideSubTotal: toBool(invoice.hideSubTotal),
+      useManualGrandTotal: toBool(invoice.useManualGrandTotal),
+      manualGrandTotal: invoice.manualGrandTotal || 0,
+      tableHeaderColor: invoice.tableHeaderColor || '#000000',
+    };
+  };
+
   // Wait for a DOM element to be present and visible before attempting PDF capture
-  const waitForElementAndDownload = async (elementId: string, filename: string) => {
+  const waitForElementAndDownload = async (
+    elementId: string,
+    filename: string,
+    onComplete?: () => void,
+  ) => {
     const timeout = 3000; // ms
     const interval = 100; // ms
     let waited = 0;
@@ -128,12 +188,20 @@ export default function Invoices() {
       const el = document.getElementById(elementId);
       if (el && el.offsetWidth > 0 && el.offsetHeight > 0) break;
       // element not ready yet
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, interval));
       waited += interval;
     }
     // attempt download whether or not the element reached visible size
-    downloadPDF(elementId, filename);
+    downloadPDF(elementId, filename, onComplete);
+  };
+
+  const handleQuickDownload = async (invoice: Invoice) => {
+    setInvoiceForDownload(invoice);
+    await waitForElementAndDownload(
+      'invoice-preview-download',
+      `Invoice-${invoice.invoiceNumber}`,
+      () => setInvoiceForDownload(null),
+    );
   };
 
   const calculateSubtotal = () => {
@@ -549,10 +617,7 @@ export default function Invoices() {
                               Send to Email
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
-                              setSelectedInvoice(invoice);
-                              setIsViewOpen(true);
-                              // wait for the preview to render before capturing
-                              waitForElementAndDownload('invoice-preview', `Invoice-${invoice.invoiceNumber}`);
+                              handleQuickDownload(invoice);
                             }}>
                               <Download className="h-4 w-4 mr-2" />
                               Download PDF
@@ -756,48 +821,7 @@ export default function Invoices() {
             {selectedInvoice && (
               <div>
                 <InvoicePreview
-                  data={{
-                    logo: selectedInvoice.logo || null,
-                    logoScale: selectedInvoice.logoScale || 1.0,
-                    currency: selectedInvoice.currency,
-                    currencySymbol: selectedInvoice.currencySymbol || selectedInvoice.currency,
-                    billTo: selectedInvoice.billTo,
-                    invoiceNumber: selectedInvoice.invoiceNumber,
-                    invoiceDate: selectedInvoice.issueDate,
-                    paymentDate: selectedInvoice.dueDate,
-                    items: selectedInvoice.items.map((item) => ({
-                      id: item.id || crypto.randomUUID(),
-                      description: item.description,
-                      quantity: item.quantity,
-                      unitPrice: item.unitPrice,
-                    })),
-                    discount: selectedInvoice.discount,
-                    deliveryFee: selectedInvoice.deliveryFee || 0,
-                    companyFooter: selectedInvoice.companyFooter || {
-                      companyName: '',
-                      officePhone: '',
-                      address: '',
-                      websiteEmail: '',
-                    },
-                    paymentDetails: selectedInvoice.paymentMethodType || '',
-                    showPaymentMethod: toBool(selectedInvoice.showPaymentMethod),
-                    paymentMethodType: selectedInvoice.paymentMethodType || 'cash',
-                    showBankAccount: toBool(selectedInvoice.showBankAccount),
-                    bankAccount: selectedInvoice.bankAccount || {
-                      bankName: '',
-                      accountName: '',
-                      iban: '',
-                    },
-                    showPaymentTerms: toBool(selectedInvoice.showPaymentTerms),
-                    paymentTerms: selectedInvoice.paymentTerms || '',
-                    hideQuantity: toBool(selectedInvoice.hideQuantity),
-                    hideUnitPrice: toBool(selectedInvoice.hideUnitPrice),
-                    hideTotalCost: toBool(selectedInvoice.hideTotalCost),
-                    hideSubTotal: toBool(selectedInvoice.hideSubTotal),
-                    useManualGrandTotal: toBool(selectedInvoice.useManualGrandTotal),
-                    manualGrandTotal: selectedInvoice.manualGrandTotal || 0,
-                    tableHeaderColor: selectedInvoice.tableHeaderColor || '#000000',
-                  } as InvoiceData}
+                  data={mapInvoiceToPreviewData(selectedInvoice)}
                 />
               </div>
             )}
@@ -908,48 +932,17 @@ export default function Invoices() {
               <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
                 <InvoicePreview
                   previewId="invoice-preview-email"
-                  data={{
-                    logo: selectedInvoice.logo || null,
-                    logoScale: selectedInvoice.logoScale || 1.0,
-                    currency: selectedInvoice.currency,
-                    currencySymbol: selectedInvoice.currencySymbol || selectedInvoice.currency,
-                    billTo: selectedInvoice.billTo,
-                    invoiceNumber: selectedInvoice.invoiceNumber,
-                    invoiceDate: selectedInvoice.issueDate,
-                    paymentDate: selectedInvoice.dueDate,
-                    items: selectedInvoice.items.map((item) => ({
-                      id: item.id || crypto.randomUUID(),
-                      description: item.description,
-                      quantity: item.quantity,
-                      unitPrice: item.unitPrice,
-                    })),
-                    discount: selectedInvoice.discount,
-                    deliveryFee: selectedInvoice.deliveryFee || 0,
-                    companyFooter: selectedInvoice.companyFooter || {
-                      companyName: '',
-                      officePhone: '',
-                      address: '',
-                      websiteEmail: '',
-                    },
-                    paymentDetails: selectedInvoice.paymentMethodType || '',
-                    showPaymentMethod: toBool(selectedInvoice.showPaymentMethod),
-                    paymentMethodType: selectedInvoice.paymentMethodType || 'cash',
-                    showBankAccount: toBool(selectedInvoice.showBankAccount),
-                    bankAccount: selectedInvoice.bankAccount || {
-                      bankName: '',
-                      accountName: '',
-                      iban: '',
-                    },
-                    showPaymentTerms: toBool(selectedInvoice.showPaymentTerms),
-                    paymentTerms: selectedInvoice.paymentTerms || '',
-                    hideQuantity: toBool(selectedInvoice.hideQuantity),
-                    hideUnitPrice: toBool(selectedInvoice.hideUnitPrice),
-                    hideTotalCost: toBool(selectedInvoice.hideTotalCost),
-                    hideSubTotal: toBool(selectedInvoice.hideSubTotal),
-                    useManualGrandTotal: toBool(selectedInvoice.useManualGrandTotal),
-                    manualGrandTotal: selectedInvoice.manualGrandTotal || 0,
-                    tableHeaderColor: selectedInvoice.tableHeaderColor || '#000000',
-                  } as InvoiceData}
+                  data={mapInvoiceToPreviewData(selectedInvoice)}
+                />
+              </div>
+            )}
+
+            {/* Hidden invoice preview for direct PDF download from table row */}
+            {invoiceForDownload && (
+              <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+                <InvoicePreview
+                  previewId="invoice-preview-download"
+                  data={mapInvoiceToPreviewData(invoiceForDownload)}
                 />
               </div>
             )}

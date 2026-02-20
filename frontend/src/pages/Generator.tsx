@@ -53,7 +53,7 @@ const Index = () => {
   const { addQuote } = useQuotes();
   const { addReceipt } = useReceipts();
   const { clients } = useClients();
-  const { downloadPDF, printDocument } = useDocumentActions();
+  const { downloadPDF } = useDocumentActions();
 
   const toBool = (value: unknown): boolean =>
     value === true || value === "true" || value === 1 || value === "1";
@@ -437,8 +437,7 @@ const Index = () => {
           ? `Receipt-${receiptData.receiptNumber || "document"}`
           : `Quote-${quoteData.quoteNumber || "document"}`;
 
-    // Open print dialog by default (restores previous behavior allowing orientation choice)
-    printDocument(exportId);
+    downloadPDF(exportId, exportName);
   };
 
   const getDocumentLabel = () => {
