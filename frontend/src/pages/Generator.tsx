@@ -80,6 +80,17 @@ const Index = () => {
             const parsedData = JSON.parse(storedData);
             
             if (tab === "invoice") {
+              const parsedInvoiceItems = (parsedData.items || []).map((item: any) => ({
+                id: item.id || crypto.randomUUID(),
+                description: item.description,
+                quantity: sanitizeNumber(item.quantity),
+                // Accept multiple possible field names: `rate` (legacy), `unitPrice`, or `price`
+                unitPrice: sanitizeNumber(item.rate ?? item.unitPrice ?? item.price ?? 0),
+              }));
+              const hideQuantity = toBool(parsedData.hideQuantity);
+              const hideUnitPrice = toBool(parsedData.hideUnitPrice);
+              const hideTotalCost = toBool(parsedData.hideTotalCost);
+
               // Convert Invoice (from app.ts) to InvoiceData (for generator)
               const invoiceFormData: InvoiceData = {
                 logo: parsedData.logo || null,
@@ -98,13 +109,7 @@ const Index = () => {
                 invoiceNumber: parsedData.invoiceNumber || "",
                 invoiceDate: parsedData.issueDate || "",
                 paymentDate: parsedData.dueDate || "",
-                items: (parsedData.items || []).map((item: any) => ({
-                  id: item.id || crypto.randomUUID(),
-                  description: item.description,
-                  quantity: sanitizeNumber(item.quantity),
-                  // Accept multiple possible field names: `rate` (legacy), `unitPrice`, or `price`
-                  unitPrice: sanitizeNumber(item.rate ?? item.unitPrice ?? item.price ?? 0),
-                })),
+                items: parsedInvoiceItems,
                 discount: parsedData.discount || 0,
                 deliveryFee: parsedData.deliveryFee || 0,
                 companyFooter: {
@@ -127,9 +132,9 @@ const Index = () => {
                 },
                 showPaymentTerms: toBool(parsedData.showPaymentTerms),
                 paymentTerms: parsedData.paymentTerms || parsedData.notes || "",
-                hideQuantity: toBool(parsedData.hideQuantity),
-                hideUnitPrice: toBool(parsedData.hideUnitPrice),
-                hideTotalCost: toBool(parsedData.hideTotalCost),
+                hideQuantity: hideQuantity,
+                hideUnitPrice: hideUnitPrice,
+                hideTotalCost: hideTotalCost,
                 hideSubTotal: toBool(parsedData.hideSubTotal),
                 useManualGrandTotal: toBool(parsedData.useManualGrandTotal),
                 manualGrandTotal: parsedData.manualGrandTotal || 0,
@@ -170,6 +175,16 @@ const Index = () => {
                   : parsedData.clientId?._id || parsedData.clientId?.id || null;
               setEditingReceiptClientId(receiptClientId);
             } else if (tab === "quote") {
+              const parsedQuoteItems = (parsedData.items || []).map((item: { id?: string; description: string; quantity: number; unitPrice: number }) => ({
+                id: item.id || crypto.randomUUID(),
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+              }));
+              const hideQuantity = toBool(parsedData.hideQuantity);
+              const hideUnitPrice = toBool(parsedData.hideUnitPrice);
+              const hideTotalCost = toBool(parsedData.hideTotalCost);
+
               // Convert Quote to QuoteData
               const quoteFormData: QuoteData = {
                 logo: parsedData.logo || null,
@@ -188,12 +203,7 @@ const Index = () => {
                   house: parsedData.clientHouse || "",
                   other: "",
                 },
-                items: (parsedData.items || []).map((item: { id?: string; description: string; quantity: number; unitPrice: number }) => ({
-                  id: item.id || crypto.randomUUID(),
-                  description: item.description,
-                  quantity: item.quantity,
-                  unitPrice: item.unitPrice,
-                })),
+                items: parsedQuoteItems,
                 discount: parsedData.discount || 0,
                 deliveryFee: parsedData.deliveryFee || 0,
                 notes: parsedData.notes || "",
@@ -214,9 +224,9 @@ const Index = () => {
                 },
                 showPaymentTerms: toBool(parsedData.showPaymentTerms),
                 paymentTerms: parsedData.paymentTerms || "",
-                hideQuantity: toBool(parsedData.hideQuantity),
-                hideUnitPrice: toBool(parsedData.hideUnitPrice),
-                hideTotalCost: toBool(parsedData.hideTotalCost),
+                hideQuantity: hideQuantity,
+                hideUnitPrice: hideUnitPrice,
+                hideTotalCost: hideTotalCost,
                 hideSubTotal: toBool(parsedData.hideSubTotal),
                 useManualGrandTotal: toBool(parsedData.useManualGrandTotal),
                 manualGrandTotal: parsedData.manualGrandTotal || 0,

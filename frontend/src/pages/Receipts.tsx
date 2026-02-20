@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { EmailService } from '@/api/services/email.service';
+import { ReceiptService } from '@/api/services/receipt.service';
 import {
   Dialog,
   DialogContent,
@@ -92,6 +93,7 @@ export default function Receipts() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptVoucher | null>(null);
+  const [receiptForDownload, setReceiptForDownload] = useState<ReceiptVoucher | null>(null);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [clientEmail, setClientEmail] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -107,8 +109,7 @@ export default function Receipts() {
   const clientsArray = Array.isArray(clients) ? clients : [];
   const invoicesArray = Array.isArray(invoices) ? invoices : [];
   
-  // Map API receipts to local type
-  const receipts: ReceiptVoucher[] = apiReceiptsArray.map((r: any) => ({
+  const mapApiReceiptToLocal = (r: any): ReceiptVoucher => ({
     id: r._id,
     receiptNumber: r.receiptNumber,
     clientId: r.clientId || '',
@@ -130,7 +131,29 @@ export default function Receipts() {
     titleColor: r.titleColor || '#000000',
     amountColor: r.amountColor || '#000000',
     createdAt: r.createdAt || new Date().toISOString(),
-  }));
+  });
+
+  const mapReceiptToPreviewData = (receipt: ReceiptVoucher): ReceiptData => ({
+    logo: receipt.logo || null,
+    logoScale: receipt.logoScale || 1.0,
+    currency: receipt.currency,
+    currencySymbol: receipt.currencySymbol,
+    receiptNumber: receipt.receiptNumber,
+    receiptDate: receipt.receiptDate,
+    receivedFrom: receipt.receivedFrom,
+    amount: receipt.amount,
+    paymentMethod: getPaymentMethodLabel(receipt.paymentMethod),
+    receivedBy: '',
+    reason: receipt.reason || '',
+    companyName: receipt.companyName || '',
+    companyAddress: receipt.companyAddress || '',
+    companyPhone: receipt.companyPhone || '',
+    titleColor: receipt.titleColor || '',
+    amountColor: receipt.amountColor || '',
+  });
+
+  // Map API receipts to local type
+  const receipts: ReceiptVoucher[] = apiReceiptsArray.map(mapApiReceiptToLocal);
   
   // Stub functions for features not yet migrated to API
   const addReceipt = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Create receipts from the Invoice Generator', variant: 'destructive' }); return null; };
@@ -191,6 +214,40 @@ export default function Receipts() {
 
   const filterPhoneInput = (value: string): string => {
     return value.replace(/[^\d+]/g, '');
+  };
+
+  const waitForElementAndDownload = async (
+    elementId: string,
+    filename: string,
+    onComplete?: () => void,
+  ) => {
+    const timeout = 3000;
+    const interval = 100;
+    let waited = 0;
+    while (waited < timeout) {
+      const el = document.getElementById(elementId);
+      if (el && el.offsetWidth > 0 && el.offsetHeight > 0) break;
+      await new Promise((r) => setTimeout(r, interval));
+      waited += interval;
+    }
+    downloadPDF(elementId, filename, onComplete);
+  };
+
+  const handleDownloadReceiptPdf = async (receipt: ReceiptVoucher) => {
+    let latestReceipt = receipt;
+    try {
+      const fetchedReceipt = await ReceiptService.getById(receipt.id);
+      latestReceipt = mapApiReceiptToLocal(fetchedReceipt);
+    } catch (error) {
+      console.error('Failed to fetch latest receipt before download, using current data:', error);
+    }
+
+    setReceiptForDownload(latestReceipt);
+    await waitForElementAndDownload(
+      'receipt-preview-download',
+      `Receipt-${latestReceipt.receiptNumber}`,
+      () => setReceiptForDownload(null),
+    );
   };
 
   const resetForm = () => {
@@ -521,11 +578,7 @@ export default function Receipts() {
                             Send to Email
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => {
-                            setSelectedReceipt(receipt);
-                            setIsViewDialogOpen(true);
-                            setTimeout(() => {
-                              downloadPDF('receipt-preview', `Receipt-${receipt.receiptNumber}`);
-                            }, 300);
+                            void handleDownloadReceiptPdf(receipt);
                           }}>
                             <Download className="h-4 w-4 mr-2" />
                             Download PDF
@@ -762,24 +815,7 @@ export default function Receipts() {
 
           {selectedReceipt && (
             <ReceiptPreview
-              data={{
-                logo: selectedReceipt.logo || null,
-                logoScale: selectedReceipt.logoScale || 1.0,
-                currency: selectedReceipt.currency,
-                currencySymbol: selectedReceipt.currencySymbol,
-                receiptNumber: selectedReceipt.receiptNumber,
-                receiptDate: selectedReceipt.receiptDate,
-                receivedFrom: selectedReceipt.receivedFrom,
-                amount: selectedReceipt.amount,
-                paymentMethod: getPaymentMethodLabel(selectedReceipt.paymentMethod),
-                receivedBy: '',
-                reason: selectedReceipt.reason || '',
-                companyName: selectedReceipt.companyName || '',
-                companyAddress: selectedReceipt.companyAddress || '',
-                companyPhone: selectedReceipt.companyPhone || '',
-                titleColor: selectedReceipt.titleColor || '',
-                amountColor: selectedReceipt.amountColor || '',
-              } as ReceiptData}
+              data={mapReceiptToPreviewData(selectedReceipt)}
             />
           )}
 
@@ -816,7 +852,7 @@ export default function Receipts() {
                 <DropdownMenuItem
                   onClick={() => {
                     if (!selectedReceipt) return;
-                    downloadPDF('receipt-preview', `Receipt-${selectedReceipt.receiptNumber}`);
+                    void handleDownloadReceiptPdf(selectedReceipt);
                   }}
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -854,27 +890,20 @@ export default function Receipts() {
             <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
               <ReceiptPreview
                 previewId="receipt-preview-email"
-                data={{
-                  logo: selectedReceipt.logo || null,
-                  logoScale: selectedReceipt.logoScale || 1.0,
-                  currency: selectedReceipt.currency,
-                  currencySymbol: selectedReceipt.currencySymbol,
-                  receiptNumber: selectedReceipt.receiptNumber,
-                  receiptDate: selectedReceipt.receiptDate,
-                  receivedFrom: selectedReceipt.receivedFrom,
-                  amount: selectedReceipt.amount,
-                  paymentMethod: getPaymentMethodLabel(selectedReceipt.paymentMethod),
-                  receivedBy: '',
-                  reason: selectedReceipt.reason || '',
-                  companyName: selectedReceipt.companyName || '',
-                  companyAddress: selectedReceipt.companyAddress || '',
-                  companyPhone: selectedReceipt.companyPhone || '',
-                  titleColor: selectedReceipt.titleColor || '',
-                  amountColor: selectedReceipt.amountColor || '',
-                }}
+                data={mapReceiptToPreviewData(selectedReceipt)}
               />
             </div>
           )}
+
+      {/* Hidden receipt preview used by Download PDF action */}
+      {receiptForDownload && (
+        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} aria-hidden="true">
+          <ReceiptPreview
+            previewId="receipt-preview-download"
+            data={mapReceiptToPreviewData(receiptForDownload)}
+          />
+        </div>
+      )}
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button 

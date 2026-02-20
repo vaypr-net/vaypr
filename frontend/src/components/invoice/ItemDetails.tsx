@@ -86,7 +86,15 @@ export function ItemDetails({
             <Switch
               id="hideQuantity"
               checked={hideQuantity}
-              onCheckedChange={onHideQuantityChange}
+              onCheckedChange={(checked) => {
+                // Only prevent if all 3 would be hidden
+                if (checked && hideUnitPrice && hideTotalCost) {
+                  // Auto-uncheck one to keep at least one visible
+                  onHideUnitPriceChange(false);
+                } else {
+                  onHideQuantityChange(checked);
+                }
+              }}
             />
             <Label htmlFor="hideQuantity" className="text-sm cursor-pointer">
               Hide Quantity
@@ -96,7 +104,15 @@ export function ItemDetails({
             <Switch
               id="hideUnitPrice"
               checked={hideUnitPrice}
-              onCheckedChange={onHideUnitPriceChange}
+              onCheckedChange={(checked) => {
+                // Only prevent if all 3 would be hidden
+                if (checked && hideQuantity && hideTotalCost) {
+                  // Auto-uncheck one to keep at least one visible
+                  onHideTotalCostChange(false);
+                } else {
+                  onHideUnitPriceChange(checked);
+                }
+              }}
             />
             <Label htmlFor="hideUnitPrice" className="text-sm cursor-pointer">
               Hide Unit Price
@@ -106,7 +122,15 @@ export function ItemDetails({
             <Switch
               id="hideTotalCost"
               checked={hideTotalCost}
-              onCheckedChange={onHideTotalCostChange}
+              onCheckedChange={(checked) => {
+                // Only prevent if all 3 would be hidden
+                if (checked && hideQuantity && hideUnitPrice) {
+                  // Auto-uncheck one to keep at least one visible
+                  onHideQuantityChange(false);
+                } else {
+                  onHideTotalCostChange(checked);
+                }
+              }}
             />
             <Label htmlFor="hideTotalCost" className="text-sm cursor-pointer">
               Hide Total Cost

@@ -9,6 +9,7 @@ import { DocumentDateInput } from '@/components/ui/document-date-input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmailService } from '@/api/services/email.service';
+import { InvoiceService } from '@/api/services/invoice.service';
 import {
   Table,
   TableBody,
@@ -124,12 +125,6 @@ export default function Invoices() {
     const hideQuantity = toBool(invoice.hideQuantity);
     const hideUnitPrice = toBool(invoice.hideUnitPrice);
     const hideTotalCost = toBool(invoice.hideTotalCost);
-    const hasQuantifiableItems = invoice.items.some(
-      (item) => Number(item.quantity) > 0 || Number(item.unitPrice) > 0,
-    );
-    const isRecurringInvoice = Boolean((invoice as { recurringId?: unknown }).recurringId);
-    const shouldShowAllItemColumns =
-      !isRecurringInvoice && hasQuantifiableItems && hideQuantity && hideUnitPrice && hideTotalCost;
 
     return {
       logo: invoice.logo || null,
@@ -165,9 +160,9 @@ export default function Invoices() {
       },
       showPaymentTerms: toBool(invoice.showPaymentTerms),
       paymentTerms: invoice.paymentTerms || '',
-      hideQuantity: shouldShowAllItemColumns ? false : hideQuantity,
-      hideUnitPrice: shouldShowAllItemColumns ? false : hideUnitPrice,
-      hideTotalCost: shouldShowAllItemColumns ? false : hideTotalCost,
+      hideQuantity: hideQuantity,
+      hideUnitPrice: hideUnitPrice,
+      hideTotalCost: hideTotalCost,
       hideSubTotal: toBool(invoice.hideSubTotal),
       useManualGrandTotal: toBool(invoice.useManualGrandTotal),
       manualGrandTotal: invoice.manualGrandTotal || 0,
@@ -196,10 +191,17 @@ export default function Invoices() {
   };
 
   const handleQuickDownload = async (invoice: Invoice) => {
-    setInvoiceForDownload(invoice);
+    let latestInvoice = invoice;
+    try {
+      latestInvoice = (await InvoiceService.getById(invoice._id)) as unknown as Invoice;
+    } catch (error) {
+      console.error('Failed to fetch latest invoice before download, using current row data:', error);
+    }
+
+    setInvoiceForDownload(latestInvoice);
     await waitForElementAndDownload(
       'invoice-preview-download',
-      `Invoice-${invoice.invoiceNumber}`,
+      `Invoice-${latestInvoice.invoiceNumber}`,
       () => setInvoiceForDownload(null),
     );
   };
@@ -818,12 +820,12 @@ export default function Invoices() {
                     <Printer className="h-4 w-4 mr-2" />
                     Print (choose orientation)
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      if (!selectedInvoice) return;
-                      downloadPDF('invoice-preview', `Invoice-${selectedInvoice.invoiceNumber}`);
-                    }}
-                  >
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (!selectedInvoice) return;
+                    void handleQuickDownload(selectedInvoice);
+                  }}
+                >
                     <Download className="h-4 w-4 mr-2" />
                     Download PDF
                   </DropdownMenuItem>

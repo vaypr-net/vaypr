@@ -162,7 +162,10 @@ export function SaveToDashboardDialog({
         const showPaymentTerms = toBool(invoiceData.showPaymentTerms);
         const hideQuantity = toBool(invoiceData.hideQuantity);
         const hideUnitPrice = toBool(invoiceData.hideUnitPrice);
-        const hideTotalCost = toBool(invoiceData.hideTotalCost);
+        let hideTotalCost = toBool(invoiceData.hideTotalCost);
+        if (hideQuantity && hideUnitPrice && hideTotalCost) {
+          hideTotalCost = false;
+        }
 
         // Prepare invoice data for API
         const apiInvoiceData = {

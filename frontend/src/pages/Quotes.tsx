@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { EmailService } from '@/api/services/email.service';
+import { QuoteService } from '@/api/services/quote.service';
 import {
   Dialog,
   DialogContent,
@@ -105,6 +106,7 @@ export default function Quotes() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
+  const [quoteForDownload, setQuoteForDownload] = useState<Quote | null>(null);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [clientEmail, setClientEmail] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -125,8 +127,7 @@ export default function Quotes() {
   const apiQuotesArray = Array.isArray(apiQuotes) ? apiQuotes : [];
   const clientsArray = Array.isArray(clients) ? clients : [];
   
-  // Map API quotes to local Quote type
-  const quotes: Quote[] = apiQuotesArray.map((q: any) => ({
+  const mapApiQuoteToLocal = (q: any): Quote => ({
     id: q._id,
     quoteNumber: q.quoteNumber,
     clientId: (typeof q.clientId === 'string' ? q.clientId : q.clientId?._id) || '',
@@ -181,7 +182,10 @@ export default function Quotes() {
     convertedAt: q.convertedAt,
     convertedToInvoiceId: q.convertedToInvoiceId,
     timeline: q.timeline || [],
-  }));
+  });
+
+  // Map API quotes to local Quote type
+  const quotes: Quote[] = apiQuotesArray.map(mapApiQuoteToLocal);
   
   // Stub functions for features not yet migrated to API
   const addQuote = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Create quotes from the Invoice Generator', variant: 'destructive' }); return null; };
@@ -282,11 +286,6 @@ export default function Quotes() {
     const hideQuantity = toBool(quote.hideQuantity);
     const hideUnitPrice = toBool(quote.hideUnitPrice);
     const hideTotalCost = toBool(quote.hideTotalCost);
-    const hasQuantifiableItems = quote.items.some(
-      (item) => Number(item.quantity) > 0 || Number(item.unitPrice) > 0,
-    );
-    const shouldShowAllItemColumns =
-      hasQuantifiableItems && hideQuantity && hideUnitPrice && hideTotalCost;
 
     return {
       logo: quote.logo || null,
@@ -326,9 +325,9 @@ export default function Quotes() {
       },
       showPaymentTerms: toBool(quote.showPaymentTerms),
       paymentTerms: quote.paymentTerms || '',
-      hideQuantity: shouldShowAllItemColumns ? false : hideQuantity,
-      hideUnitPrice: shouldShowAllItemColumns ? false : hideUnitPrice,
-      hideTotalCost: shouldShowAllItemColumns ? false : hideTotalCost,
+      hideQuantity: hideQuantity,
+      hideUnitPrice: hideUnitPrice,
+      hideTotalCost: hideTotalCost,
       hideSubTotal: toBool(quote.hideSubTotal),
       useManualGrandTotal: toBool(quote.useManualGrandTotal),
       manualGrandTotal: quote.manualGrandTotal || 0,
@@ -336,9 +335,17 @@ export default function Quotes() {
     };
   };
 
-  const handleDownloadQuotePdf = (quote: Quote) => {
-    setSelectedQuote(quote);
-    const filename = `Quote-${quote.quoteNumber}`;
+  const handleDownloadQuotePdf = async (quote: Quote) => {
+    let latestQuote = quote;
+    try {
+      const fetchedQuote = await QuoteService.getById(quote.id);
+      latestQuote = mapApiQuoteToLocal(fetchedQuote);
+    } catch (error) {
+      console.error('Failed to fetch latest quote before download, using current row data:', error);
+    }
+
+    setQuoteForDownload(latestQuote);
+    const filename = `Quote-${latestQuote.quoteNumber}`;
     // Wait for the hidden preview element to be present and visible before capturing
     const waitForElementAndDownload = async (elementId: string, filename: string, onComplete?: () => void) => {
       const timeout = 3000;
@@ -353,7 +360,7 @@ export default function Quotes() {
       downloadPDF(elementId, filename, onComplete);
     };
 
-    waitForElementAndDownload('quote-preview', filename, () => setSelectedQuote(null));
+    waitForElementAndDownload('quote-preview-download', filename, () => setQuoteForDownload(null));
   };
 
   const filterPhoneInput = (value: string): string => {
@@ -1686,11 +1693,11 @@ export default function Quotes() {
       </Dialog>
 
       {/* Hidden quote preview used by Download PDF action */}
-      {selectedQuote && (
+      {quoteForDownload && (
         <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} aria-hidden="true">
           <QuotePreview
-            previewId="quote-preview"
-            data={mapQuoteToPreviewData(selectedQuote)}
+            previewId="quote-preview-download"
+            data={mapQuoteToPreviewData(quoteForDownload)}
           />
         </div>
       )}

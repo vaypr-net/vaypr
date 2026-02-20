@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { HelpCircle, Loader2 } from 'lucide-react';
 import {
   Accordion,
@@ -17,6 +18,7 @@ import {
 import { usePublicFaqs, usePublicFaqCategories } from '@/hooks/usePublicFaqs';
 
 export function FAQsSection() {
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const { data: faqs = [], isLoading } = usePublicFaqs(
     selectedCategory === 'all' ? undefined : selectedCategory,
@@ -135,7 +137,7 @@ export function FAQsSection() {
             <p className="text-muted-foreground mb-6">
               Still have questions? We're here to help!
             </p>
-            <Button size="lg" className="gap-2">
+            <Button size="lg" className="gap-2" onClick={() => navigate('/contact')}>
               Contact Support
             </Button>
           </div>
