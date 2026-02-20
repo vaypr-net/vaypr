@@ -1458,10 +1458,11 @@ export default function Profile() {
                             <AlertDialogAction
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                               onClick={async () => {
-                                if (!user?._id) return;
+                                const userId = (user as any)?.id || (user as any)?._id;
+                                if (!userId) return;
                                 const t = toast({ title: 'Deleting account...', description: 'This will permanently remove your account.' });
                                 try {
-                                  await axios.delete(`/user/${user._id}`);
+                                  await axios.delete(`/user/${userId}`);
                                   t.update({ title: 'Account deleted', description: 'Your account has been removed.' });
                                   // clear local session and redirect home
                                   logout();
