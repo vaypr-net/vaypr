@@ -348,6 +348,7 @@ export default function Profile() {
   const invoicesUsed = dashboardStats?.overview?.totalInvoices ?? fallbackUsage.invoicesThisMonth ?? 0;
   const quotesUsed = dashboardStats?.overview?.totalQuotes ?? fallbackUsage.quotesThisMonth ?? 0;
   const clientsUsed = dashboardStats?.overview?.totalClients ?? fallbackUsage.currentClients ?? 0;
+  const receiptsUsed = (dashboardStats as any)?.overview?.totalReceipts ?? 0;
   const hasPaidPlan = isCancelledSubscription
     ? false
     : subscriptionInfo?.plan
@@ -660,6 +661,7 @@ export default function Profile() {
 
   const getUsagePercentage = (used: number, limit: number) => {
     if (limit === -1) return 0; // Unlimited
+    if (!limit || limit <= 0) return 0;
     return Math.min((used / limit) * 100, 100);
   };
 
@@ -1036,8 +1038,20 @@ export default function Profile() {
                             : currentPlanLimits?.receipts ?? 'N/A'}
                         </span>
                       </div>
-                      <Progress value={0} className="h-1.5" />
-                      <span className="text-xs text-muted-foreground">Usage tracked in dashboard modules</span>
+                      <Progress
+                        value={getUsagePercentage(
+                          receiptsUsed,
+                          (currentPlanLimits?.receipts as number) ?? 0,
+                        )}
+                        className="h-1.5"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {receiptsUsed} of{' '}
+                        {currentPlanLimits?.receipts === -1
+                          ? 'Unlimited'
+                          : currentPlanLimits?.receipts ?? 'N/A'}{' '}
+                        used
+                      </span>
                     </div>
                   </div>
 

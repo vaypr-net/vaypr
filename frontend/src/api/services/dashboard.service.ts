@@ -4,6 +4,7 @@ export interface DashboardStats {
   overview: {
     totalClients: number;
     totalInvoices: number;
+    totalReceipts?: number;
     totalQuotes: number;
     totalRecurring: number;
     totalRevenue: number;
