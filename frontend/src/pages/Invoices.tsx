@@ -937,16 +937,6 @@ export default function Invoices() {
               </div>
             )}
 
-            {/* Hidden invoice preview for direct PDF download from table row */}
-            {invoiceForDownload && (
-              <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-                <InvoicePreview
-                  previewId="invoice-preview-download"
-                  data={mapInvoiceToPreviewData(invoiceForDownload)}
-                />
-              </div>
-            )}
-
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button 
                 variant="outline" 
@@ -997,6 +987,16 @@ export default function Invoices() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Hidden invoice preview for direct PDF download from table row */}
+        {invoiceForDownload && (
+          <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+            <InvoicePreview
+              previewId="invoice-preview-download"
+              data={mapInvoiceToPreviewData(invoiceForDownload)}
+            />
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

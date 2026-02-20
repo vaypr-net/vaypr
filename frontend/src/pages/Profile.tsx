@@ -304,18 +304,24 @@ export default function Profile() {
   }
 
   const currentPlanId = subscriptionInfo?.plan?._id || '';
-  const hasScheduledCancellation = !!subscriptionInfo?.accessUntilDate;
-  const isCancelledSubscription =
-    subscriptionInfo?.status === 'canceled' ||
-    !!subscriptionInfo?.cancellationDate ||
-    hasScheduledCancellation;
+  const subscriptionStatus = subscriptionInfo?.status || subscription?.status || 'active';
+  const isCanceledStatus =
+    subscriptionStatus === 'canceled' || subscriptionStatus === 'cancelled';
+  const hasScheduledCancellation =
+    !isCanceledStatus &&
+    !!subscriptionInfo?.accessUntilDate &&
+    (subscriptionStatus === 'active' ||
+      subscriptionStatus === 'trialing' ||
+      subscriptionStatus === 'past_due' ||
+      subscriptionStatus === 'incomplete');
+  const isCancelledSubscription = isCanceledStatus || hasScheduledCancellation;
   // For profile subscription tab, show Free once cancellation is initiated.
   const currentPlanName = isCancelledSubscription
     ? 'Free'
     : (subscriptionInfo?.plan?.name || currentPlanInfo.name);
   const currentPlanStatus = isCancelledSubscription
     ? 'cancelled'
-    : (subscriptionInfo?.status || subscription?.status || 'active');
+    : subscriptionStatus;
   const currentPeriodEnd =
     subscriptionInfo?.accessUntilDate ||
     subscriptionInfo?.currentPeriodEnd ||
