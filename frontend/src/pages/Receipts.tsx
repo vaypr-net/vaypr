@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { EmailService } from '@/api/services/email.service';
-import { ReceiptService } from '@/api/services/receipt.service';
 import {
   Dialog,
   DialogContent,
@@ -255,7 +254,7 @@ export default function Receipts() {
       onComplete?.();
       return;
     }
-    downloadPDF(elementId, filename, onComplete);
+    downloadPDF(elementId, filename, onComplete, { fitToPage: true });
   };
 
   const waitForElementAndPrintPdf = async (elementId: string, filename: string) => {
@@ -272,24 +271,12 @@ export default function Receipts() {
   };
 
   const handleDownloadReceiptPdf = async (receipt: ReceiptVoucher) => {
-    const receiptId = getReceiptId(receipt);
-    if (!receiptId) {
-      toast({ title: 'Error', description: 'Invalid receipt ID', variant: 'destructive' });
-      return;
-    }
-
-    let latestReceipt = receipt;
-    try {
-      const fetchedReceipt = await ReceiptService.getById(receiptId);
-      latestReceipt = mapApiReceiptToLocal(fetchedReceipt);
-    } catch (error) {
-      console.error('Failed to fetch latest receipt before download, using current data:', error);
-    }
-
-    setReceiptForDownload(latestReceipt);
+    // Use the exact receipt snapshot currently shown in UI to keep
+    // downloaded PDF visually identical to preview.
+    setReceiptForDownload(receipt);
     await waitForElementAndDownload(
       'receipt-preview-download',
-      `Receipt-${latestReceipt.receiptNumber}`,
+      `Receipt-${receipt.receiptNumber}`,
       () => setReceiptForDownload(null),
     );
   };
