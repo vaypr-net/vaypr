@@ -19,6 +19,21 @@ import { BillToDto } from '../../invoice/dto/bill-to.dto';
 import { CompanyFooterDto } from '../../invoice/dto/company-footer.dto';
 import { BankAccountDto } from '../../invoice/dto/bank-account.dto';
 
+const parseBooleanField = ({ value, obj, key }: { value: any; obj?: Record<string, any>; key?: string }) => {
+  const raw = key && obj ? obj[key] : value;
+
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'number') return raw === 1;
+
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'off', ''].includes(normalized)) return false;
+  }
+
+  return !!raw;
+};
+
 export class CreateQuoteDto {
   @IsMongoId()
   @IsOptional()
@@ -140,7 +155,7 @@ export class CreateQuoteDto {
   tableHeaderColor?: string;
 
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(parseBooleanField)
   @IsOptional()
   showPaymentMethod?: boolean;
 
@@ -149,7 +164,7 @@ export class CreateQuoteDto {
   paymentMethodType?: PaymentMethodType;
 
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(parseBooleanField)
   @IsOptional()
   showBankAccount?: boolean;
 
@@ -170,7 +185,7 @@ export class CreateQuoteDto {
   bankAccount?: BankAccountDto;
 
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(parseBooleanField)
   @IsOptional()
   showPaymentTerms?: boolean;
 
@@ -179,27 +194,27 @@ export class CreateQuoteDto {
   paymentTerms?: string;
 
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(parseBooleanField)
   @IsOptional()
   hideQuantity?: boolean;
 
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(parseBooleanField)
   @IsOptional()
   hideUnitPrice?: boolean;
 
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(parseBooleanField)
   @IsOptional()
   hideTotalCost?: boolean;
 
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(parseBooleanField)
   @IsOptional()
   hideSubTotal?: boolean;
 
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(parseBooleanField)
   @IsOptional()
   useManualGrandTotal?: boolean;
 
