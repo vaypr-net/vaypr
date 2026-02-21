@@ -229,7 +229,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
       {/* Footer */}
       {(data.companyFooter.companyName || data.companyFooter.address || data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
         <div className="pt-6 border-t border-border print:mt-auto">
-          <div className="text-sm text-muted-foreground flex flex-wrap items-center justify-center gap-2" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+          <div className="text-xs text-muted-foreground flex items-center justify-center gap-2 whitespace-nowrap">
             {data.companyFooter.companyName && (
               <span className="font-semibold text-foreground">{data.companyFooter.companyName}</span>
             )}
