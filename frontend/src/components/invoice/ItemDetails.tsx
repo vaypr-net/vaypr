@@ -83,55 +83,31 @@ export function ItemDetails({
       {onHideQuantityChange && onHideUnitPriceChange && onHideTotalCostChange && (
         <div className="flex flex-wrap gap-6 p-4 bg-muted/50 rounded-lg">
           <div className="flex items-center gap-3">
-            <Switch
-              id="hideQuantity"
-              checked={hideQuantity}
-              onCheckedChange={(checked) => {
-                // Only prevent if all 3 would be hidden
-                if (checked && hideUnitPrice && hideTotalCost) {
-                  // Auto-uncheck one to keep at least one visible
-                  onHideUnitPriceChange(false);
-                } else {
-                  onHideQuantityChange(checked);
-                }
-              }}
-            />
+              <Switch
+                id="hideQuantity"
+                checked={hideQuantity}
+                onCheckedChange={onHideQuantityChange}
+              />
             <Label htmlFor="hideQuantity" className="text-sm cursor-pointer">
               Hide Quantity
             </Label>
           </div>
           <div className="flex items-center gap-3">
-            <Switch
-              id="hideUnitPrice"
-              checked={hideUnitPrice}
-              onCheckedChange={(checked) => {
-                // Only prevent if all 3 would be hidden
-                if (checked && hideQuantity && hideTotalCost) {
-                  // Auto-uncheck one to keep at least one visible
-                  onHideTotalCostChange(false);
-                } else {
-                  onHideUnitPriceChange(checked);
-                }
-              }}
-            />
+              <Switch
+                id="hideUnitPrice"
+                checked={hideUnitPrice}
+                onCheckedChange={onHideUnitPriceChange}
+              />
             <Label htmlFor="hideUnitPrice" className="text-sm cursor-pointer">
               Hide Unit Price
             </Label>
           </div>
           <div className="flex items-center gap-3">
-            <Switch
-              id="hideTotalCost"
-              checked={hideTotalCost}
-              onCheckedChange={(checked) => {
-                // Only prevent if all 3 would be hidden
-                if (checked && hideQuantity && hideUnitPrice) {
-                  // Auto-uncheck one to keep at least one visible
-                  onHideQuantityChange(false);
-                } else {
-                  onHideTotalCostChange(checked);
-                }
-              }}
-            />
+              <Switch
+                id="hideTotalCost"
+                checked={hideTotalCost}
+                onCheckedChange={onHideTotalCostChange}
+              />
             <Label htmlFor="hideTotalCost" className="text-sm cursor-pointer">
               Hide Total Cost
             </Label>

@@ -70,7 +70,6 @@ export class InvoiceService implements OnModuleInit {
       }
     }
 
-    this.ensureAtLeastOneItemColumnVisibleOnCreate(createInvoiceDto);
     this.normalizeManualGrandTotalOnCreate(createInvoiceDto);
 
     const invoice = new this.invoiceModel({
@@ -137,7 +136,6 @@ export class InvoiceService implements OnModuleInit {
   ): Promise<Invoice> {
     // First check if invoice exists and belongs to user
     const existingInvoice = await this.findOne(id, userId);
-    this.ensureAtLeastOneItemColumnVisibleOnUpdate(updateInvoiceDto, existingInvoice);
     this.normalizeManualGrandTotalOnUpdate(updateInvoiceDto, existingInvoice);
 
     // Validate client ownership if clientId is being updated
@@ -193,25 +191,6 @@ export class InvoiceService implements OnModuleInit {
     }
 
     return updatedInvoice;
-  }
-
-  private ensureAtLeastOneItemColumnVisibleOnCreate(dto: CreateInvoiceDto): void {
-    if (dto.hideQuantity === true && dto.hideUnitPrice === true && dto.hideTotalCost === true) {
-      dto.hideTotalCost = false;
-    }
-  }
-
-  private ensureAtLeastOneItemColumnVisibleOnUpdate(
-    dto: UpdateInvoiceDto,
-    existingInvoice: Invoice,
-  ): void {
-    const nextHideQuantity = dto.hideQuantity ?? existingInvoice.hideQuantity;
-    const nextHideUnitPrice = dto.hideUnitPrice ?? existingInvoice.hideUnitPrice;
-    const nextHideTotalCost = dto.hideTotalCost ?? existingInvoice.hideTotalCost;
-
-    if (nextHideQuantity === true && nextHideUnitPrice === true && nextHideTotalCost === true) {
-      dto.hideTotalCost = false;
-    }
   }
 
   private normalizeManualGrandTotalOnCreate(dto: CreateInvoiceDto): void {
