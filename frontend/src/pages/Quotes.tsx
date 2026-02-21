@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { useInvoices, useReminders } from '@/hooks/useData';
 import { useClients } from '@/hooks/api/useClients';
 import { useQuotesAPI, useCreateQuote, useDeleteQuote, useUpdateQuote } from '@/hooks/api/useQuotes';
+import { useCreateInvoice } from '@/hooks/api/useInvoices';
 import { useAuth } from '@/contexts/AuthContext';
 import { Quote, QuoteItem } from '@/types/app';
 import { QuoteData } from '@/types/quote';
@@ -117,11 +117,9 @@ export default function Quotes() {
   const createQuoteMutation = useCreateQuote();
   const deleteQuoteMutation = useDeleteQuote();
   const updateQuoteMutation = useUpdateQuote();
+  const createInvoiceMutation = useCreateInvoice();
   
-  // Old localStorage hooks (keeping for now for other features like invoices, reminders)
-  const { addInvoice } = useInvoices();
   const { data: clients = [], isLoading: loadingClients } = useClients();
-  const { reminders, unreadCount } = useReminders();
   
   // Ensure apiQuotes and clients are always arrays
   const apiQuotesArray = Array.isArray(apiQuotes) ? apiQuotes : [];
@@ -189,7 +187,6 @@ export default function Quotes() {
   
   // Stub functions for features not yet migrated to API
   const addQuote = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Create quotes from the Invoice Generator', variant: 'destructive' }); return null; };
-  const markAsConverted = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Convert to invoice will be available via API soon', variant: 'destructive' }); };
 
   // QuoteData state for editing (matches Generator page structure)
   const [editQuoteData, setEditQuoteData] = useState<QuoteData>({
@@ -666,7 +663,7 @@ export default function Quotes() {
   const handleSendQuote = async (quote: Quote) => {
     await updateQuoteMutation.mutateAsync({
       id: quote.id,
-      data: { status: 'sent', sentAt: new Date().toISOString() },
+      data: { status: 'sent' },
     });
     toast({ title: 'Quote Sent', description: `Quote ${quote.quoteNumber} marked as sent` });
   };
@@ -674,7 +671,7 @@ export default function Quotes() {
   const handleAcceptQuote = async (quote: Quote) => {
     await updateQuoteMutation.mutateAsync({
       id: quote.id,
-      data: { status: 'accepted', acceptedAt: new Date().toISOString() },
+      data: { status: 'accepted' },
     });
     toast({ title: 'Quote Accepted', description: `Quote ${quote.quoteNumber} marked as accepted` });
   };
@@ -682,7 +679,7 @@ export default function Quotes() {
   const handleRejectQuote = async (quote: Quote) => {
     await updateQuoteMutation.mutateAsync({
       id: quote.id,
-      data: { status: 'rejected', rejectedAt: new Date().toISOString() },
+      data: { status: 'rejected' },
     });
     toast({ title: 'Quote Rejected', description: `Quote ${quote.quoteNumber} marked as rejected` });
   };
@@ -797,39 +794,84 @@ export default function Quotes() {
     }
   };
 
-  const handleConvertToInvoice = () => {
+  const handleConvertToInvoice = async () => {
     if (!selectedQuote) return;
 
     const invoiceItems = selectedQuote.items.map(item => ({
-      id: crypto.randomUUID(),
       description: item.description,
       quantity: item.quantity,
-      unitPrice: item.unitPrice, // Changed from rate to unitPrice
+      unitPrice: item.unitPrice,
       amount: item.quantity * item.unitPrice,
     }));
 
     const subtotal = calculateSubtotal(selectedQuote.items);
     const total = calculateTotal(selectedQuote.items, selectedQuote.discount);
 
-    const invoice = addInvoice({
-      invoiceNumber: `INV-${String(Date.now()).slice(-6)}`,
-      clientId: selectedQuote.clientId,
-      status: 'draft',
-      issueDate: format(new Date(), 'yyyy-MM-dd'),
-      dueDate: format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-      items: invoiceItems,
-      subtotal,
-      tax: 0,
-      discount: selectedQuote.discount,
-      total,
-      currency: selectedQuote.currency,
-      notes: selectedQuote.notes,
-    });
+    const invoiceNumber = `INV-${Date.now()}`;
 
-    markAsConverted(selectedQuote.id, invoice._id); // Changed invoice.id to invoice._id
-    toast({ title: 'Quote Converted', description: `Quote converted to Invoice ${invoice.invoiceNumber}` });
-    setIsConvertDialogOpen(false);
-    setSelectedQuote(null);
+    try {
+      const createdInvoice = await createInvoiceMutation.mutateAsync({
+        data: {
+          invoiceNumber,
+          clientId: selectedQuote.clientId || undefined,
+          status: 'draft',
+          issueDate: new Date().toISOString(),
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          billTo: {
+            name: selectedQuote.clientName,
+            phone: selectedQuote.clientPhone || '',
+            area: selectedQuote.clientArea || '',
+            block: selectedQuote.clientBlock || '',
+            street: selectedQuote.clientStreet || '',
+            house: selectedQuote.clientHouse || '',
+            other: '',
+          },
+          items: invoiceItems,
+          subtotal,
+          tax: 0,
+          discount: selectedQuote.discount,
+          deliveryFee: selectedQuote.deliveryFee || 0,
+          total,
+          currency: selectedQuote.currency,
+          currencySymbol: selectedQuote.currencySymbol,
+          companyFooter: {
+            companyName: selectedQuote.companyName || '',
+            address: selectedQuote.companyAddress || '',
+            officePhone: selectedQuote.companyPhone || '',
+            websiteEmail: selectedQuote.companyEmail || '',
+          },
+          logoScale: selectedQuote.logoScale || 1.0,
+          tableHeaderColor: selectedQuote.tableHeaderColor || '#000000',
+          showPaymentMethod: toBool(selectedQuote.showPaymentMethod),
+          paymentMethodType: selectedQuote.paymentMethodType || 'cash',
+          showBankAccount: toBool(selectedQuote.showBankAccount),
+          bankAccount: selectedQuote.bankAccount || { bankName: '', accountName: '', iban: '' },
+          showPaymentTerms: toBool(selectedQuote.showPaymentTerms),
+          paymentTerms: selectedQuote.paymentTerms || '',
+          hideQuantity: toBool(selectedQuote.hideQuantity),
+          hideUnitPrice: toBool(selectedQuote.hideUnitPrice),
+          hideTotalCost: toBool(selectedQuote.hideTotalCost),
+          hideSubTotal: toBool(selectedQuote.hideSubTotal),
+          useManualGrandTotal: toBool(selectedQuote.useManualGrandTotal),
+          manualGrandTotal: selectedQuote.manualGrandTotal || 0,
+          notes: selectedQuote.notes || '',
+        },
+      });
+
+      await updateQuoteMutation.mutateAsync({
+        id: selectedQuote.id,
+        data: { status: 'converted' },
+      });
+
+      toast({
+        title: 'Quote Converted',
+        description: `Quote converted to Invoice ${createdInvoice.invoiceNumber}`,
+      });
+      setIsConvertDialogOpen(false);
+      setSelectedQuote(null);
+    } catch (error) {
+      console.error('Failed to convert quote to invoice:', error);
+    }
   };
 
   const handleDeleteQuote = async (quote: Quote) => {

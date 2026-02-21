@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useInvoices as useInvoicesAPI } from '@/hooks/api/useInvoices';
 import { useClients } from '@/hooks/api/useClients';
-import { useReceiptsAPI, useDeleteReceipt } from '@/hooks/api/useReceipts';
+import { useReceiptsAPI, useDeleteReceipt, useCreateReceipt, useUpdateReceipt } from '@/hooks/api/useReceipts';
 import { ReceiptVoucher } from '@/types/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -101,6 +101,8 @@ export default function Receipts() {
   // API Hooks
   const { data: apiReceipts = [], isLoading: loadingReceipts } = useReceiptsAPI(statusFilter !== 'all' ? statusFilter : undefined);
   const deleteReceiptMutation = useDeleteReceipt();
+  const createReceiptMutation = useCreateReceipt();
+  const updateReceiptMutation = useUpdateReceipt();
   const { data: clients = [], isLoading: loadingClients } = useClients();
   const { data: invoices = [], isLoading: loadingInvoices } = useInvoicesAPI();
   
@@ -108,14 +110,23 @@ export default function Receipts() {
   const apiReceiptsArray = Array.isArray(apiReceipts) ? apiReceipts : [];
   const clientsArray = Array.isArray(clients) ? clients : [];
   const invoicesArray = Array.isArray(invoices) ? invoices : [];
+  const normalizeRefId = (value: any): string => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+      if (typeof value._id === 'string') return value._id;
+      if (typeof value.id === 'string') return value.id;
+    }
+    return '';
+  };
   
   const mapApiReceiptToLocal = (r: any): ReceiptVoucher => ({
-    id: r._id,
+    id: r._id || r.id,
     receiptNumber: r.receiptNumber,
-    clientId: r.clientId || '',
-    invoiceId: r.invoiceId || undefined,
+    clientId: normalizeRefId(r.clientId),
+    invoiceId: normalizeRefId(r.invoiceId) || undefined,
     receivedFrom: r.receivedFrom,
-    status: r.status,
+    status: r.status === 'voided' ? 'cancelled' : r.status,
     receiptDate: r.receiptDate,
     amount: r.amount,
     currency: r.currency,
@@ -155,10 +166,11 @@ export default function Receipts() {
   // Map API receipts to local type
   const receipts: ReceiptVoucher[] = apiReceiptsArray.map(mapApiReceiptToLocal);
   
-  // Stub functions for features not yet migrated to API
-  const addReceipt = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Create receipts from the Invoice Generator', variant: 'destructive' }); return null; };
-  const markAsIssued = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as issued will be available via API soon', variant: 'destructive' }); };
-  const markAsCancelled = (...args: any[]) => { toast({ title: 'Feature Coming Soon', description: 'Mark as cancelled will be available via API soon', variant: 'destructive' }); };
+  const getReceiptId = (receipt: ReceiptVoucher): string | null => {
+    const id = receipt.id;
+    if (!id || typeof id !== 'string') return null;
+    return id;
+  };
 
   const [formData, setFormData] = useState({
     receivedFrom: '',
@@ -216,27 +228,59 @@ export default function Receipts() {
     return value.replace(/[^\d+]/g, '');
   };
 
+  const waitForElement = async (elementId: string, timeout = 3000): Promise<boolean> => {
+    const interval = 100;
+    let waited = 0;
+    while (waited < timeout) {
+      const el = document.getElementById(elementId);
+      if (el && el.offsetWidth > 0 && el.offsetHeight > 0) return true;
+      await new Promise((r) => setTimeout(r, interval));
+      waited += interval;
+    }
+    return false;
+  };
+
   const waitForElementAndDownload = async (
     elementId: string,
     filename: string,
     onComplete?: () => void,
   ) => {
-    const timeout = 3000;
-    const interval = 100;
-    let waited = 0;
-    while (waited < timeout) {
-      const el = document.getElementById(elementId);
-      if (el && el.offsetWidth > 0 && el.offsetHeight > 0) break;
-      await new Promise((r) => setTimeout(r, interval));
-      waited += interval;
+    const found = await waitForElement(elementId);
+    if (!found) {
+      toast({
+        title: 'Error',
+        description: 'Could not find receipt preview for PDF download',
+        variant: 'destructive',
+      });
+      onComplete?.();
+      return;
     }
     downloadPDF(elementId, filename, onComplete);
   };
 
+  const waitForElementAndPrintPdf = async (elementId: string, filename: string) => {
+    const found = await waitForElement(elementId);
+    if (!found) {
+      toast({
+        title: 'Error',
+        description: 'Could not find receipt preview for printing',
+        variant: 'destructive',
+      });
+      return;
+    }
+    printPDF(elementId, filename);
+  };
+
   const handleDownloadReceiptPdf = async (receipt: ReceiptVoucher) => {
+    const receiptId = getReceiptId(receipt);
+    if (!receiptId) {
+      toast({ title: 'Error', description: 'Invalid receipt ID', variant: 'destructive' });
+      return;
+    }
+
     let latestReceipt = receipt;
     try {
-      const fetchedReceipt = await ReceiptService.getById(receipt.id);
+      const fetchedReceipt = await ReceiptService.getById(receiptId);
       latestReceipt = mapApiReceiptToLocal(fetchedReceipt);
     } catch (error) {
       console.error('Failed to fetch latest receipt before download, using current data:', error);
@@ -267,7 +311,7 @@ export default function Receipts() {
     });
   };
 
-  const handleCreateReceipt = () => {
+  const handleCreateReceipt = async () => {
     if (!formData.receivedFrom) {
       toast({ title: 'Error', description: 'Please enter who the payment is received from', variant: 'destructive' });
       return;
@@ -277,26 +321,30 @@ export default function Receipts() {
       return;
     }
 
-    addReceipt({
-      receiptNumber: generateReceiptNumber(),
-      receivedFrom: formData.receivedFrom,
-      clientId: formData.clientId || undefined,
-      amount: formData.amount,
-      currency: formData.currency,
-      currencySymbol: formData.currencySymbol,
-      paymentMethod: formData.paymentMethod,
-      reason: formData.reason,
-      receiptDate: formData.receiptDate,
-      status: 'draft',
-      companyName: formData.companyName,
-      companyAddress: formData.companyAddress,
-      companyPhone: formData.companyPhone,
-      invoiceId: formData.invoiceId || undefined,
-    });
-
-    toast({ title: 'Receipt Created', description: 'Receipt voucher has been created successfully' });
-    setIsCreateDialogOpen(false);
-    resetForm();
+    try {
+      await createReceiptMutation.mutateAsync({
+        data: {
+          receiptNumber: generateReceiptNumber(),
+          receivedFrom: formData.receivedFrom,
+          clientId: formData.clientId || undefined,
+          amount: formData.amount,
+          currency: formData.currency,
+          currencySymbol: formData.currencySymbol,
+          paymentMethod: formData.paymentMethod,
+          reason: formData.reason,
+          receiptDate: formData.receiptDate,
+          status: 'draft',
+          companyName: formData.companyName,
+          companyAddress: formData.companyAddress,
+          companyPhone: formData.companyPhone,
+          invoiceId: formData.invoiceId || undefined,
+        },
+      });
+      setIsCreateDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Failed to create receipt:', error);
+    }
   };
 
   /**
@@ -405,32 +453,81 @@ export default function Receipts() {
     }
   };
 
-  const handleIssueReceipt = (receipt: ReceiptVoucher) => {
-    markAsIssued(receipt.id);
-    toast({ title: 'Receipt Issued', description: `Receipt ${receipt.receiptNumber} has been issued` });
+  const handleIssueReceipt = async (receipt: ReceiptVoucher) => {
+    const receiptId = getReceiptId(receipt);
+    if (!receiptId) {
+      toast({ title: 'Error', description: 'Invalid receipt ID', variant: 'destructive' });
+      return;
+    }
+    try {
+      await updateReceiptMutation.mutateAsync({
+        id: receiptId,
+        data: { status: 'issued' },
+      });
+      toast({ title: 'Receipt Issued', description: `Receipt ${receipt.receiptNumber} has been issued` });
+    } catch (error) {
+      console.error('Failed to issue receipt:', error);
+    }
   };
 
-  const handleCancelReceipt = (receipt: ReceiptVoucher) => {
-    markAsCancelled(receipt.id);
-    toast({ title: 'Receipt Cancelled', description: `Receipt ${receipt.receiptNumber} has been cancelled` });
+  const handleCancelReceipt = async (receipt: ReceiptVoucher) => {
+    const receiptId = getReceiptId(receipt);
+    if (!receiptId) {
+      toast({ title: 'Error', description: 'Invalid receipt ID', variant: 'destructive' });
+      return;
+    }
+    try {
+      await updateReceiptMutation.mutateAsync({
+        id: receiptId,
+        data: { status: 'cancelled' },
+      });
+      toast({ title: 'Receipt Cancelled', description: `Receipt ${receipt.receiptNumber} has been cancelled` });
+    } catch (error) {
+      console.error('Failed to cancel receipt:', error);
+    }
   };
 
   const handleDeleteReceipt = async (receipt: ReceiptVoucher) => {
+    const receiptId = getReceiptId(receipt);
+    if (!receiptId) {
+      toast({ title: 'Error', description: 'Invalid receipt ID', variant: 'destructive' });
+      return;
+    }
     try {
-      await deleteReceiptMutation.mutateAsync(receipt.id);
+      await deleteReceiptMutation.mutateAsync(receiptId);
     } catch (error) {
       console.error('Failed to delete receipt:', error);
     }
   };
 
-  const handleDuplicateReceipt = (receipt: ReceiptVoucher) => {
-    addReceipt({
-      ...receipt,
-      receiptNumber: generateReceiptNumber(),
-      status: 'draft',
-      receiptDate: format(new Date(), 'yyyy-MM-dd'),
-    });
-    toast({ title: 'Receipt Duplicated', description: 'A copy of the receipt has been created' });
+  const handleDuplicateReceipt = async (receipt: ReceiptVoucher) => {
+    try {
+      await createReceiptMutation.mutateAsync({
+        data: {
+          receiptNumber: generateReceiptNumber(),
+          clientId: receipt.clientId || undefined,
+          invoiceId: receipt.invoiceId || undefined,
+          status: 'draft',
+          receiptDate: format(new Date(), 'yyyy-MM-dd'),
+          receivedFrom: receipt.receivedFrom,
+          amount: receipt.amount,
+          currency: receipt.currency,
+          currencySymbol: receipt.currencySymbol,
+          paymentMethod: receipt.paymentMethod,
+          reason: receipt.reason,
+          receivedBy: receipt.receivedBy,
+          companyName: receipt.companyName,
+          companyAddress: receipt.companyAddress,
+          companyPhone: receipt.companyPhone,
+          logoScale: receipt.logoScale,
+          titleColor: receipt.titleColor,
+          amountColor: receipt.amountColor,
+        },
+      });
+      toast({ title: 'Receipt Duplicated', description: 'A copy of the receipt has been created' });
+    } catch (error) {
+      console.error('Failed to duplicate receipt:', error);
+    }
   };
 
   const handlePrintReceipt = (receipt: ReceiptVoucher) => {
@@ -586,9 +683,7 @@ export default function Receipts() {
                           <DropdownMenuItem onClick={() => {
                             setSelectedReceipt(receipt);
                             setIsViewDialogOpen(true);
-                            setTimeout(() => {
-                              printPDF('receipt-preview', `Receipt-${receipt.receiptNumber}`);
-                            }, 350);
+                            void waitForElementAndPrintPdf('receipt-preview', `Receipt-${receipt.receiptNumber}`);
                           }}>
                             <Printer className="h-4 w-4 mr-2" />
                             Print (no headers)
@@ -843,7 +938,7 @@ export default function Receipts() {
                 <DropdownMenuItem
                   onClick={() => {
                     if (!selectedReceipt) return;
-                    printPDF('receipt-preview', `Receipt-${selectedReceipt.receiptNumber}`);
+                    void waitForElementAndPrintPdf('receipt-preview', `Receipt-${selectedReceipt.receiptNumber}`);
                   }}
                 >
                   <Printer className="h-4 w-4 mr-2" />
@@ -895,16 +990,6 @@ export default function Receipts() {
             </div>
           )}
 
-      {/* Hidden receipt preview used by Download PDF action */}
-      {receiptForDownload && (
-        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} aria-hidden="true">
-          <ReceiptPreview
-            previewId="receipt-preview-download"
-            data={mapReceiptToPreviewData(receiptForDownload)}
-          />
-        </div>
-      )}
-
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button 
               variant="outline" 
@@ -955,6 +1040,16 @@ export default function Receipts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden receipt preview used by Download PDF action */}
+      {receiptForDownload && (
+        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} aria-hidden="true">
+          <ReceiptPreview
+            previewId="receipt-preview-download"
+            data={mapReceiptToPreviewData(receiptForDownload)}
+          />
+        </div>
+      )}
     </DashboardLayout>
   );
 }
