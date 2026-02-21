@@ -1,28 +1,8 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, RotateCcw, CheckCircle, XCircle, Clock, Mail } from "lucide-react";
+import { RotateCcw, CheckCircle, XCircle, Clock, Mail } from "lucide-react";
 export default function RefundPolicy() {
-  return <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg font-display">V</span>
-              </div>
-              <span className="font-display font-bold text-xl text-foreground">VAYPR</span>
-            </Link>
-            <Button variant="ghost" asChild>
-              <Link to="/" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Home
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </header>
-
+  return <div>
       {/* Hero */}
       <section className="py-16 sm:py-24 bg-gradient-to-b from-muted/50 to-background">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">

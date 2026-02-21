@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Shield, Settings2, Zap, HeadphonesIcon, FileText, Receipt, Users, RefreshCw, PieChart, Palette, Brush, Globe, Brain, Code, Mail, UserCheck, TrendingUp, Layers, Link2, Building2, Briefcase, ShoppingCart, Scale, Database, GraduationCap, LayoutDashboard, AlertTriangle } from "lucide-react";
+import { ArrowRight, Shield, Settings2, Zap, HeadphonesIcon, FileText, Receipt, Users, RefreshCw, PieChart, Palette, Brush, Globe, Brain, Code, Mail, UserCheck, TrendingUp, Layers, Link2, Building2, Briefcase, ShoppingCart, Scale, Database, GraduationCap, LayoutDashboard, AlertTriangle } from "lucide-react";
 
 // Enterprise Value Pillars
 const valuePillars = [{
@@ -146,35 +146,7 @@ const industries = [{
 // Trusted company logos (placeholders)
 const trustedLogos = ["TechCorp", "FinanceHub", "CloudScale", "DataFlow", "InnovateCo", "GlobalTech"];
 export default function B2BServices() {
-  return <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-sm">
-                <span className="text-primary-foreground font-bold text-lg font-display">V</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-display font-bold text-xl text-foreground tracking-tight">VAYPR</span>
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">for Business</span>
-              </div>
-            </Link>
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
-                <Link to="/" className="gap-2 text-muted-foreground hover:text-foreground">
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to Home
-                </Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link to="/contact">Talk to Sales</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
+  return <div>
       {/* Hero Section */}
       <section className="py-20 sm:py-28 lg:py-32 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
@@ -379,16 +351,5 @@ export default function B2BServices() {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border/50 py-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center">
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} VAYPR. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>;
 }

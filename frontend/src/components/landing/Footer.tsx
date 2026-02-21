@@ -67,6 +67,11 @@ const mapPageLinks = (
           return { label: 'Guides', href: '/guides' };
         }
 
+        // Keep Refund Policy on the canonical frontend route.
+        if (slugLower === 'refund') {
+          return { label: page.title, href: '/refund' };
+        }
+
         // For other hardcoded pages, if a prefix is provided (we're mapping
         // corporate pages) prefer the corporate route when the DB page has
         // been updated after creation (indicating a custom page).

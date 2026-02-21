@@ -48,6 +48,8 @@ import BillingCancel from "./pages/BillingCancel";
 import Pricing from "./pages/Pricing";
 import PaymentSuccess from "./pages/payment/Success";
 import PaymentCancel from "./pages/payment/Cancel";
+import PublicMarketingLayout from "@/components/layout/PublicMarketingLayout";
+import ScrollToTop from "@/components/layout/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -75,7 +77,19 @@ function AppRoutes() {
   
   return (
     <Routes>
-      <Route path="/" element={<Index />} />
+      <Route element={<PublicMarketingLayout />}>
+        <Route path="/" element={<Index />} />
+        <Route path="/faqs" element={<FAQs />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/refund" element={<RefundPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/guides" element={<Guides />} />
+        <Route path="/about" element={<AboutUs />} />
+        <Route path="/b2b" element={<B2BServices />} />
+        <Route path="/corporate/:slug" element={<CorporatePage />} />
+        <Route path="/support/:slug" element={<SupportPage />} />
+      </Route>
       <Route path="/generator" element={<Generator />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" replace /> : <Signup />} />
@@ -96,16 +110,6 @@ function AppRoutes() {
       <Route path="/billing/success" element={<BillingSuccess />} />
       <Route path="/billing/cancel" element={<BillingCancel />} />
       <Route path="/quote/:token" element={<QuoteView />} />
-      <Route path="/faqs" element={<FAQs />} />
-      <Route path="/contact" element={<Contact />} />
-      <Route path="/privacy" element={<PrivacyPolicy />} />
-      <Route path="/refund" element={<RefundPolicy />} />
-      <Route path="/terms" element={<TermsOfService />} />
-      <Route path="/guides" element={<Guides />} />
-      <Route path="/about" element={<AboutUs />} />
-      <Route path="/b2b" element={<B2BServices />} />
-      <Route path="/corporate/:slug" element={<CorporatePage />} />
-      <Route path="/support/:slug" element={<SupportPage />} />
       <Route path="/super-admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
         <Route index element={<AdminOverview />} />
         <Route path="page-editor" element={<PageEditor />} />
@@ -128,6 +132,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <AppRoutes />
         </AuthProvider>
