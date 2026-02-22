@@ -2,9 +2,29 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleSectionNavigation = (sectionId: string) => {
+    setMobileMenuOpen(false);
+
+    if (location.pathname === "/") {
+      const target = document.getElementById(sectionId);
+      if (target) {
+        const y = target.getBoundingClientRect().top + window.scrollY - 96;
+        window.scrollTo({ top: y, behavior: "smooth" });
+      } else {
+        window.location.hash = sectionId;
+      }
+      return;
+    }
+
+    navigate(`/#${sectionId}`);
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass-effect">
@@ -20,15 +40,27 @@ export function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
+            <button
+              type="button"
+              onClick={() => handleSectionNavigation("features")}
+              className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
+            >
               Features
-            </a>
-            <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSectionNavigation("how-it-works")}
+              className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
+            >
               How it Works
-            </a>
-            <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSectionNavigation("pricing")}
+              className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
+            >
               Pricing
-            </a>
+            </button>
           </div>
 
           {/* Desktop CTA */}
@@ -54,15 +86,27 @@ export function Navbar() {
         {mobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-border animate-fade-in">
             <div className="flex flex-col gap-4">
-              <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors py-2">
+              <button
+                type="button"
+                onClick={() => handleSectionNavigation("features")}
+                className="text-left text-muted-foreground hover:text-foreground transition-colors py-2"
+              >
                 Features
-              </a>
-              <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors py-2">
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSectionNavigation("how-it-works")}
+                className="text-left text-muted-foreground hover:text-foreground transition-colors py-2"
+              >
                 How it Works
-              </a>
-              <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors py-2">
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSectionNavigation("pricing")}
+                className="text-left text-muted-foreground hover:text-foreground transition-colors py-2"
+              >
                 Pricing
-              </a>
+              </button>
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 <Button variant="outline" asChild className="w-full">
                   <Link to="/login">Sign In</Link>

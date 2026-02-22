@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Shield, RefreshCcw, Edit3, Eye, Plus, Save, X, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Mail, Shield, RefreshCcw, FileText, Edit3, Eye, Plus, Save, X, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +29,7 @@ const PAGE_ICONS = {
   CONTACT: Mail,
   PRIVACY: Shield,
   REFUND: RefreshCcw,
+  TERMS: FileText,
   ABOUT: Mail,
   B2B: Mail,
   CUSTOM: Mail,
@@ -154,15 +155,13 @@ export function SupportPagesManagement() {
         <div>
           <h3 className="text-lg font-semibold">Support Pages</h3>
           <p className="text-sm text-muted-foreground">
-            Manage Contact, Privacy Policy, and Refund Policy pages
+            Manage Contact, Privacy Policy, Refund Policy, and Terms pages
           </p>
         </div>
-        {pages.length === 0 && (
-          <Button onClick={() => setShowInitDialog(true)} variant="outline">
-            <Plus className="w-4 h-4 mr-2" />
-            Initialize Default Pages
-          </Button>
-        )}
+        <Button onClick={() => setShowInitDialog(true)} variant="outline" disabled={initializeMutation.isPending}>
+          <Plus className="w-4 h-4 mr-2" />
+          Initialize Default Pages
+        </Button>
       </div>
 
       {/* Pages List */}

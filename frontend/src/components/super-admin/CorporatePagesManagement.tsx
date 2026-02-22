@@ -207,12 +207,10 @@ export function CorporatePagesManagement() {
             Manage About Us and B2B Services pages
           </p>
         </div>
-        {pages.length === 0 && (
-          <Button onClick={() => setShowInitDialog(true)} variant="outline">
-            <Plus className="w-4 h-4 mr-2" />
-            Initialize Default Pages
-          </Button>
-        )}
+        <Button onClick={() => setShowInitDialog(true)} variant="outline" disabled={initializeMutation.isPending}>
+          <Plus className="w-4 h-4 mr-2" />
+          Initialize Default Pages
+        </Button>
       </div>
 
       {/* Pages List */}

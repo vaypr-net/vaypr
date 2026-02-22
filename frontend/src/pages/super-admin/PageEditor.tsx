@@ -161,6 +161,7 @@ const initialSupportPages: SupportPage[] = [
   { id: "contact", title: "Contact Us", slug: "/contact", enabled: true, icon: Mail },
   { id: "privacy", title: "Privacy Policy", slug: "/privacy", enabled: true, icon: Shield },
   { id: "refund", title: "Refund Policy", slug: "/refund", enabled: true, icon: RefreshCcw },
+  { id: "terms", title: "Terms of Service", slug: "/terms", enabled: true, icon: FileText },
 ];
 
 const initialFAQs: FAQItem[] = [
@@ -479,17 +480,18 @@ function CorporatePagesEditor() {
       <TabsContent value="pages" className="space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{pagesCount} pages</span>
-          {pages.length === 0 ? (
-            <Button onClick={() => setShowInitDialog(true)} variant="outline">
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setShowInitDialog(true)} variant="outline" disabled={initializeMutation.isPending}>
               <Plus className="w-4 h-4 mr-2" />
               Initialize Default Pages
             </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={addCorporatePage} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Page
-            </Button>
-          )}
+            {pages.length > 0 && (
+              <Button variant="outline" size="sm" onClick={addCorporatePage} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Add Page
+              </Button>
+            )}
+          </div>
         </div>
 
         {pagesLoading ? (
@@ -1731,7 +1733,7 @@ export default function PageEditor() {
           title="Support Pages"
           description="Configure support and policy pages"
           icon={HelpCircle}
-          badge={`${initialSupportPages.length + 1} pages`}
+          badge={`${initialSupportPages.length} pages`}
         >
           <SupportPagesEditor />
         </EditorSection>
