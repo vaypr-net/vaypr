@@ -17,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { QuotesService } from './quotes.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
+import { PublicQuoteResponseDto } from './dto/public-quote-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
@@ -63,6 +64,19 @@ export class QuotesController {
   @Get('public/:shareToken')
   async findByShareToken(@Param('shareToken') shareToken: string) {
     return this.quotesService.findByShareToken(shareToken);
+  }
+
+  @Post('public/:shareToken/view')
+  async markViewed(@Param('shareToken') shareToken: string) {
+    return this.quotesService.markViewedByShareToken(shareToken);
+  }
+
+  @Post('public/:shareToken/respond')
+  async submitPublicResponse(
+    @Param('shareToken') shareToken: string,
+    @Body() body: PublicQuoteResponseDto,
+  ) {
+    return this.quotesService.respondByShareToken(shareToken, body.action, body.message);
   }
 
   @Get()

@@ -174,12 +174,20 @@ export default function Quotes() {
     tableHeaderColor: q.tableHeaderColor || '#000000',
     shareToken: q.shareToken,
     createdAt: q.createdAt || new Date().toISOString(),
+    viewedAt: q.viewedAt,
     sentAt: q.sentAt,
     acceptedAt: q.acceptedAt,
     rejectedAt: q.rejectedAt,
     convertedAt: q.convertedAt,
     convertedToInvoiceId: q.convertedToInvoiceId,
     timeline: q.timeline || [],
+    clientResponse: q.clientResponse
+      ? {
+          respondedAt: q.clientResponse.respondedAt,
+          action: q.clientResponse.action,
+          message: q.clientResponse.message || '',
+        }
+      : undefined,
   });
 
   // Map API quotes to local Quote type

@@ -42,6 +42,7 @@ export default function QuoteView() {
   const [isModifyDialogOpen, setIsModifyDialogOpen] = useState(false);
   const [modificationMessage, setModificationMessage] = useState('');
   const [hasResponded, setHasResponded] = useState(false);
+  const [isSubmittingResponse, setIsSubmittingResponse] = useState(false);
   const hasTrackedView = useRef(false);
 
   useEffect(() => {
@@ -52,17 +53,25 @@ export default function QuoteView() {
 
   const loadQuote = async (shareToken: string) => {
     try {
-      // First, try to fetch from API
-      const fetchedQuote = await QuoteService.getByShareToken(shareToken);
-      setQuote(fetchedQuote);
+      let fetchedQuote = await QuoteService.getByShareToken(shareToken);
+
+      // Track view in backend so owner sees status change on their side.
+      if (
+        !fetchedQuote.viewedAt &&
+        !fetchedQuote.clientResponse &&
+        !hasTrackedView.current
+      ) {
+        hasTrackedView.current = true;
+        try {
+          fetchedQuote = await QuoteService.trackPublicView(shareToken);
+        } catch (trackErr) {
+          console.error('Failed to track quote view via API:', trackErr);
+        }
+      }
+
+      setQuote(fetchedQuote as unknown as Quote);
       if (fetchedQuote.clientResponse) {
         setHasResponded(true);
-      }
-      
-      // Track view after successful fetch
-      if (!fetchedQuote.viewedAt && !hasTrackedView.current) {
-        hasTrackedView.current = true;
-        // You might want to call an API to update the viewedAt status
       }
     } catch (apiError) {
       // If API fails, fall back to localStorage
@@ -161,8 +170,24 @@ export default function QuoteView() {
     }
   };
 
-  const updateQuoteResponse = (action: 'accepted' | 'rejected' | 'modification_requested', message?: string) => {
-    if (!quote || !token) return;
+  const updateQuoteResponse = async (
+    action: 'accepted' | 'rejected' | 'modification_requested',
+    message?: string,
+  ): Promise<boolean> => {
+    if (!quote || !token) return false;
+
+    setIsSubmittingResponse(true);
+    try {
+      const updatedQuote = await QuoteService.submitPublicResponse(token, {
+        action,
+        ...(message ? { message } : {}),
+      });
+      setQuote(updatedQuote as unknown as Quote);
+      setHasResponded(true);
+      return true;
+    } catch (apiErr) {
+      console.error('Public quote response API failed, trying local fallback:', apiErr);
+    }
 
     try {
       const allKeys = Object.keys(localStorage);
@@ -195,12 +220,17 @@ export default function QuoteView() {
             setHasResponded(true);
             
             addResponseNotification(key, quotes[quoteIndex], action, message);
-            break;
+            return true;
           }
         }
       }
+      toast({ title: 'Error', description: 'Failed to submit response', variant: 'destructive' });
+      return false;
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to submit response', variant: 'destructive' });
+      return false;
+    } finally {
+      setIsSubmittingResponse(false);
     }
   };
 
@@ -239,28 +269,31 @@ export default function QuoteView() {
     }
   };
 
-  const handleAccept = () => {
-    updateQuoteResponse('accepted');
+  const handleAccept = async () => {
+    const ok = await updateQuoteResponse('accepted');
+    if (!ok) return;
     toast({ 
       title: 'Quote Accepted', 
       description: 'Thank you! Your acceptance has been recorded.',
     });
   };
 
-  const handleReject = () => {
-    updateQuoteResponse('rejected');
+  const handleReject = async () => {
+    const ok = await updateQuoteResponse('rejected');
+    if (!ok) return;
     toast({ 
       title: 'Quote Declined', 
       description: 'Your response has been recorded.',
     });
   };
 
-  const handleModificationRequest = () => {
+  const handleModificationRequest = async () => {
     if (!modificationMessage.trim()) {
       toast({ title: 'Error', description: 'Please provide details for the modification', variant: 'destructive' });
       return;
     }
-    updateQuoteResponse('modification_requested', modificationMessage);
+    const ok = await updateQuoteResponse('modification_requested', modificationMessage);
+    if (!ok) return;
     setIsModifyDialogOpen(false);
     toast({ 
       title: 'Modification Requested', 
@@ -328,8 +361,23 @@ export default function QuoteView() {
     );
   }
 
-  const isExpired = new Date(quote.validUntil) < new Date();
-  const canRespond = !hasResponded && !isExpired && (quote.status === 'sent' || quote.status === 'viewed');
+  const getValidUntilDeadline = (value: string): Date | null => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+
+    // If backend stored date-only (YYYY-MM-DD), treat expiry at end of that day.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      parsed.setHours(23, 59, 59, 999);
+    }
+    return parsed;
+  };
+
+  const validUntilDeadline = getValidUntilDeadline(quote.validUntil);
+  const isExpired = validUntilDeadline ? validUntilDeadline.getTime() < Date.now() : false;
+  const canRespondStatuses: Quote['status'][] = ['draft', 'sent', 'viewed'];
+  const canRespond =
+    !hasResponded && !isExpired && canRespondStatuses.includes(quote.status);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -567,6 +615,7 @@ export default function QuoteView() {
                   size="lg" 
                   className="gap-2 bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/25 px-6"
                   onClick={handleAccept}
+                  disabled={isSubmittingResponse}
                 >
                   <CheckCircle className="h-5 w-5" />
                   Accept Quote
@@ -576,6 +625,7 @@ export default function QuoteView() {
                   variant="outline" 
                   className="gap-2 border-2 px-6"
                   onClick={() => setIsModifyDialogOpen(true)}
+                  disabled={isSubmittingResponse}
                 >
                   <MessageSquare className="h-5 w-5" />
                   Request Edit
@@ -585,6 +635,7 @@ export default function QuoteView() {
                   variant="ghost" 
                   className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 px-6"
                   onClick={handleReject}
+                  disabled={isSubmittingResponse}
                 >
                   <XCircle className="h-5 w-5" />
                   Decline

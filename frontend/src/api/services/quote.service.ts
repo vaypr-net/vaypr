@@ -65,6 +65,12 @@ interface Quote {
   paymentDetails?: string;
   createdAt: string;
   updatedAt: string;
+  viewedAt?: string;
+  clientResponse?: {
+    respondedAt: string;
+    action: 'accepted' | 'rejected' | 'modification_requested';
+    message?: string;
+  };
 }
 
 interface CreateQuoteDto {
@@ -101,6 +107,7 @@ interface CreateQuoteDto {
 }
 
 interface UpdateQuoteDto extends Partial<CreateQuoteDto> {}
+type PublicQuoteResponseAction = 'accepted' | 'rejected' | 'modification_requested';
 
 export const QuoteService = {
   async getAll(status?: string): Promise<Quote[]> {
@@ -120,6 +127,19 @@ export const QuoteService = {
 
   async getByShareToken(shareToken: string): Promise<Quote> {
     const response = await axios.get<Quote>(`/quotes/public/${shareToken}`);
+    return response.data;
+  },
+
+  async trackPublicView(shareToken: string): Promise<Quote> {
+    const response = await axios.post<Quote>(`/quotes/public/${shareToken}/view`);
+    return response.data;
+  },
+
+  async submitPublicResponse(
+    shareToken: string,
+    payload: { action: PublicQuoteResponseAction; message?: string },
+  ): Promise<Quote> {
+    const response = await axios.post<Quote>(`/quotes/public/${shareToken}/respond`, payload);
     return response.data;
   },
 

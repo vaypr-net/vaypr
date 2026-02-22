@@ -11,6 +11,8 @@ import { Model, Types } from 'mongoose';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { Quote } from './entities/quote.entity';
+import { QuoteStatus } from './enums/quote-status.enum';
+import { PublicQuoteResponseAction } from './dto/public-quote-response.dto';
 import { Client } from '../clients/entities/client.entity';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
 import { PlanLimitService } from '../common/services/plan-limit.service';
@@ -383,5 +385,133 @@ export class QuotesService implements OnModuleInit {
     }
 
     return quote;
+  }
+
+  async markViewedByShareToken(shareToken: string): Promise<Quote> {
+    const quote = await this.findByShareToken(shareToken);
+    const now = new Date();
+
+    const shouldSetViewedAt = !quote.viewedAt;
+    const shouldSetViewedStatus = quote.status === QuoteStatus.SENT;
+    const hasViewedTimeline = (quote.timeline || []).some((event) => event.type === 'viewed');
+
+    if (!shouldSetViewedAt && !shouldSetViewedStatus && hasViewedTimeline) {
+      return quote;
+    }
+
+    const setPayload: Record<string, unknown> = {};
+    if (shouldSetViewedAt) setPayload.viewedAt = now;
+    if (shouldSetViewedStatus) setPayload.status = QuoteStatus.VIEWED;
+
+    const updateQuery: Record<string, unknown> = {};
+    if (Object.keys(setPayload).length > 0) {
+      updateQuery.$set = setPayload;
+    }
+    if (!hasViewedTimeline) {
+      updateQuery.$push = {
+        timeline: {
+          type: 'viewed',
+          timestamp: now,
+        },
+      };
+    }
+
+    const updated = await this.quoteModel
+      .findOneAndUpdate(
+        {
+          shareToken,
+          isDeleted: false,
+        },
+        updateQuery,
+        { new: true },
+      )
+      .populate('clientId', 'name email phone clientType')
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException('Quote not found or link has expired');
+    }
+
+    await this.sendQuoteViewedNotification(updated.userId.toString(), {
+      quoteNumber: updated.quoteNumber,
+      clientName: updated.billTo?.name || 'Client',
+      amount: updated.total || 0,
+    });
+
+    return updated;
+  }
+
+  async respondByShareToken(
+    shareToken: string,
+    action: PublicQuoteResponseAction,
+    message?: string,
+  ): Promise<Quote> {
+    const quote = await this.findByShareToken(shareToken);
+
+    if (quote.clientResponse?.respondedAt) {
+      return quote;
+    }
+
+    const now = new Date();
+    const normalizedMessage = typeof message === 'string' ? message.trim() : undefined;
+
+    const statusMap: Record<PublicQuoteResponseAction, QuoteStatus> = {
+      [PublicQuoteResponseAction.ACCEPTED]: QuoteStatus.ACCEPTED,
+      [PublicQuoteResponseAction.REJECTED]: QuoteStatus.REJECTED,
+      [PublicQuoteResponseAction.MODIFICATION_REQUESTED]:
+        QuoteStatus.MODIFICATION_REQUESTED,
+    };
+    const nextStatus = statusMap[action];
+
+    const updatePayload: Record<string, unknown> = {
+      status: nextStatus,
+      clientResponse: {
+        respondedAt: now,
+        action,
+        ...(normalizedMessage ? { message: normalizedMessage } : {}),
+      },
+      viewedAt: quote.viewedAt || now,
+    };
+
+    const timelineEvent: Record<string, unknown> = {
+      type: action,
+      timestamp: now,
+    };
+    if (normalizedMessage) {
+      timelineEvent.message = normalizedMessage;
+    }
+
+    const updated = await this.quoteModel
+      .findOneAndUpdate(
+        {
+          shareToken,
+          isDeleted: false,
+        },
+        {
+          $set: updatePayload,
+          $push: { timeline: timelineEvent },
+        },
+        { new: true },
+      )
+      .populate('clientId', 'name email phone clientType')
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException('Quote not found or link has expired');
+    }
+
+    const quoteMeta = {
+      quoteNumber: updated.quoteNumber,
+      clientName: updated.billTo?.name || 'Client',
+      amount: updated.total || 0,
+    };
+
+    if (action === PublicQuoteResponseAction.ACCEPTED) {
+      await this.sendQuoteAcceptedNotification(updated.userId.toString(), quoteMeta);
+    } else if (action === PublicQuoteResponseAction.REJECTED) {
+      await this.sendQuoteRejectedNotification(updated.userId.toString(), quoteMeta);
+    }
+
+    return updated;
   }
 }
