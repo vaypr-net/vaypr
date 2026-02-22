@@ -50,7 +50,10 @@ export class ExpenseController {
     let receiptUrl: string | undefined;
 
     if (receipt) {
-      const uploadResult = await this.cloudinaryService.uploadImage(receipt);
+      const uploadResult = await this.cloudinaryService.uploadFile(
+        receipt,
+        'expense-receipts',
+      );
       receiptUrl = uploadResult.secure_url;
     }
 
@@ -117,7 +120,10 @@ export class ExpenseController {
     let receiptUrl: string | undefined;
 
     if (receipt) {
-      const uploadResult = await this.cloudinaryService.uploadImage(receipt);
+      const uploadResult = await this.cloudinaryService.uploadFile(
+        receipt,
+        'expense-receipts',
+      );
       receiptUrl = uploadResult.secure_url;
     }
 

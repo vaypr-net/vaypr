@@ -6,17 +6,21 @@ import { Readable } from 'stream';
 export class CloudinaryService {
   constructor(@Inject('CLOUDINARY') private cloudinary: typeof Cloudinary) {}
 
-  async uploadImage(file: Express.Multer.File, folder = 'profiles'): Promise<any> {
+  private async upload(
+    file: Express.Multer.File,
+    folder: string,
+    resourceType: 'image' | 'raw' | 'video' | 'auto',
+  ): Promise<any> {
     return new Promise((resolve, reject) => {
       // Set timeout for upload (30 seconds)
       const uploadTimeout = setTimeout(() => {
-        reject(new InternalServerErrorException('Image upload timeout - took too long'));
+        reject(new InternalServerErrorException('File upload timeout - took too long'));
       }, 30000);
 
       const upload = this.cloudinary.uploader.upload_stream(
         {
           folder,
-          resource_type: 'image',
+          resource_type: resourceType,
           timeout: 30000,
         },
         (error, result) => {
@@ -27,14 +31,14 @@ export class CloudinaryService {
             console.error('[Cloudinary] Upload error:', error);
             return reject(
               new InternalServerErrorException(
-                `Failed to upload image to Cloudinary: ${error.message || 'Unknown error'}`
+                `Failed to upload file to Cloudinary: ${error.message || 'Unknown error'}`
               )
             );
           }
 
           if (!result) {
             return reject(
-              new InternalServerErrorException('Image upload failed - no result returned')
+              new InternalServerErrorException('File upload failed - no result returned')
             );
           }
 
@@ -48,7 +52,7 @@ export class CloudinaryService {
         console.error('[Cloudinary] Stream error:', error);
         reject(
           new InternalServerErrorException(
-            `Image upload stream error: ${error.message || 'Unknown error'}`
+            `File upload stream error: ${error.message || 'Unknown error'}`
           )
         );
       });
@@ -61,11 +65,19 @@ export class CloudinaryService {
         console.error('[Cloudinary] Pipe error:', pipeError);
         reject(
           new InternalServerErrorException(
-            `Failed to process image file: ${pipeError.message || 'Unknown error'}`
+            `Failed to process upload file: ${pipeError.message || 'Unknown error'}`
           )
         );
       }
     });
+  }
+
+  async uploadImage(file: Express.Multer.File, folder = 'profiles'): Promise<any> {
+    return this.upload(file, folder, 'image');
+  }
+
+  async uploadFile(file: Express.Multer.File, folder = 'uploads'): Promise<any> {
+    return this.upload(file, folder, 'auto');
   }
 
   async deleteImage(publicId: string): Promise<any> {
