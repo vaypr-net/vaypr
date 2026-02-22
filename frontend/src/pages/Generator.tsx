@@ -80,6 +80,8 @@ const Index = () => {
             const parsedData = JSON.parse(storedData);
             
             if (tab === "invoice") {
+              const invoiceCompanyFooter = parsedData.companyFooter || {};
+              const invoiceBankAccount = parsedData.bankAccount || {};
               const parsedInvoiceItems = (parsedData.items || []).map((item: any) => ({
                 id: item.id || crypto.randomUUID(),
                 description: item.description,
@@ -113,22 +115,39 @@ const Index = () => {
                 discount: parsedData.discount || 0,
                 deliveryFee: parsedData.deliveryFee || 0,
                 companyFooter: {
-                  companyName: parsedData.companyName || "",
-                  officePhone: parsedData.companyPhone || "",
-                  address: parsedData.companyAddress || "",
-                  websiteEmail: parsedData.companyEmail || "",
+                  companyName:
+                    parsedData.companyName ||
+                    invoiceCompanyFooter.companyName ||
+                    invoiceCompanyFooter.name ||
+                    "",
+                  officePhone:
+                    parsedData.companyPhone ||
+                    invoiceCompanyFooter.officePhone ||
+                    invoiceCompanyFooter.phone ||
+                    "",
+                  address: parsedData.companyAddress || invoiceCompanyFooter.address || "",
+                  websiteEmail:
+                    parsedData.companyEmail ||
+                    invoiceCompanyFooter.websiteEmail ||
+                    invoiceCompanyFooter.email ||
+                    "",
                 },
                 paymentDetails: "",
                 showPaymentMethod: toBool(parsedData.showPaymentMethod),
-                paymentMethodType: parsedData.paymentMethod === 'Cash' ? 'cash' :
-                                   parsedData.paymentMethod === 'Bank Transfer' ? 'bank_transfer' :
-                                   parsedData.paymentMethod === 'Cheque' ? 'cheque' :
-                                   parsedData.paymentMethod === 'Online Payment' ? 'online_payment' : 'cash',
+                paymentMethodType:
+                  parsedData.paymentMethodType ||
+                  (parsedData.paymentMethod === 'Cash' ? 'cash' :
+                  parsedData.paymentMethod === 'Bank Transfer' ? 'bank_transfer' :
+                  parsedData.paymentMethod === 'Cheque' ? 'cheque' :
+                  parsedData.paymentMethod === 'Online Payment' ? 'online_payment' : 'cash'),
                 showBankAccount: toBool(parsedData.showBankAccount),
                 bankAccount: {
-                  bankName: parsedData.bankName || "",
-                  accountName: parsedData.bankAccountName || "",
-                  iban: parsedData.bankIban || "",
+                  bankName: parsedData.bankName || invoiceBankAccount.bankName || "",
+                  accountName:
+                    parsedData.bankAccountName ||
+                    invoiceBankAccount.accountName ||
+                    "",
+                  iban: parsedData.bankIban || invoiceBankAccount.iban || "",
                 },
                 showPaymentTerms: toBool(parsedData.showPaymentTerms),
                 paymentTerms: parsedData.paymentTerms || parsedData.notes || "",
@@ -175,6 +194,8 @@ const Index = () => {
                   : parsedData.clientId?._id || parsedData.clientId?.id || null;
               setEditingReceiptClientId(receiptClientId);
             } else if (tab === "quote") {
+              const quoteCompanyFooter = parsedData.companyFooter || {};
+              const quoteBankAccount = parsedData.bankAccount || {};
               const parsedQuoteItems = (parsedData.items || []).map((item: { id?: string; description: string; quantity: number; unitPrice: number }) => ({
                 id: item.id || crypto.randomUUID(),
                 description: item.description,
@@ -208,19 +229,34 @@ const Index = () => {
                 deliveryFee: parsedData.deliveryFee || 0,
                 notes: parsedData.notes || "",
                 companyFooter: {
-                  companyName: parsedData.companyName || "",
-                  officePhone: parsedData.companyPhone || "",
-                  address: parsedData.companyAddress || "",
-                  websiteEmail: parsedData.companyEmail || "",
+                  companyName:
+                    parsedData.companyName ||
+                    quoteCompanyFooter.companyName ||
+                    quoteCompanyFooter.name ||
+                    "",
+                  officePhone:
+                    parsedData.companyPhone ||
+                    quoteCompanyFooter.officePhone ||
+                    quoteCompanyFooter.phone ||
+                    "",
+                  address: parsedData.companyAddress || quoteCompanyFooter.address || "",
+                  websiteEmail:
+                    parsedData.companyEmail ||
+                    quoteCompanyFooter.websiteEmail ||
+                    quoteCompanyFooter.email ||
+                    "",
                 },
                 paymentDetails: parsedData.paymentDetails || "",
                 showPaymentMethod: toBool(parsedData.showPaymentMethod),
                 paymentMethodType: parsedData.paymentMethodType || "cash",
                 showBankAccount: toBool(parsedData.showBankAccount),
-                bankAccount: parsedData.bankAccount || {
-                  bankName: "",
-                  accountName: "",
-                  iban: "",
+                bankAccount: {
+                  bankName: parsedData.bankName || quoteBankAccount.bankName || "",
+                  accountName:
+                    parsedData.bankAccountName ||
+                    quoteBankAccount.accountName ||
+                    "",
+                  iban: parsedData.bankIban || quoteBankAccount.iban || "",
                 },
                 showPaymentTerms: toBool(parsedData.showPaymentTerms),
                 paymentTerms: parsedData.paymentTerms || "",
