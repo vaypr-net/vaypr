@@ -98,7 +98,7 @@ export default function Receipts() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   
   // API Hooks
-  const { data: apiReceipts = [], isLoading: loadingReceipts } = useReceiptsAPI(statusFilter !== 'all' ? statusFilter : undefined);
+  const { data: apiReceipts = [], isLoading: loadingReceipts } = useReceiptsAPI();
   const deleteReceiptMutation = useDeleteReceipt();
   const createReceiptMutation = useCreateReceipt();
   const updateReceiptMutation = useUpdateReceipt();
@@ -186,13 +186,13 @@ export default function Receipts() {
     invoiceId: '',
   });
 
-  const generateReceiptNumber = () => {
-    const existingNumbers = receipts.map(r => {
-      const match = r.receiptNumber.match(/RV-(\d+)/);
-      return match ? parseInt(match[1]) : 0;
+  const buildNextReceiptNumber = (offset = 1) => {
+    const existingNumbers = receipts.map((r) => {
+      const match = r.receiptNumber.match(/RV-(\d+)/i);
+      return match ? parseInt(match[1], 10) : 0;
     });
     const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
-    return `RV-${String(maxNumber + 1).padStart(4, '0')}`;
+    return `RV-${String(maxNumber + offset).padStart(4, '0')}`;
   };
 
   const formatCurrency = (amount: number, symbol: string) => {
@@ -489,28 +489,45 @@ export default function Receipts() {
 
   const handleDuplicateReceipt = async (receipt: ReceiptVoucher) => {
     try {
-      await createReceiptMutation.mutateAsync({
-        data: {
-          receiptNumber: generateReceiptNumber(),
-          clientId: receipt.clientId || undefined,
-          invoiceId: receipt.invoiceId || undefined,
-          status: 'draft',
-          receiptDate: format(new Date(), 'yyyy-MM-dd'),
-          receivedFrom: receipt.receivedFrom,
-          amount: receipt.amount,
-          currency: receipt.currency,
-          currencySymbol: receipt.currencySymbol,
-          paymentMethod: receipt.paymentMethod,
-          reason: receipt.reason,
-          receivedBy: receipt.receivedBy,
-          companyName: receipt.companyName,
-          companyAddress: receipt.companyAddress,
-          companyPhone: receipt.companyPhone,
-          logoScale: receipt.logoScale,
-          titleColor: receipt.titleColor,
-          amountColor: receipt.amountColor,
-        },
-      });
+      const createPayload = {
+        clientId: receipt.clientId || undefined,
+        invoiceId: receipt.invoiceId || undefined,
+        status: 'draft',
+        receiptDate: format(new Date(), 'yyyy-MM-dd'),
+        receivedFrom: receipt.receivedFrom,
+        amount: receipt.amount,
+        currency: receipt.currency,
+        currencySymbol: receipt.currencySymbol,
+        paymentMethod: receipt.paymentMethod,
+        reason: receipt.reason,
+        receivedBy: receipt.receivedBy,
+        companyName: receipt.companyName,
+        companyAddress: receipt.companyAddress,
+        companyPhone: receipt.companyPhone,
+        logo: receipt.logo || undefined,
+        logoScale: receipt.logoScale,
+        titleColor: receipt.titleColor,
+        amountColor: receipt.amountColor,
+      };
+
+      let created = false;
+      for (let attempt = 1; attempt <= 5 && !created; attempt += 1) {
+        try {
+          await createReceiptMutation.mutateAsync({
+            data: {
+              ...createPayload,
+              receiptNumber: buildNextReceiptNumber(attempt),
+            },
+          });
+          created = true;
+        } catch (error: any) {
+          const isConflict = error?.response?.status === 409;
+          if (!isConflict || attempt === 5) {
+            throw error;
+          }
+        }
+      }
+
       toast({ title: 'Receipt Duplicated', description: 'A copy of the receipt has been created' });
     } catch (error) {
       console.error('Failed to duplicate receipt:', error);

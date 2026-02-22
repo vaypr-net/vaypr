@@ -41,6 +41,7 @@ interface CreateReceiptDto {
   companyName?: string;
   companyAddress?: string;
   companyPhone?: string;
+  logo?: string;
   logoScale?: number;
   titleColor?: string;
   amountColor?: string;

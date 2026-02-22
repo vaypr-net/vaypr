@@ -930,6 +930,7 @@ export default function Quotes() {
           officePhone: quote.companyPhone || '',
           websiteEmail: quote.companyEmail || '',
         },
+        logo: quote.logo || undefined,
         logoScale: quote.logoScale || 1.0,
         tableHeaderColor: quote.tableHeaderColor || '#000000',
         showPaymentMethod: toBool(quote.showPaymentMethod),

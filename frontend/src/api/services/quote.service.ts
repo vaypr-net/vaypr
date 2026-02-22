@@ -88,6 +88,7 @@ interface CreateQuoteDto {
   deliveryFee?: number;
   total: number;
   companyFooter?: CompanyFooter;
+  logo?: string;
   logoScale?: number;
   tableHeaderColor?: string;
   showPaymentMethod?: boolean;
