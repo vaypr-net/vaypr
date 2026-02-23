@@ -879,22 +879,25 @@ export default function Recurring() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label className="text-lg font-semibold">Items</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                     <Label className="text-sm text-muted-foreground flex items-center gap-1">
                       <Palette className="h-4 w-4" />
                       Header Color
                     </Label>
                     <div className="flex items-center gap-2">
-                      <div 
-                        className="w-8 h-8 rounded-md border border-border cursor-pointer"
-                        style={{ backgroundColor: formData.itemHeaderColor }}
+                      <input
+                        type="color"
+                        value={formData.itemHeaderColor}
+                        onChange={(e) => setFormData({ ...formData, itemHeaderColor: e.target.value })}
+                        className="w-12 h-12 rounded-md border border-border cursor-pointer"
+                        title="Pick a header color"
                       />
                       <Input
                         type="text"
                         placeholder="#6366f1"
                         value={formData.itemHeaderColor}
                         onChange={(e) => setFormData({ ...formData, itemHeaderColor: e.target.value })}
-                        className="w-28 h-8 text-sm"
+                        className="w-32 h-10 text-sm"
                       />
                     </div>
                   </div>
