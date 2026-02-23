@@ -214,17 +214,19 @@ export function EditSubscriberDialog({
             <Separator />
 
             {/* Cancel Subscription */}
-            <div className="space-y-2">
-              <Label className="text-destructive">Danger Zone</Label>
-              <Button
-                variant="destructive"
-                className="w-full"
-                onClick={() => setShowCancelConfirm(true)}
-              >
-                <XCircle className="w-4 h-4 mr-2" />
-                Cancel Subscription
-              </Button>
-            </div>
+            {subscriber?.status !== 'canceled' && (
+              <div className="space-y-2">
+                <Label className="text-destructive">Danger Zone</Label>
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() => setShowCancelConfirm(true)}
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Cancel Subscription
+                </Button>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
