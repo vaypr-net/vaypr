@@ -1593,22 +1593,22 @@ export default function Quotes() {
                         <TableHeader>
                           <TableRow>
                             <TableHead>Description</TableHead>
-                            <TableHead className="text-center w-16">Qty</TableHead>
-                            <TableHead className="text-right w-24">Price</TableHead>
-                            <TableHead className="text-right w-24">Total</TableHead>
+                            {!selectedQuote.hideQuantity && <TableHead className="text-center w-16">Qty</TableHead>}
+                            {!selectedQuote.hideUnitPrice && <TableHead className="text-right w-24">Price</TableHead>}
+                            {!selectedQuote.hideTotalCost && <TableHead className="text-right w-24">Total</TableHead>}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {selectedQuote.items.map((item) => (
                             <TableRow key={item.id}>
                               <TableCell className="break-words">{item.description}</TableCell>
-                              <TableCell className="text-center">{item.quantity}</TableCell>
-                              <TableCell className="text-right">
+                              {!selectedQuote.hideQuantity && <TableCell className="text-center">{item.quantity}</TableCell>}
+                              {!selectedQuote.hideUnitPrice && <TableCell className="text-right">
                                 {formatCurrency(item.unitPrice, selectedQuote.currencySymbol)}
-                              </TableCell>
-                              <TableCell className="text-right font-medium">
+                              </TableCell>}
+                              {!selectedQuote.hideTotalCost && <TableCell className="text-right font-medium">
                                 {formatCurrency(item.quantity * item.unitPrice, selectedQuote.currencySymbol)}
-                              </TableCell>
+                              </TableCell>}
                             </TableRow>
                           ))}
                         </TableBody>
@@ -1620,13 +1620,13 @@ export default function Quotes() {
                       {selectedQuote.items.map((item) => (
                         <div key={item.id} className="p-3 space-y-2">
                           <p className="font-medium break-words">{item.description}</p>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Qty: {item.quantity}</span>
-                            <span className="text-muted-foreground">@ {formatCurrency(item.unitPrice, selectedQuote.currencySymbol)}</span>
+                          <div className="flex justify-between text-sm gap-2">
+                            {!selectedQuote.hideQuantity && <span className="text-muted-foreground">Qty: {item.quantity}</span>}
+                            {!selectedQuote.hideUnitPrice && <span className="text-muted-foreground">@ {formatCurrency(item.unitPrice, selectedQuote.currencySymbol)}</span>}
                           </div>
-                          <div className="flex justify-end">
+                          {!selectedQuote.hideTotalCost && <div className="flex justify-end">
                             <span className="font-medium">{formatCurrency(item.quantity * item.unitPrice, selectedQuote.currencySymbol)}</span>
-                          </div>
+                          </div>}
                         </div>
                       ))}
                     </div>
