@@ -1,8 +1,9 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useReminders } from '@/hooks/useData';
+import { notificationService } from '@/api/services/notification.service';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
@@ -47,7 +48,7 @@ const navItems = [
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
-  const { reminders, unreadCount, markAsRead } = useReminders();
+  const { reminders, unreadCount, markAsRead, hydrateReminders } = useReminders();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -58,6 +59,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const unreadReminders = reminders.filter(r => !r.isRead).slice(0, 5);
+
+  useEffect(() => {
+    if (!user) return;
+    let mounted = true;
+    const fetchNotifications = async () => {
+      try {
+        const server = await notificationService.getNotifications();
+        if (!mounted) return;
+        hydrateReminders(server || []);
+      } catch (err) {
+        console.debug('Failed to fetch notifications:', err);
+      }
+    };
+
+    fetchNotifications();
+    const interval = window.setInterval(fetchNotifications, 10000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, [user, hydrateReminders]);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -201,17 +224,55 @@ function NotificationDropdown({
   unreadCount: number;
   onMarkAsRead: (id: string) => void;
 }) {
+  // Get dismissed notifications from localStorage (synced from Notifications page)
+  const [dismissedNotifications, setDismissedNotifications] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user-dismissed-notifications') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  // Listen for changes to dismissed notifications (from Notifications page)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const updated = JSON.parse(localStorage.getItem('user-dismissed-notifications') || '[]');
+        setDismissedNotifications(updated);
+      } catch {
+        // ignore
+      }
+    };
+
+    // Listen for storage changes from other tabs/windows
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom event from same tab
+    window.addEventListener('dismissedNotificationsChanged', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('dismissedNotificationsChanged', handleStorageChange);
+    };
+  }, []);
+
+  // Filter out dismissed reminders
+  const visibleReminders = useMemo(
+    () => reminders.filter(r => !dismissedNotifications.includes(r.id)),
+    [reminders, dismissedNotifications]
+  );
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
+          {visibleReminders.length > 0 && (
             <Badge 
               variant="destructive" 
               className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
             >
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {visibleReminders.length > 9 ? '9+' : visibleReminders.length}
             </Badge>
           )}
         </Button>
@@ -220,12 +281,12 @@ function NotificationDropdown({
         <div className="px-3 py-2 border-b">
           <h4 className="font-semibold">Notifications</h4>
         </div>
-        {reminders.length === 0 ? (
+        {visibleReminders.length === 0 ? (
           <div className="px-3 py-6 text-center text-muted-foreground text-sm">
             No new notifications
           </div>
         ) : (
-          reminders.map((reminder) => (
+          visibleReminders.map((reminder) => (
             <DropdownMenuItem 
               key={reminder.id} 
               className="flex flex-col items-start px-3 py-2 cursor-pointer"
