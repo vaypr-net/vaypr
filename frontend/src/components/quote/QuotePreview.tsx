@@ -44,7 +44,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
   const hiddenStyle: React.CSSProperties = { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 };
 
   return (
-    <div className="bg-card rounded-xl shadow-card p-8 max-w-2xl mx-auto print:shadow-none print:min-h-[270mm] print:flex print:flex-col" id={previewId}>
+    <div className="bg-card rounded-xl shadow-card p-8 max-w-2xl mx-auto print:shadow-none print:block print:min-h-0" id={previewId}>
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>
@@ -103,7 +103,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
       </div>
 
       {/* Items Table - All 4 columns always rendered for html2canvas compatibility */}
-      <div className="mb-8 print:mb-8" style={{ width: '100%', overflow: 'visible' }}>
+      <div className="mt-6 mb-8 print:mb-8" style={{ width: '100%', overflow: 'visible' }}>
         <table className="w-full text-sm" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: colWidths.desc }} />
@@ -158,7 +158,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
       </div>
 
       {/* Totals */}
-      <div className="flex justify-end mb-8">
+      <div className="flex justify-end mb-8" data-pdf-avoid-break="true">
         <div className="w-64 space-y-2">
           {!data.hideSubTotal && (
             <div className="flex justify-between text-foreground">
@@ -187,7 +187,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
 
       {/* Payment Terms */}
       {data.showPaymentTerms && data.paymentTerms && (
-        <div className="mb-6 p-4 bg-secondary/50 rounded-lg">
+        <div className="mb-6 p-4 bg-secondary/50 rounded-lg" data-pdf-avoid-break="true">
           <p className="text-sm font-semibold text-foreground mb-1">Terms & Conditions</p>
           <p className="text-sm text-muted-foreground" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', lineHeight: '1.4' }}>{data.paymentTerms}</p>
         </div>
@@ -195,7 +195,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
 
       {/* Notes */}
       {data.notes && (
-        <div className="mb-6 p-4 bg-secondary/50 rounded-lg">
+        <div className="mb-6 p-4 bg-secondary/50 rounded-lg" data-pdf-avoid-break="true">
           <p className="text-sm font-semibold text-foreground mb-1">Notes</p>
           <p className="text-sm text-muted-foreground" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', lineHeight: '1.4' }}>{data.notes}</p>
         </div>
@@ -203,7 +203,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
 
       {/* Payment Method */}
       {data.showPaymentMethod && data.paymentMethodType && (
-        <div className="mb-6 p-4 bg-secondary/50 rounded-lg">
+        <div className="mb-6 p-4 bg-secondary/50 rounded-lg" data-pdf-avoid-break="true">
           <p className="text-sm font-semibold text-foreground mb-1">Payment Method</p>
           <p className="text-sm text-muted-foreground">
             {data.paymentMethodType === 'cash' && 'Cash'}
@@ -216,7 +216,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
 
       {/* Bank Account */}
       {data.showBankAccount && (data.bankAccount.bankName || data.bankAccount.accountName || data.bankAccount.iban) && (
-        <div className="mb-6 p-4 bg-secondary/50 rounded-lg">
+        <div className="mb-6 p-4 bg-secondary/50 rounded-lg" data-pdf-avoid-break="true">
           <p className="text-sm font-semibold text-foreground mb-1">Bank Details</p>
           <div className="text-sm text-muted-foreground space-y-1">
             {data.bankAccount.bankName && <p>Bank: {data.bankAccount.bankName}</p>}
@@ -228,8 +228,8 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
 
       {/* Footer */}
       {(data.companyFooter.companyName || data.companyFooter.address || data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
-        <div className="pt-6 border-t border-border print:mt-auto">
-          <div className="text-xs text-muted-foreground flex items-center justify-center gap-2 whitespace-nowrap">
+        <div className="pt-6 mt-10 border-t border-border" data-pdf-avoid-break="true">
+          <div className="text-xs text-muted-foreground flex flex-wrap items-center justify-center gap-2" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
             {data.companyFooter.companyName && (
               <span className="font-semibold text-foreground">{data.companyFooter.companyName}</span>
             )}
