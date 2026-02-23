@@ -12,16 +12,22 @@ import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { Invoice } from './entities/invoice.entity';
 import { Client } from '../clients/entities/client.entity';
+import { User } from '../user/entities/user.entity';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
+import { EmailNotificationService } from '../userprofile/email-notification.service';
 import { PlanLimitService } from '../common/services/plan-limit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class InvoiceService implements OnModuleInit {
   constructor(
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
+    @InjectModel(User.name) private userModel: Model<User>,
     @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
+    @Inject(EmailNotificationService) private emailNotificationService: EmailNotificationService,
     private planLimitService: PlanLimitService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async onModuleInit() {
@@ -81,7 +87,25 @@ export class InvoiceService implements OnModuleInit {
     });
 
     try {
-      return await invoice.save();
+      const saved = await invoice.save();
+      const dueDate = saved.dueDate ? new Date(saved.dueDate) : null;
+      const now = new Date();
+      if (
+        saved.status === 'sent' &&
+        dueDate &&
+        !Number.isNaN(dueDate.getTime())
+      ) {
+        const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 3) {
+          await this.sendInvoiceDueSoonNotification(userId, {
+            invoiceNumber: saved.invoiceNumber,
+            clientEmail: saved.billTo?.name || 'Client',
+            amount: saved.total || 0,
+            dueDate: dueDate.toDateString(),
+          });
+        }
+      }
+      return saved;
     } catch (error: any) {
       if (this.isDuplicateInvoiceNumberError(error)) {
         throw new ConflictException(
@@ -188,6 +212,31 @@ export class InvoiceService implements OnModuleInit {
 
     if (!updatedInvoice) {
       throw new NotFoundException(`Invoice with ID ${id} not found`);
+    }
+
+    if (existingInvoice.status !== updatedInvoice.status) {
+      try {
+        const statusLabel =
+          String(updatedInvoice.status).charAt(0).toUpperCase() +
+          String(updatedInvoice.status).slice(1);
+        await this.notificationsService.create({
+          userId: userId,
+          title: `Invoice ${updatedInvoice.invoiceNumber} ${statusLabel}`,
+          message: `${updatedInvoice.billTo?.name || 'Client'} invoice status changed to ${statusLabel}.`,
+          relatedId: updatedInvoice._id?.toString(),
+        });
+      } catch (err) {
+        console.error('[Invoice] Failed to create in-app notification:', err);
+      }
+
+      if (updatedInvoice.status === 'overdue') {
+        await this.sendInvoiceOverdueNotification(userId, {
+          invoiceNumber: updatedInvoice.invoiceNumber,
+          clientEmail: updatedInvoice.billTo?.name || 'Client',
+          amount: updatedInvoice.total || 0,
+          daysOverdue: 1,
+        });
+      }
     }
 
     return updatedInvoice;
@@ -305,22 +354,24 @@ export class InvoiceService implements OnModuleInit {
     invoiceData: { invoiceNumber: string; clientEmail: string; amount: number; dueDate: string }
   ): Promise<boolean> {
     try {
-      // CHECK PREFERENCE: Does user want invoice due soon notifications?
-      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'invoiceDueSoon');
-      
-      if (!isEnabled) {
-        console.log(`[Invoice] Skipping "invoice due soon" email for user ${userId} - preference disabled`);
-        return false;
-      }
+      const user = await this.userModel.findById(userId).select('email').exec();
+      if (!user?.email) return false;
 
-      // TODO: Send email logic here
-      console.log(`[Invoice] Would send "invoice due soon" email for invoice ${invoiceData.invoiceNumber}`);
-      
-      return true;
+      return await this.emailNotificationService.sendNotification({
+        type: 'invoiceDueSoon',
+        userId,
+        recipientEmail: user.email,
+        data: {
+          invoiceNumber: invoiceData.invoiceNumber,
+          clientName: invoiceData.clientEmail || 'Client',
+          amount: invoiceData.amount,
+          dueDate: invoiceData.dueDate,
+          currencySymbol: 'KD',
+        },
+      });
     } catch (error) {
-      console.error(`[Invoice] Error checking notification preference for invoiceDueSoon:`, error);
-      // On error, default to true (send notification as fallback)
-      return true;
+      console.error(`[Invoice] Error sending invoiceDueSoon email:`, error);
+      return false;
     }
   }
 
@@ -340,22 +391,25 @@ export class InvoiceService implements OnModuleInit {
     invoiceData: { invoiceNumber: string; clientEmail: string; amount: number; daysOverdue: number }
   ): Promise<boolean> {
     try {
-      // CHECK PREFERENCE: Does user want invoice overdue notifications?
-      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'invoiceOverdue');
-      
-      if (!isEnabled) {
-        console.log(`[Invoice] Skipping "invoice overdue" email for user ${userId} - preference disabled`);
-        return false;
-      }
+      const user = await this.userModel.findById(userId).select('email').exec();
+      if (!user?.email) return false;
 
-      // TODO: Send email logic here
-      console.log(`[Invoice] Would send "invoice overdue" email for invoice ${invoiceData.invoiceNumber}`);
-      
-      return true;
+      return await this.emailNotificationService.sendNotification({
+        type: 'invoiceOverdue',
+        userId,
+        recipientEmail: user.email,
+        data: {
+          invoiceNumber: invoiceData.invoiceNumber,
+          clientName: invoiceData.clientEmail || 'Client',
+          amount: invoiceData.amount,
+          dueDate: new Date().toDateString(),
+          daysOverdue: invoiceData.daysOverdue || 1,
+          currencySymbol: 'KD',
+        },
+      });
     } catch (error) {
-      console.error(`[Invoice] Error checking notification preference for invoiceOverdue:`, error);
-      // On error, default to true (send notification as fallback)
-      return true;
+      console.error(`[Invoice] Error sending invoiceOverdue email:`, error);
+      return false;
     }
   }
 }

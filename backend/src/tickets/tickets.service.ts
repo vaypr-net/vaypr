@@ -5,12 +5,14 @@ import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { Ticket } from './entities/ticket.entity';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
+import { EmailNotificationService } from '../userprofile/email-notification.service';
 
 @Injectable()
 export class TicketsService {
   constructor(
     @InjectModel(Ticket.name) private ticketModel: Model<Ticket>,
     @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
+    @Inject(EmailNotificationService) private emailNotificationService: EmailNotificationService,
   ) {}
 
   async create(createTicketDto: CreateTicketDto): Promise<Ticket> {
@@ -94,6 +96,11 @@ export class TicketsService {
     id: string,
     status: 'open' | 'pending' | 'in_progress' | 'resolved' | 'closed',
   ): Promise<Ticket> {
+    const existingTicket = await this.ticketModel.findById(id);
+    if (!existingTicket) {
+      throw new NotFoundException('Ticket not found');
+    }
+
     const updateData: any = { status };
 
     if (status === 'resolved') {
@@ -109,6 +116,18 @@ export class TicketsService {
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
+
+    if (
+      existingTicket.status !== ticket.status &&
+      (ticket.status === 'resolved' || ticket.status === 'closed')
+    ) {
+      await this.sendTicketResolvedNotification(ticket.customerId, {
+        ticketId: ticket.id,
+        subject: ticket.subject,
+        resolution: ticket.status,
+      });
+    }
+
     return ticket;
   }
 
@@ -134,6 +153,18 @@ export class TicketsService {
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
+
+    const isSupportReply =
+      author.toLowerCase() !== (ticket.customerName || '').toLowerCase() &&
+      author.toLowerCase() !== (ticket.customerEmail || '').toLowerCase();
+    if (isSupportReply) {
+      await this.sendSupportAgentRepliedNotification(ticket.customerId, {
+        ticketId: ticket.id,
+        subject: ticket.subject,
+        messagePreview: message.slice(0, 140),
+      });
+    }
+
     return ticket;
   }
 
@@ -200,16 +231,22 @@ export class TicketsService {
     ticketData: { ticketId: string; subject: string; messagePreview: string }
   ): Promise<boolean> {
     try {
-      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'supportAgentReplied');
-      if (!isEnabled) {
-        console.log(`[Support] Skipping "support agent replied" email for user ${userId} - preference disabled`);
-        return false;
-      }
-      console.log(`[Support] Would send "support agent replied" email for ticket ${ticketData.ticketId}`);
-      return true;
+      const ticket = await this.ticketModel.findById(ticketData.ticketId).exec();
+      if (!ticket?.customerEmail) return false;
+
+      return await this.emailNotificationService.sendNotification({
+        type: 'supportAgentReplied',
+        userId,
+        recipientEmail: ticket.customerEmail,
+        data: {
+          ticketId: ticketData.ticketId,
+          subject: ticketData.subject,
+          messagePreview: ticketData.messagePreview,
+        },
+      });
     } catch (error) {
-      console.error(`[Support] Error checking notification preference for supportAgentReplied:`, error);
-      return true;
+      console.error(`[Support] Error sending supportAgentReplied email:`, error);
+      return false;
     }
   }
 
@@ -222,17 +259,22 @@ export class TicketsService {
     ticketData: { ticketId: string; subject: string; resolution: string }
   ): Promise<boolean> {
     try {
-      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'ticketResolved');
-      if (!isEnabled) {
-        console.log(`[Support] Skipping "ticket resolved" email for user ${userId} - preference disabled`);
-        return false;
-      }
-      console.log(`[Support] Would send "ticket resolved" email for ticket ${ticketData.ticketId}`);
-      return true;
+      const ticket = await this.ticketModel.findById(ticketData.ticketId).exec();
+      if (!ticket?.customerEmail) return false;
+
+      return await this.emailNotificationService.sendNotification({
+        type: 'ticketResolved',
+        userId,
+        recipientEmail: ticket.customerEmail,
+        data: {
+          ticketId: ticketData.ticketId,
+          subject: ticketData.subject,
+          resolution: ticketData.resolution,
+        },
+      });
     } catch (error) {
-      console.error(`[Support] Error checking notification preference for ticketResolved:`, error);
-      return true;
+      console.error(`[Support] Error sending ticketResolved email:`, error);
+      return false;
     }
   }
 }
-

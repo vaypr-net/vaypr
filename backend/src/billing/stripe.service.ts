@@ -9,6 +9,7 @@ import { Transaction } from '../transcations/entities/transcation.entity';
 import { ActivityService } from '../activity/activity.service';
 import { CurrencyService } from '../common/services/currency.service';
 import { BillingPlanStripeSyncService } from '../billing-plan/services/billing-plan-stripe-sync.service';
+import { EmailNotificationService } from '../userprofile/email-notification.service';
 
 /**
  * StripeService - Handles all Stripe Checkout subscription operations
@@ -40,6 +41,7 @@ export class StripeService {
     private activityService: ActivityService,
     private currencyService: CurrencyService,
     private stripeSyncService: BillingPlanStripeSyncService,
+    private emailNotificationService: EmailNotificationService,
   ) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
@@ -1352,6 +1354,51 @@ export class StripeService {
         description: activityDescription,
         relatedEntityId: user._id.toString(),
       });
+
+      try {
+        await this.emailNotificationService.sendNotification({
+          type: 'subscriptionChanged',
+          userId: user._id.toString(),
+          recipientEmail: user.email,
+          data: {
+            subscriptionName: 'VAYPR Subscription',
+            oldStatus,
+            newStatus,
+            changedAt: new Date().toISOString(),
+          },
+        });
+      } catch (error) {
+        this.logger.error(
+          `Webhook: Failed sending subscriptionChanged email for user ${user._id}: ${error.message}`,
+        );
+      }
+    }
+
+    // Send upcoming renewal reminder when period end is approaching.
+    if (updatedPeriodEnd && (newStatus === 'active' || newStatus === 'trialing')) {
+      const daysUntilRenewal = Math.ceil(
+        (updatedPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+      );
+
+      if (daysUntilRenewal >= 0 && daysUntilRenewal <= 3) {
+        try {
+          await this.emailNotificationService.sendNotification({
+            type: 'upcomingRenewal',
+            userId: user._id.toString(),
+            recipientEmail: user.email,
+            data: {
+              subscriptionName: 'VAYPR Subscription',
+              renewalDate: updatedPeriodEnd.toDateString(),
+              amount: user.subscriptionAmount || 0,
+              currencySymbol: 'KD',
+            },
+          });
+        } catch (error) {
+          this.logger.error(
+            `Webhook: Failed sending upcomingRenewal email for user ${user._id}: ${error.message}`,
+          );
+        }
+      }
     }
 
     this.logger.log(
@@ -1463,9 +1510,57 @@ export class StripeService {
       relatedEntityId: user._id.toString(),
     });
 
+    try {
+      await this.emailNotificationService.sendNotification({
+        type: 'renewalPaymentFailed',
+        userId: user._id.toString(),
+        recipientEmail: user.email,
+        data: {
+          subscriptionName: 'VAYPR Subscription',
+          amount: (invoice.amount_due || 0) / 100,
+          reason: 'Automatic renewal payment failed',
+          currencySymbol: 'KD',
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Webhook: Failed sending renewalPaymentFailed email for user ${user._id}: ${error.message}`,
+      );
+    }
+
     this.logger.log(
       `Webhook: Payment failed for user ${user._id}, invoice ${invoice.id}`,
     );
+  }
+
+  async handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
+    const user = await this.userModel.findOne({
+      stripeCustomerId: invoice.customer as string,
+    });
+
+    if (!user || !user.email) {
+      return;
+    }
+
+    try {
+      await this.emailNotificationService.sendNotification({
+        type: 'renewalSuccessful',
+        userId: user._id.toString(),
+        recipientEmail: user.email,
+        data: {
+          subscriptionName: 'VAYPR Subscription',
+          amount: (invoice.amount_paid || invoice.amount_due || 0) / 100,
+          currencySymbol: 'KD',
+          nextRenewalDate: user.currentPeriodEnd
+            ? new Date(user.currentPeriodEnd).toDateString()
+            : 'N/A',
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Webhook: Failed sending renewalSuccessful email for user ${user._id}: ${error.message}`,
+      );
+    }
   }
 
   /**

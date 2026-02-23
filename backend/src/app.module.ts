@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import * as path from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -37,6 +38,7 @@ import { BillingModule } from './billing/billing.module';
 import { SuperAdminOverviewModule } from './super-admin-overview/super-admin-overview.module';
 import { SuperAdminReportsModule } from './super-admin-reports/super-admin-reports.module';
 import { SuperAdminAuditModule } from './super-admin-audit/super-admin-audit.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -45,14 +47,61 @@ import { SuperAdminAuditModule } from './super-admin-audit/super-admin-audit.mod
       envFilePath: [
         path.resolve(process.cwd(), '.env'),
         path.resolve(process.cwd(), 'backend/.env'),
+        path.resolve(process.cwd(), '../.env'),
+        path.resolve(process.cwd(), '../backend/.env'),
       ],
+    }),
+    // Register JwtModule globally so all modules share the same JWT config
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET') || 'default_secret',
+        signOptions: { expiresIn: '7d' },
+      }),
+      global: true,
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/vaypr',
-      }),
+      useFactory: (configService: ConfigService) => {
+        const raw = configService.get<string>('MONGODB_URI');
+        const fallback = 'mongodb://localhost:27017/vaypr';
+        const defaultDb = configService.get<string>('MONGODB_DB') || 'vaypr';
+
+        let uri = raw || fallback;
+
+        // If an env MONGODB_URI is provided but doesn't include a database name, append the default DB
+        if (raw) {
+          try {
+            const afterProto = raw.replace(/^mongodb(\+srv)?:\/\//i, '');
+            const hostPart = afterProto.split('/')[0];
+            const rest = afterProto.substring(hostPart.length); // starts with '/' or ''
+            const hasDb = rest && rest.length > 1 && !rest.startsWith('/?');
+            if (!hasDb) {
+              if (raw.includes('?')) {
+                uri = raw.replace('?', `/${defaultDb}?`);
+              } else {
+                uri = raw.endsWith('/') ? raw + defaultDb : raw + '/' + defaultDb;
+              }
+            }
+          } catch (e) {
+            // if parsing fails, fall back to raw
+            uri = raw;
+          }
+        }
+
+        // Mask credentials for logs
+        const masked = uri.replace(/(:\/\/)([^:]+):([^@]+)@/, '$1$2:*****@');
+        console.log('🔗 MongoDB connection string resolved to:', raw ? 'env MONGODB_URI (masked) ' + masked : `fallback ${fallback}`);
+
+        return {
+          uri,
+          serverSelectionTimeoutMS: 30000,
+          connectTimeoutMS: 30000,
+          family: 4,
+        };
+      },
     }),
     CloudinaryModule,
     UserModule,
@@ -92,6 +141,7 @@ import { SuperAdminAuditModule } from './super-admin-audit/super-admin-audit.mod
     SuperAdminOverviewModule,
     SuperAdminReportsModule,
     SuperAdminAuditModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CommonModule } from '../common/common.module';
 import { CurrencyService } from '../common/services/currency.service';
 import { BillingPlanModule } from '../billing-plan/billing-plan.module';
+import { UserprofileModule } from '../userprofile/userprofile.module';
 
 /**
  * BillingModule - Stripe Checkout subscriptions
@@ -48,6 +49,7 @@ import { BillingPlanModule } from '../billing-plan/billing-plan.module';
     ConfigModule,
     CommonModule,
     BillingPlanModule,
+    UserprofileModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

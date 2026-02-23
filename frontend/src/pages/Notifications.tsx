@@ -1,38 +1,55 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useReminders, useInvoices, useQuotes } from '@/hooks/useData';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Bell, 
-  BellOff, 
-  Check, 
-  CheckCheck, 
-  Trash2, 
-  FileText, 
-  FileCheck, 
-  AlertTriangle,
-  Clock,
-  Calendar,
-  Filter,
-  Sparkles
-} from 'lucide-react';
-import { format, isToday, isYesterday, isThisWeek, parseISO } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Bell, Check, CheckCircle2, Clock, Trash2, AlertTriangle, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+type NotificationType = 'overdue' | 'expiring' | 'reminder';
+
+interface NotificationItem {
+  id: string;
+  type: NotificationType;
+  title: string;
+  description: string;
+  eventAt: string;
+  isRead: boolean;
+  deletable: boolean;
+}
+
+const safeDateValue = (value?: string) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatTimeAgo = (value?: string) => {
+  const date = safeDateValue(value);
+  if (!date) return 'Unknown time';
+
+  const now = Date.now();
+  const diffMs = now - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'Yesterday';
+  return `${diffDays}d ago`;
+};
 
 export default function Notifications() {
+  const navigate = useNavigate();
   const { reminders, markAsRead, markAllAsRead, deleteReminder } = useReminders();
   const { invoices } = useInvoices();
   const { quotes } = useQuotes();
-  const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
 
-  // Generate smart notifications from data
-  const overdueInvoices = invoices.filter(inv => inv.status === 'overdue');
-  const pendingQuotes = quotes.filter(q => q.status === 'sent');
-  const expiringQuotes = quotes.filter(q => {
+  const overdueInvoices = invoices.filter((inv) => inv.status === 'overdue');
+  const expiringQuotes = quotes.filter((q) => {
     if (!q.validUntil || q.status !== 'sent') return false;
     const expiry = new Date(q.validUntil);
     const today = new Date();
@@ -40,41 +57,36 @@ export default function Notifications() {
     return daysUntilExpiry <= 7 && daysUntilExpiry > 0;
   });
 
-  // Combine reminders with smart notifications
-  const smartNotifications = [
-    ...overdueInvoices.map(inv => ({
+  const smartNotifications: NotificationItem[] = [
+    ...overdueInvoices.map((inv) => ({
       id: `overdue-${inv.id}`,
       type: 'overdue' as const,
       title: `Invoice ${inv.invoiceNumber} is overdue`,
-      message: `Payment of KD ${inv.total.toFixed(3)} from ${inv.clientName} is past due`,
-      dueDate: inv.dueDate,
+      description: `Payment of KD ${inv.total.toFixed(3)} from ${inv.clientName} is past due`,
+      eventAt: inv.updatedAt || inv.dueDate || inv.createdAt,
       isRead: false,
-      icon: AlertTriangle,
-      severity: 'high' as const,
+      deletable: false,
     })),
-    ...expiringQuotes.map(quote => ({
+    ...expiringQuotes.map((quote) => ({
       id: `expiring-${quote.id}`,
       type: 'expiring' as const,
       title: `Quote ${quote.quoteNumber} expiring soon`,
-      message: `Quote for ${quote.clientName} expires on ${format(new Date(quote.validUntil), 'MMM d')}`,
-      dueDate: quote.validUntil,
+      description: `Quote for ${quote.clientName} expires soon`,
+      eventAt: quote.validUntil || quote.createdAt,
       isRead: false,
-      icon: Clock,
-      severity: 'medium' as const,
+      deletable: false,
     })),
-    ...reminders.map(r => ({
+    ...reminders.map((r) => ({
       id: r.id,
       type: 'reminder' as const,
       title: r.title,
-      message: r.message,
-      dueDate: r.dueDate,
+      description: r.message,
+      eventAt: r.createdAt || r.dueDate,
       isRead: r.isRead,
-      icon: Bell,
-      severity: 'low' as const,
+      deletable: true,
     })),
   ];
 
-  // Persist read state for generated notifications (overdue/expiring) in localStorage
   const readGeneratedKey = 'notifications:readGeneratedIds';
   const [readGeneratedIds, setReadGeneratedIds] = useState<Set<string>>(() => {
     try {
@@ -112,58 +124,28 @@ export default function Notifications() {
     });
   };
 
-  const smartNotificationsWithGeneratedRead = smartNotifications.map((n) => {
-    if ((n.id as string).startsWith('overdue-') || (n.id as string).startsWith('expiring-')) {
-      return { ...n, isRead: readGeneratedIds.has(n.id) };
-    }
-    return n;
-  });
+  const normalizedNotifications = useMemo(
+    () =>
+      smartNotifications
+        .map((n) => {
+          if (n.id.startsWith('overdue-') || n.id.startsWith('expiring-')) {
+            return { ...n, isRead: readGeneratedIds.has(n.id) };
+          }
+          return n;
+        })
+        .sort((a, b) => {
+          const aDate = safeDateValue(a.eventAt)?.getTime() ?? 0;
+          const bDate = safeDateValue(b.eventAt)?.getTime() ?? 0;
+          return bDate - aDate;
+        }),
+    [smartNotifications, readGeneratedIds],
+  );
 
-  const filteredNotifications = smartNotificationsWithGeneratedRead.filter(n => {
-    if (filter === 'unread') return !n.isRead;
-    if (filter === 'read') return n.isRead;
-    return true;
-  });
-
-  // Group notifications by date
-  const groupedNotifications = filteredNotifications.reduce((groups, notification) => {
-    const date = new Date(notification.dueDate);
-    let groupKey: string;
-    
-    if (isToday(date)) {
-      groupKey = 'Today';
-    } else if (isYesterday(date)) {
-      groupKey = 'Yesterday';
-    } else if (isThisWeek(date)) {
-      groupKey = 'This Week';
-    } else {
-      groupKey = 'Earlier';
-    }
-    
-    if (!groups[groupKey]) {
-      groups[groupKey] = [];
-    }
-    groups[groupKey].push(notification);
-    return groups;
-  }, {} as Record<string, typeof smartNotifications>);
-
-  const unreadCount = smartNotificationsWithGeneratedRead.filter(n => !n.isRead).length;
-  const groupOrder = ['Today', 'Yesterday', 'This Week', 'Earlier'];
-
-  const getSeverityStyles = (severity: 'high' | 'medium' | 'low') => {
-    switch (severity) {
-      case 'high':
-        return 'border-l-destructive bg-destructive/5';
-      case 'medium':
-        return 'border-l-warning bg-warning/5';
-      default:
-        return 'border-l-primary bg-muted/30';
-    }
-  };
+  const unreadCount = normalizedNotifications.filter((n) => !n.isRead).length;
+  const unreadNotifications = normalizedNotifications.filter((n) => !n.isRead);
 
   const handleMarkAsRead = (id: string) => {
     if (id.startsWith('overdue-') || id.startsWith('expiring-')) {
-      // Persist generated notification as read
       addReadGeneratedId(id);
       return;
     }
@@ -171,313 +153,153 @@ export default function Notifications() {
   };
 
   const handleDelete = (id: string) => {
-    if (id.startsWith('overdue-') || id.startsWith('expiring-')) {
-      return;
-    }
+    if (id.startsWith('overdue-') || id.startsWith('expiring-')) return;
     deleteReminder(id);
+  };
+
+  const markAll = () => {
+    markAllAsRead();
+    const generatedIds = [
+      ...overdueInvoices.map((inv) => `overdue-${inv.id}`),
+      ...expiringQuotes.map((q) => `expiring-${q.id}`),
+    ];
+    markAllGeneratedAsRead(generatedIds);
+  };
+
+  const clearAll = () => {
+    reminders.forEach((item) => deleteReminder(item.id));
+    const generatedIds = [
+      ...overdueInvoices.map((inv) => `overdue-${inv.id}`),
+      ...expiringQuotes.map((q) => `expiring-${q.id}`),
+    ];
+    markAllGeneratedAsRead(generatedIds);
+  };
+
+  const renderIcon = (type: NotificationType) => {
+    if (type === 'overdue') return <AlertTriangle className="w-4 h-4 text-red-500" />;
+    if (type === 'expiring') return <Clock className="w-4 h-4 text-yellow-500" />;
+    return <Bell className="w-4 h-4 text-blue-500" />;
   };
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Bell className="h-6 w-6 text-primary" />
-              Notifications
-            </h1>
-            <p className="text-muted-foreground">
-              Stay updated with your invoices, quotes, and reminders
-            </p>
+      <div className="min-h-[calc(100vh-9rem)] -m-6 bg-black/35 flex justify-end">
+        <div className="w-full sm:max-w-lg bg-background border-l border-border shadow-xl">
+          <div className="flex items-center justify-between p-6 pb-4">
+            <h1 className="text-3xl font-semibold tracking-tight">All Notifications</h1>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={markAll} disabled={unreadCount === 0}>
+                <Check className="w-4 h-4 mr-1" />
+                Mark all read
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearAll}
+                disabled={normalizedNotifications.length === 0}
+                className="text-destructive hover:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Clear all
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/dashboard')}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-          
-          {unreadCount > 0 && (
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                // mark local reminders as read
-                markAllAsRead();
-                // mark generated notifications (overdue/expiring) as read
-                const generatedIds = [
-                  ...overdueInvoices.map(inv => `overdue-${inv.id}`),
-                  ...expiringQuotes.map(q => `expiring-${q.id}`),
-                ];
-                markAllGeneratedAsRead(generatedIds);
-              }}
-              className="gap-2"
-            >
-              <CheckCheck className="h-4 w-4" />
-              Mark all as read
-            </Button>
-          )}
+
+          <Tabs defaultValue="all" className="w-full px-6">
+            <TabsList className="w-full mb-4">
+              <TabsTrigger value="all" className="flex-1">
+                All ({normalizedNotifications.length})
+              </TabsTrigger>
+              <TabsTrigger value="unread" className="flex-1">
+                Unread ({unreadCount})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="all">
+              <ScrollArea className="h-[calc(100vh-240px)] pr-1">
+                {normalizedNotifications.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <Bell className="w-12 h-12 mb-4 opacity-50" />
+                    <p>No notifications</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {normalizedNotifications.map((notification) => (
+                      <div key={notification.id} className="flex gap-3 p-4 rounded-lg border border-border">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                          {renderIcon(notification.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-medium">{notification.title}</p>
+                            <div className="flex items-center gap-1">
+                              {!notification.isRead && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                  onClick={() => handleMarkAsRead(notification.id)}
+                                >
+                                  <Check className="w-3 h-3" />
+                                </Button>
+                              )}
+                              {notification.deletable && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                  onClick={() => handleDelete(notification.id)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{notification.description}</p>
+                          <p className="text-xs text-muted-foreground mt-2">{formatTimeAgo(notification.eventAt)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="unread">
+              <ScrollArea className="h-[calc(100vh-240px)] pr-1">
+                {unreadNotifications.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <CheckCircle2 className="w-12 h-12 mb-4 opacity-50" />
+                    <p>All caught up!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {unreadNotifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className="flex gap-3 p-4 rounded-lg border border-border cursor-pointer"
+                        onClick={() => handleMarkAsRead(notification.id)}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                          {renderIcon(notification.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{notification.title}</p>
+                          <p className="text-sm text-muted-foreground">{notification.description}</p>
+                          <p className="text-xs text-muted-foreground mt-2">{formatTimeAgo(notification.eventAt)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
         </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-destructive/10 to-destructive/5 border-destructive/20">
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-destructive/20">
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{overdueInvoices.length}</p>
-                  <p className="text-xs text-muted-foreground">Overdue</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-warning/20">
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-warning/20">
-                  <Clock className="h-4 w-4 text-warning" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{expiringQuotes.length}</p>
-                  <p className="text-xs text-muted-foreground">Expiring</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-primary/20">
-                  <Bell className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{unreadCount}</p>
-                  <p className="text-xs text-muted-foreground">Unread</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-accent/20">
-                  <Sparkles className="h-4 w-4 text-accent" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{smartNotifications.length}</p>
-                  <p className="text-xs text-muted-foreground">Total</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filter Tabs */}
-        <Tabs defaultValue="all" onValueChange={(v) => setFilter(v as typeof filter)}>
-          <TabsList className="grid w-full grid-cols-3 max-w-md">
-            <TabsTrigger value="all" className="gap-2">
-              <Filter className="h-4 w-4" />
-              All
-            </TabsTrigger>
-            <TabsTrigger value="unread" className="gap-2">
-              <Bell className="h-4 w-4" />
-              Unread
-              {unreadCount > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                  {unreadCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="read" className="gap-2">
-              <BellOff className="h-4 w-4" />
-              Read
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all" className="mt-6">
-            <NotificationsList 
-              groupedNotifications={groupedNotifications}
-              groupOrder={groupOrder}
-              getSeverityStyles={getSeverityStyles}
-              onMarkAsRead={handleMarkAsRead}
-              onDelete={handleDelete}
-            />
-          </TabsContent>
-          
-          <TabsContent value="unread" className="mt-6">
-            <NotificationsList 
-              groupedNotifications={groupedNotifications}
-              groupOrder={groupOrder}
-              getSeverityStyles={getSeverityStyles}
-              onMarkAsRead={handleMarkAsRead}
-              onDelete={handleDelete}
-            />
-          </TabsContent>
-          
-          <TabsContent value="read" className="mt-6">
-            <NotificationsList 
-              groupedNotifications={groupedNotifications}
-              groupOrder={groupOrder}
-              getSeverityStyles={getSeverityStyles}
-              onMarkAsRead={handleMarkAsRead}
-              onDelete={handleDelete}
-            />
-          </TabsContent>
-        </Tabs>
       </div>
     </DashboardLayout>
-  );
-}
-
-interface NotificationItem {
-  id: string;
-  type: 'overdue' | 'expiring' | 'reminder';
-  title: string;
-  message: string;
-  dueDate: string;
-  isRead: boolean;
-  icon: React.ElementType;
-  severity: 'high' | 'medium' | 'low';
-}
-
-function NotificationsList({ 
-  groupedNotifications, 
-  groupOrder,
-  getSeverityStyles,
-  onMarkAsRead,
-  onDelete
-}: { 
-  groupedNotifications: Record<string, NotificationItem[]>;
-  groupOrder: string[];
-  getSeverityStyles: (severity: 'high' | 'medium' | 'low') => string;
-  onMarkAsRead: (id: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  const hasNotifications = Object.keys(groupedNotifications).length > 0;
-
-  if (!hasNotifications) {
-    return (
-      <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <div className="p-4 rounded-full bg-muted mb-4">
-            <BellOff className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h3 className="font-semibold text-lg mb-1">No notifications</h3>
-          <p className="text-muted-foreground text-sm text-center max-w-sm">
-            You're all caught up! New notifications will appear here when you have overdue invoices, expiring quotes, or reminders.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {groupOrder.map(group => {
-        const notifications = groupedNotifications[group];
-        if (!notifications || notifications.length === 0) return null;
-
-        return (
-          <div key={group}>
-            <div className="flex items-center gap-2 mb-3">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-medium text-muted-foreground">{group}</h3>
-              <Badge variant="outline" className="text-xs">
-                {notifications.length}
-              </Badge>
-            </div>
-            
-            <div className="space-y-2">
-              {notifications.map((notification) => {
-                const Icon = notification.icon;
-                
-                return (
-                  <Card 
-                    key={notification.id}
-                    className={cn(
-                      "border-l-4 transition-all hover:shadow-md",
-                      getSeverityStyles(notification.severity),
-                      notification.isRead && "opacity-60"
-                    )}
-                  >
-                    <CardContent className="flex items-start gap-4 py-4">
-                      <div className={cn(
-                        "p-2 rounded-full shrink-0",
-                        notification.severity === 'high' && "bg-destructive/20",
-                        notification.severity === 'medium' && "bg-warning/20",
-                        notification.severity === 'low' && "bg-primary/20",
-                      )}>
-                        <Icon className={cn(
-                          "h-4 w-4",
-                          notification.severity === 'high' && "text-destructive",
-                          notification.severity === 'medium' && "text-warning",
-                          notification.severity === 'low' && "text-primary",
-                        )} />
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className={cn(
-                              "font-medium text-sm",
-                              !notification.isRead && "font-semibold"
-                            )}>
-                              {notification.title}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-0.5">
-                              {notification.message}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-center gap-1 shrink-0">
-                            {!notification.isRead && notification.type === 'reminder' && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => onMarkAsRead(notification.id)}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {notification.type === 'reminder' && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                onClick={() => onDelete(notification.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge 
-                            variant={
-                              notification.severity === 'high' ? 'destructive' : 
-                              notification.severity === 'medium' ? 'secondary' : 'outline'
-                            }
-                            className="text-xs"
-                          >
-                            {notification.type === 'overdue' && 'Overdue Invoice'}
-                            {notification.type === 'expiring' && 'Expiring Quote'}
-                            {notification.type === 'reminder' && 'Reminder'}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(notification.dueDate), 'MMM d, yyyy')}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
   );
 }

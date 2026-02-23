@@ -90,15 +90,15 @@ export class BillingWebhookController {
 
         // Payment success (invoice paid)
         case 'invoice.payment_succeeded':
-          this.logger.log(
-            `Invoice payment succeeded for invoice ${(event.data.object as Stripe.Invoice).id}`,
+          await this.stripeService.handleInvoicePaymentSucceeded(
+            event.data.object as Stripe.Invoice,
           );
           break;
 
         // Invoice paid (alternative event)
         case 'invoice.paid':
-          this.logger.log(
-            `Invoice paid for invoice ${(event.data.object as Stripe.Invoice).id}`,
+          await this.stripeService.handleInvoicePaymentSucceeded(
+            event.data.object as Stripe.Invoice,
           );
           break;
 

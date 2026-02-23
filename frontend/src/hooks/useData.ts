@@ -302,7 +302,22 @@ export function useReminders() {
 
   const unreadCount = useMemo(() => reminders.filter(r => !r.isRead).length, [reminders]);
 
-  return { reminders, addReminder, markAsRead, markAllAsRead, deleteReminder, unreadCount };
+  const hydrateReminders = useCallback((serverReminders: any[]) => {
+    if (!Array.isArray(serverReminders)) return;
+    const mapped: Reminder[] = serverReminders.map((r) => ({
+      id: r._id || r.id,
+      type: 'custom',
+      title: r.title || 'Notification',
+      message: r.message || '',
+      relatedId: r.relatedId,
+      dueDate: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+      isRead: !!r.isRead,
+      createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+    }));
+    setReminders(mapped);
+  }, [setReminders]);
+
+  return { reminders, addReminder, markAsRead, markAllAsRead, deleteReminder, unreadCount, hydrateReminders };
 }
 
 export function useDashboardStats() {

@@ -185,6 +185,17 @@ export class QuotesService implements OnModuleInit {
       throw new NotFoundException(`Quote with ID ${id} not found`);
     }
 
+    if (
+      existingQuote.status !== updatedQuote.status &&
+      updatedQuote.status === QuoteStatus.EXPIRED
+    ) {
+      await this.sendQuoteExpiredNotification(updatedQuote.userId.toString(), {
+        quoteNumber: updatedQuote.quoteNumber,
+        clientName: updatedQuote.billTo?.name || 'Client',
+        expiryDate: new Date().toDateString(),
+      });
+    }
+
     return updatedQuote;
   }
 
@@ -557,6 +568,28 @@ export class QuotesService implements OnModuleInit {
       await this.sendQuoteAcceptedNotification(updated.userId.toString(), quoteMeta);
     } else if (action === PublicQuoteResponseAction.REJECTED) {
       await this.sendQuoteRejectedNotification(updated.userId.toString(), quoteMeta);
+    }
+
+    try {
+      const actionLabels: Record<PublicQuoteResponseAction, string> = {
+        [PublicQuoteResponseAction.ACCEPTED]: 'accepted',
+        [PublicQuoteResponseAction.REJECTED]: 'rejected',
+        [PublicQuoteResponseAction.MODIFICATION_REQUESTED]: 'requested modifications for',
+      };
+
+      const messageSuffix =
+        action === PublicQuoteResponseAction.MODIFICATION_REQUESTED && normalizedMessage
+          ? ` Message: ${normalizedMessage}`
+          : '';
+
+      await this.notificationsService.create({
+        userId: updated.userId.toString(),
+        title: `Quote response: ${updated.quoteNumber}`,
+        message: `${updated.billTo?.name || 'Client'} ${actionLabels[action]} quote ${updated.quoteNumber}.${messageSuffix}`,
+        relatedId: updated._id?.toString(),
+      });
+    } catch (err) {
+      console.error('Failed to create quote response notification record:', err);
     }
 
     return updated;
