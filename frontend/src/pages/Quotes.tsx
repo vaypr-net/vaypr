@@ -1635,14 +1635,22 @@ export default function Quotes() {
                   {/* Totals */}
                   <div className="flex justify-end">
                     <div className="w-full sm:w-64 space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span>{formatCurrency(selectedQuote.subtotal, selectedQuote.currencySymbol)}</span>
-                      </div>
+                      {!selectedQuote.hideSubTotal && !selectedQuote.useManualGrandTotal && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Subtotal</span>
+                          <span>{formatCurrency(selectedQuote.subtotal, selectedQuote.currencySymbol)}</span>
+                        </div>
+                      )}
                       {selectedQuote.discount > 0 && (
                         <div className="flex justify-between text-muted-foreground">
                           <span>Discount ({selectedQuote.discount}%)</span>
                           <span>-{formatCurrency(selectedQuote.subtotal * selectedQuote.discount / 100, selectedQuote.currencySymbol)}</span>
+                        </div>
+                      )}
+                      {selectedQuote.deliveryFee > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Delivery Fee</span>
+                          <span>{formatCurrency(selectedQuote.deliveryFee, selectedQuote.currencySymbol)}</span>
                         </div>
                       )}
                       <div className="flex justify-between font-semibold text-lg border-t pt-2">
