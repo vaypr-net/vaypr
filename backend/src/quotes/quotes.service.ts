@@ -14,7 +14,9 @@ import { Quote } from './entities/quote.entity';
 import { QuoteStatus } from './enums/quote-status.enum';
 import { PublicQuoteResponseAction } from './dto/public-quote-response.dto';
 import { Client } from '../clients/entities/client.entity';
-import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
+import { User } from '../user/entities/user.entity';
+import { EmailNotificationService } from '../userprofile/email-notification.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PlanLimitService } from '../common/services/plan-limit.service';
 
 @Injectable()
@@ -22,8 +24,10 @@ export class QuotesService implements OnModuleInit {
   constructor(
     @InjectModel(Quote.name) private quoteModel: Model<Quote>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
-    @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
+    @InjectModel(User.name) private userModel: Model<User>,
+    @Inject(EmailNotificationService) private emailNotificationService: EmailNotificationService,
     private planLimitService: PlanLimitService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async onModuleInit() {
@@ -284,16 +288,22 @@ export class QuotesService implements OnModuleInit {
     quoteData: { quoteNumber: string; clientName: string; amount: number }
   ): Promise<boolean> {
     try {
-      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'quoteViewed');
-      if (!isEnabled) {
-        console.log(`[Quote] Skipping "quote viewed" email for user ${userId} - preference disabled`);
-        return false;
-      }
-      console.log(`[Quote] Would send "quote viewed" email for quote ${quoteData.quoteNumber}`);
-      return true;
+      const user = await this.userModel.findById(userId).select('email').exec();
+      if (!user?.email) return false;
+
+      return await this.emailNotificationService.sendNotification({
+        type: 'quoteViewed',
+        userId,
+        recipientEmail: user.email,
+        data: {
+          quoteNumber: quoteData.quoteNumber,
+          clientName: quoteData.clientName,
+          viewedAt: new Date().toLocaleString(),
+        },
+      });
     } catch (error) {
-      console.error(`[Quote] Error checking notification preference for quoteViewed:`, error);
-      return true;
+      console.error(`[Quote] Error sending quoteViewed notification:`, error);
+      return false;
     }
   }
 
@@ -306,16 +316,23 @@ export class QuotesService implements OnModuleInit {
     quoteData: { quoteNumber: string; clientName: string; amount: number }
   ): Promise<boolean> {
     try {
-      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'quoteAccepted');
-      if (!isEnabled) {
-        console.log(`[Quote] Skipping "quote accepted" email for user ${userId} - preference disabled`);
-        return false;
-      }
-      console.log(`[Quote] Would send "quote accepted" email for quote ${quoteData.quoteNumber}`);
-      return true;
+      const user = await this.userModel.findById(userId).select('email').exec();
+      if (!user?.email) return false;
+
+      return await this.emailNotificationService.sendNotification({
+        type: 'quoteAccepted',
+        userId,
+        recipientEmail: user.email,
+        data: {
+          quoteNumber: quoteData.quoteNumber,
+          clientName: quoteData.clientName,
+          amount: quoteData.amount,
+          currencySymbol: '$', // You might want to pass this from the quote data
+        },
+      });
     } catch (error) {
-      console.error(`[Quote] Error checking notification preference for quoteAccepted:`, error);
-      return true;
+      console.error(`[Quote] Error sending quoteAccepted notification:`, error);
+      return false;
     }
   }
 
@@ -328,16 +345,22 @@ export class QuotesService implements OnModuleInit {
     quoteData: { quoteNumber: string; clientName: string; amount: number }
   ): Promise<boolean> {
     try {
-      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'quoteRejected');
-      if (!isEnabled) {
-        console.log(`[Quote] Skipping "quote rejected" email for user ${userId} - preference disabled`);
-        return false;
-      }
-      console.log(`[Quote] Would send "quote rejected" email for quote ${quoteData.quoteNumber}`);
-      return true;
+      const user = await this.userModel.findById(userId).select('email').exec();
+      if (!user?.email) return false;
+
+      return await this.emailNotificationService.sendNotification({
+        type: 'quoteRejected',
+        userId,
+        recipientEmail: user.email,
+        data: {
+          quoteNumber: quoteData.quoteNumber,
+          clientName: quoteData.clientName,
+          reason: '', // Optional reason field
+        },
+      });
     } catch (error) {
-      console.error(`[Quote] Error checking notification preference for quoteRejected:`, error);
-      return true;
+      console.error(`[Quote] Error sending quoteRejected notification:`, error);
+      return false;
     }
   }
 
@@ -350,16 +373,22 @@ export class QuotesService implements OnModuleInit {
     quoteData: { quoteNumber: string; clientName: string; expiryDate: string }
   ): Promise<boolean> {
     try {
-      const isEnabled = await this.notificationHelper.isNotificationEnabled(userId, 'quoteExpired');
-      if (!isEnabled) {
-        console.log(`[Quote] Skipping "quote expired" email for user ${userId} - preference disabled`);
-        return false;
-      }
-      console.log(`[Quote] Would send "quote expired" email for quote ${quoteData.quoteNumber}`);
-      return true;
+      const user = await this.userModel.findById(userId).select('email').exec();
+      if (!user?.email) return false;
+
+      return await this.emailNotificationService.sendNotification({
+        type: 'quoteExpired',
+        userId,
+        recipientEmail: user.email,
+        data: {
+          quoteNumber: quoteData.quoteNumber,
+          clientName: quoteData.clientName,
+          expiryDate: quoteData.expiryDate,
+        },
+      });
     } catch (error) {
-      console.error(`[Quote] Error checking notification preference for quoteExpired:`, error);
-      return true;
+      console.error(`[Quote] Error sending quoteExpired notification:`, error);
+      return false;
     }
   }
 
@@ -438,6 +467,18 @@ export class QuotesService implements OnModuleInit {
       amount: updated.total || 0,
     });
 
+    // Create an in-app notification for the quote owner so it appears after refresh
+    try {
+      await this.notificationsService.create({
+        userId: updated.userId.toString(),
+        title: `Quote viewed: ${updated.quoteNumber}`,
+        message: `${updated.billTo?.name || 'Client'} viewed your quote ${updated.quoteNumber}.`,
+        relatedId: updated._id?.toString(),
+      });
+    } catch (err) {
+      console.error('Failed to create notification record:', err);
+    }
+
     return updated;
   }
 
@@ -448,13 +489,6 @@ export class QuotesService implements OnModuleInit {
   ): Promise<Quote> {
     const quote = await this.findByShareToken(shareToken);
 
-    if (quote.clientResponse?.respondedAt) {
-      return quote;
-    }
-
-    const now = new Date();
-    const normalizedMessage = typeof message === 'string' ? message.trim() : undefined;
-
     const statusMap: Record<PublicQuoteResponseAction, QuoteStatus> = {
       [PublicQuoteResponseAction.ACCEPTED]: QuoteStatus.ACCEPTED,
       [PublicQuoteResponseAction.REJECTED]: QuoteStatus.REJECTED,
@@ -462,6 +496,19 @@ export class QuotesService implements OnModuleInit {
         QuoteStatus.MODIFICATION_REQUESTED,
     };
     const nextStatus = statusMap[action];
+    const normalizedMessage = typeof message === 'string' ? message.trim() : undefined;
+    const existingMessage = quote.clientResponse?.message?.trim() || undefined;
+
+    // Idempotency guard: if the incoming response is identical to current state, skip write.
+    if (
+      quote.clientResponse?.action === action &&
+      quote.status === nextStatus &&
+      existingMessage === normalizedMessage
+    ) {
+      return quote;
+    }
+
+    const now = new Date();
 
     const updatePayload: Record<string, unknown> = {
       status: nextStatus,
