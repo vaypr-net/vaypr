@@ -16,6 +16,7 @@ interface PdfOptions {
 interface ProtectedRange {
   start: number;
   end: number;
+  kind: 'row' | 'block';
 }
 
 export function useDocumentActions() {
@@ -79,6 +80,33 @@ export function useDocumentActions() {
     element.style.display = 'block';
 
     try {
+      // Wait for fonts and images to load to ensure correct layout before rendering
+      try {
+        if (document?.fonts && typeof (document as any).fonts.ready?.then === 'function') {
+          // Wait for fonts to be ready (modern browsers)
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          await document.fonts.ready;
+        }
+      } catch (e) {
+        // ignore font loading errors
+      }
+
+      const imgs = Array.from(element.querySelectorAll('img')) as HTMLImageElement[];
+      if (imgs.length > 0) {
+        await Promise.all(imgs.map((img) => new Promise<void>((resolve) => {
+          if (!img || img.complete) return resolve();
+          const onLoad = () => { cleanup(); resolve(); };
+          const onError = () => { cleanup(); resolve(); };
+          const cleanup = () => {
+            img.removeEventListener('load', onLoad);
+            img.removeEventListener('error', onError);
+          };
+          img.addEventListener('load', onLoad);
+          img.addEventListener('error', onError);
+        })));
+      }
+
       const sourceWidth = Math.max(1, Math.ceil(element.scrollWidth || element.clientWidth || element.offsetWidth));
       const sourceHeight = Math.max(1, Math.ceil(element.scrollHeight || element.clientHeight || element.offsetHeight));
 
@@ -111,9 +139,14 @@ export function useDocumentActions() {
     element: HTMLElement,
     canvas: HTMLCanvasElement,
   ): ProtectedRange[] => {
-    const candidates = Array.from(
-      element.querySelectorAll('tr, [data-pdf-avoid-break="true"]'),
+    const rowCandidates = Array.from(element.querySelectorAll('tr')) as HTMLElement[];
+    const blockCandidates = Array.from(
+      element.querySelectorAll('[data-pdf-avoid-break="true"]'),
     ) as HTMLElement[];
+    const candidates = [
+      ...rowCandidates.map((node) => ({ node, kind: 'row' as const })),
+      ...blockCandidates.map((node) => ({ node, kind: 'block' as const })),
+    ];
 
     if (candidates.length === 0) return [];
 
@@ -121,7 +154,8 @@ export function useDocumentActions() {
     const scaleY = canvas.height / Math.max(1, rootRect.height);
     const ranges: ProtectedRange[] = [];
 
-    for (const node of candidates) {
+    for (const candidate of candidates) {
+      const { node, kind } = candidate;
       const rect = node.getBoundingClientRect();
       if (rect.height <= 2) continue;
 
@@ -131,7 +165,7 @@ export function useDocumentActions() {
       const end = Math.min(canvas.height, Math.ceil(bottomCss * scaleY) + 2);
 
       if (end > start) {
-        ranges.push({ start, end });
+        ranges.push({ start, end, kind });
       }
     }
 
@@ -143,7 +177,13 @@ export function useDocumentActions() {
     for (let i = 1; i < ranges.length; i += 1) {
       const current = ranges[i];
       const last = merged[merged.length - 1];
-      if (current.start <= last.end) {
+      // Keep table rows independent so one split inside the table does not
+      // move the entire table to the next page and leave large blank space.
+      if (
+        current.kind === last.kind &&
+        current.kind === 'block' &&
+        current.start <= last.end
+      ) {
         last.end = Math.max(last.end, current.end);
       } else {
         merged.push(current);
@@ -161,7 +201,8 @@ export function useDocumentActions() {
   ): number => {
     if (ranges.length === 0) return splitY;
 
-    const minSliceHeight = 220;
+    const minSliceHeight = 80;
+    const minFallbackHeight = 24;
     let adjusted = splitY;
 
     for (const range of ranges) {
@@ -169,16 +210,22 @@ export function useDocumentActions() {
 
       const before = range.start - 2;
       const after = range.end + 2;
+      const beforeHeight = before - startY;
+      const afterHeight = after - startY;
 
-      if (before - startY >= minSliceHeight) {
+      if (beforeHeight >= minSliceHeight) {
         adjusted = before;
-      } else if (after < maxY && after - startY >= minSliceHeight) {
+      } else if (after < maxY && afterHeight >= minSliceHeight) {
+        adjusted = after;
+      } else if (beforeHeight >= minFallbackHeight) {
+        adjusted = before;
+      } else if (after < maxY) {
         adjusted = after;
       }
       break;
     }
 
-    if (adjusted <= startY) return splitY;
+    if (adjusted <= startY + 1) return splitY;
     return Math.min(adjusted, maxY);
   }, []);
 
@@ -193,7 +240,7 @@ export function useDocumentActions() {
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const pagePaddingMm = 6;
+      const pagePaddingMm = 10;
       const usablePageHeightMm = Math.max(10, pdfHeight - pagePaddingMm * 2);
       const imgWidthPx = canvas.width;
       const imgHeightPx = canvas.height;
@@ -223,6 +270,12 @@ export function useDocumentActions() {
             imgHeightPx,
             protectedRanges,
           );
+
+          // Keep a small visual breathing space at the bottom of each page.
+          // This avoids sections appearing to "touch" the page break line.
+          const bottomSafetyPx = 14;
+          const minAllowedEnd = yOffset + 1;
+          sliceEndY = Math.max(minAllowedEnd, sliceEndY - bottomSafetyPx);
         }
         const sliceHeightPx = Math.max(1, sliceEndY - yOffset);
         const tmpCanvas = document.createElement('canvas');
