@@ -38,6 +38,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Search, MoreHorizontal, Edit, Trash2, Receipt, TrendingDown, PlusCircle, Loader2 } from 'lucide-react';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -51,6 +61,8 @@ const CUSTOM_CATEGORIES_KEY = 'expense_custom_categories';
 
 export default function Expenses() {
   const { toast } = useToast();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<any>(null);
   
   // API hooks
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
@@ -227,14 +239,20 @@ export default function Expenses() {
   };
 
   const handleDelete = async (expense: any) => {
-    if (deleteMutation.isPending) return; // Prevent multiple deletes
+    setExpenseToDelete(expense);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!expenseToDelete || deleteMutation.isPending) return;
     
-    if (confirm('Are you sure you want to delete this expense?')) {
-      try {
-        await deleteMutation.mutateAsync(expense._id);
-      } catch (error) {
-        // Error is handled by the mutation hook
-      }
+    try {
+      await deleteMutation.mutateAsync(expenseToDelete._id);
+    } catch (error) {
+      // Error is handled by the mutation hook
+    } finally {
+      setDeleteConfirmOpen(false);
+      setExpenseToDelete(null);
     }
   };
 
@@ -510,7 +528,7 @@ export default function Expenses() {
                   <div className="mb-2 p-2 border rounded-md bg-muted/50">
                     <p className="text-sm text-muted-foreground mb-1">Current receipt:</p>
                     <a 
-                      href={editingExpense.receipt} 
+                      href={editingExpense.receipt}
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-sm text-primary hover:underline flex items-center gap-1"
@@ -587,6 +605,24 @@ export default function Expenses() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Expense</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this expense? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

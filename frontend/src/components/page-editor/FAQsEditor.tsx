@@ -7,9 +7,22 @@ import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { Badge } from '../ui/badge';
 import { Textarea } from '../ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 import { useFaqs } from '../../hooks/useFaqs';
 
 export function FAQsEditor() {
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [faqToDelete, setFaqToDelete] = useState<string | null>(null);
+  
   const {
     faqs,
     categories: availableCategories,
@@ -93,8 +106,15 @@ export function FAQsEditor() {
   };
 
   const handleDeleteFaq = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this FAQ?')) {
-      deleteFAQ(id);
+    setFaqToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteFaq = () => {
+    if (faqToDelete) {
+      deleteFAQ(faqToDelete);
+      setDeleteConfirmOpen(false);
+      setFaqToDelete(null);
     }
   };
 
@@ -317,6 +337,24 @@ export function FAQsEditor() {
           ))
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete FAQ</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this FAQ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFaq} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

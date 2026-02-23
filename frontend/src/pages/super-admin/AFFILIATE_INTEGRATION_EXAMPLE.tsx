@@ -23,6 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { DataTable } from '@/components/super-admin/DataTable';
 import { StatusBadge } from '@/components/super-admin/StatusBadge';
 
@@ -80,9 +90,19 @@ export default function AffiliatesExample() {
     // ✅ List refreshed automatically
   };
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [affiliateToDelete, setAffiliateToDelete] = useState<string | null>(null);
+
   const handleDeleteAffiliate = async (affiliateId: string) => {
-    if (window.confirm('Are you sure?')) {
-      await deleteMutation.mutateAsync(affiliateId);
+    setAffiliateToDelete(affiliateId);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteAffiliate = async () => {
+    if (affiliateToDelete) {
+      await deleteMutation.mutateAsync(affiliateToDelete);
+      setDeleteConfirmOpen(false);
+      setAffiliateToDelete(null);
       // ✅ Toast shown automatically
       // ✅ List refreshed automatically
     }
@@ -270,6 +290,24 @@ export default function AffiliatesExample() {
           </Button>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Affiliate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this affiliate? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteAffiliate} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
