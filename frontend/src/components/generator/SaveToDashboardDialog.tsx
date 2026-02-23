@@ -436,9 +436,9 @@ export function SaveToDashboardDialog({
                         Companies
                       </div>
                       {companies.map((client) => (
-                        <SelectItem key={client._id} value={client._id}>
+                        <SelectItem key={client._id} value={client._id} className="text-gray-900 focus:!text-white focus:!bg-purple-600">
                           <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-primary" />
+                            <Building2 className="h-4 w-4" />
                             <span>{client.name}</span>
                           </div>
                         </SelectItem>
@@ -453,12 +453,12 @@ export function SaveToDashboardDialog({
                         Individual Clients
                       </div>
                       {individuals.map((client) => (
-                        <SelectItem key={client._id} value={client._id}>
+                        <SelectItem key={client._id} value={client._id} className="text-gray-900 focus:!text-white focus:!bg-purple-600">
                           <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground" />
+                            <User className="h-4 w-4" />
                             <span>{client.name}</span>
                             {client.company && (
-                              <span className="text-xs text-muted-foreground">({client.company})</span>
+                              <span className="text-xs">({client.company})</span>
                             )}
                           </div>
                         </SelectItem>
