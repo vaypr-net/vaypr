@@ -23,7 +23,7 @@ import { CommonModule } from '../common/common.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
+        secret: configService.get<string>('JWT_SECRET') || 'default_secret',
         signOptions: { expiresIn: '7d' },
       }),
     }),
