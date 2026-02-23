@@ -449,8 +449,6 @@ function CorporatePagesEditor() {
 
   const [showInitDialog, setShowInitDialog] = useState(false);
   const initializeMutation = useInitializeCorporatePages();
-  const [showResetDialog, setShowResetDialog] = useState(false);
-  const resetLandingMutation = useResetLandingPage();
 
   const handleInitializeDefaults = async () => {
     await initializeMutation.mutateAsync();
@@ -676,35 +674,6 @@ function CorporatePagesEditor() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleInitializeDefaults} disabled={initializeMutation.isPending}>
               Initialize Pages
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Reset Landing Page Dialog */}
-      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset Landing Page to Defaults?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will overwrite your current landing page settings with the default configuration. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                try {
-                  await resetLandingMutation.mutateAsync();
-                } catch (e) {
-                  // handled by hook's onError
-                } finally {
-                  setShowResetDialog(false);
-                }
-              }}
-              disabled={resetLandingMutation.isPending}
-            >
-              Reset
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1249,9 +1218,9 @@ function LandingPageEditor() {
             <Separator />
 
             <div className="space-y-3">
-              <Label>Feature Items ({landingPage.featuresSection.features.length})</Label>
+              <Label>Feature Items ({landingPage.featuresSection?.features?.length || 0})</Label>
               <p className="text-xs text-muted-foreground">
-                Feature management coming soon. Currently displaying {landingPage.featuresSection.features.length} features.
+                Feature management coming soon. Currently displaying {landingPage.featuresSection?.features?.length || 0} features.
               </p>
             </div>
             <div className="pt-4">
@@ -1271,9 +1240,9 @@ function LandingPageEditor() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <Label>Statistics ({landingPage.statsSection.stats.length})</Label>
+              <Label>Statistics ({landingPage.statsSection?.stats?.length || 0})</Label>
               <p className="text-xs text-muted-foreground">
-                Stats management coming soon. Currently displaying {landingPage.statsSection.stats.length} stats.
+                Stats management coming soon. Currently displaying {landingPage.statsSection?.stats?.length || 0} stats.
               </p>
             </div>
           </CardContent>
@@ -1305,9 +1274,9 @@ function LandingPageEditor() {
             <Separator />
 
             <div className="space-y-3">
-              <Label>Steps ({landingPage.howItWorksSection.steps.length})</Label>
+              <Label>Steps ({landingPage.howItWorksSection?.steps?.length || 0})</Label>
               <p className="text-xs text-muted-foreground">
-                Step management coming soon. Currently displaying {landingPage.howItWorksSection.steps.length} steps.
+                Step management coming soon. Currently displaying {landingPage.howItWorksSection?.steps?.length || 0} steps.
               </p>
             </div>
           </CardContent>
@@ -1517,9 +1486,9 @@ function LandingPageEditor() {
             <Separator />
 
             <div className="space-y-3">
-              <Label>Plans ({landingPage.pricingSection.plans.length})</Label>
+              <Label>Plans ({landingPage.pricingSection?.plans?.length || 0})</Label>
               <p className="text-xs text-muted-foreground">
-                Plan management coming soon. Currently displaying {landingPage.pricingSection.plans.length} plans.
+                Plan management coming soon. Currently displaying {landingPage.pricingSection?.plans?.length || 0} plans.
               </p>
             </div>
           </CardContent>
@@ -1651,6 +1620,8 @@ function LandingPageEditor() {
 // -------------------- Main Page --------------------
 export default function PageEditor() {
   const { data: landingPage } = useLandingPage();
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const resetLandingMutation = useResetLandingPage();
 
   const handleSave = () => {
     toast({
@@ -1756,6 +1727,35 @@ export default function PageEditor() {
           <LandingPageEditor />
         </EditorSection>
       </div>
+
+      {/* Reset Landing Page Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Landing Page to Defaults?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will overwrite your current landing page settings with the default configuration. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                try {
+                  await resetLandingMutation.mutateAsync();
+                } catch (e) {
+                  // handled by hook's onError
+                } finally {
+                  setShowResetDialog(false);
+                }
+              }}
+              disabled={resetLandingMutation.isPending}
+            >
+              Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
