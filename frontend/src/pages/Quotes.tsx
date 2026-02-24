@@ -818,6 +818,22 @@ export default function Quotes() {
     const invoiceNumber = `INV-${Date.now()}`;
 
     try {
+      // Convert logo to File if it's a data URL, otherwise pass as string
+      let logoFile: File | undefined;
+      let logoUrl: string | null = null;
+
+      if (selectedQuote.logo) {
+        if (typeof selectedQuote.logo === 'string' && selectedQuote.logo.startsWith('data:')) {
+          // Data URL - convert to File
+          const response = await fetch(selectedQuote.logo);
+          const blob = await response.blob();
+          logoFile = new File([blob], 'logo.png', { type: 'image/png' });
+        } else if (typeof selectedQuote.logo === 'string') {
+          // Regular URL (Cloudinary etc) - keep as is
+          logoUrl = selectedQuote.logo;
+        }
+      }
+
       const createdInvoice = await createInvoiceMutation.mutateAsync({
         data: {
           invoiceNumber,
@@ -848,6 +864,7 @@ export default function Quotes() {
             officePhone: selectedQuote.companyPhone || '',
             websiteEmail: selectedQuote.companyEmail || '',
           },
+          logo: logoUrl,
           logoScale: selectedQuote.logoScale || 1.0,
           tableHeaderColor: selectedQuote.tableHeaderColor || '#000000',
           showPaymentMethod: toBool(selectedQuote.showPaymentMethod),
@@ -864,6 +881,7 @@ export default function Quotes() {
           manualGrandTotal: selectedQuote.manualGrandTotal || 0,
           notes: selectedQuote.notes || '',
         },
+        logo: logoFile,
       });
 
       await updateQuoteMutation.mutateAsync({

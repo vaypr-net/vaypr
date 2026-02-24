@@ -158,19 +158,50 @@ export class QuotesService implements OnModuleInit {
 
     let updatedQuote: Quote | null = null;
     try {
-      updatedQuote = await this.quoteModel
-        .findByIdAndUpdate(
-          id,
-          {
-            ...updateQuoteDto,
-            clientId: updateQuoteDto.clientId
-              ? new Types.ObjectId(updateQuoteDto.clientId)
-              : existingQuote.clientId,
-          },
-          { new: true },
-        )
-        .populate('clientId', 'name email phone clientType')
-        .exec();
+      const updatePayload: any = {
+        ...updateQuoteDto,
+        clientId: updateQuoteDto.clientId
+          ? new Types.ObjectId(updateQuoteDto.clientId)
+          : existingQuote.clientId,
+      };
+
+      // If quote was in MODIFICATION_REQUESTED status and is being updated,
+      // reset status to SENT so client can respond again with fresh feedback
+      // but keep clientResponse for reference/history
+      if (existingQuote.status === QuoteStatus.MODIFICATION_REQUESTED) {
+        updatePayload.status = QuoteStatus.SENT;
+        
+        // Add timeline event for the edit
+        const now = new Date();
+        const editEvent: any = {
+          type: 'edited',
+          timestamp: now,
+        };
+        
+        const existingTimeline = existingQuote.timeline || [];
+        existingTimeline.push(editEvent);
+        
+        updatedQuote = await this.quoteModel
+          .findByIdAndUpdate(
+            id,
+            {
+              ...updatePayload,
+              timeline: existingTimeline,
+            },
+            { new: true },
+          )
+          .populate('clientId', 'name email phone clientType')
+          .exec();
+      } else {
+        updatedQuote = await this.quoteModel
+          .findByIdAndUpdate(
+            id,
+            updatePayload,
+            { new: true },
+          )
+          .populate('clientId', 'name email phone clientType')
+          .exec();
+      }
     } catch (error: any) {
       if (this.isDuplicateQuoteNumberError(error)) {
         const duplicateNumber = updateQuoteDto.quoteNumber || existingQuote.quoteNumber;
