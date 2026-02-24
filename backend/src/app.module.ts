@@ -66,34 +66,40 @@ import { NotificationsModule } from './notifications/notifications.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const raw = configService.get<string>('MONGODB_URI');
-        const fallback = 'mongodb://localhost:27017/vaypr';
-        const defaultDb = configService.get<string>('MONGODB_DB') || 'vaypr';
+        const defaultDb = configService.get<string>('MONGODB_DB') || 'test';
 
-        let uri = raw || fallback;
+        // MONGODB_URI must always be set - NO FALLBACK to localhost
+        if (!raw) {
+          throw new Error(
+            'MONGODB_URI environment variable is required! ' +
+            'Local: Add MONGODB_URI=mongodb+srv://... to backend/.env ' +
+            'Railway: Set MONGODB_URI in Railway dashboard Variables section'
+          );
+        }
 
-        // If an env MONGODB_URI is provided but doesn't include a database name, append the default DB
-        if (raw) {
-          try {
-            const afterProto = raw.replace(/^mongodb(\+srv)?:\/\//i, '');
-            const hostPart = afterProto.split('/')[0];
-            const rest = afterProto.substring(hostPart.length); // starts with '/' or ''
-            const hasDb = rest && rest.length > 1 && !rest.startsWith('/?');
-            if (!hasDb) {
-              if (raw.includes('?')) {
-                uri = raw.replace('?', `/${defaultDb}?`);
-              } else {
-                uri = raw.endsWith('/') ? raw + defaultDb : raw + '/' + defaultDb;
-              }
+        let uri = raw;
+
+        // If MONGODB_URI doesn't include a database name, append the default DB
+        try {
+          const afterProto = raw.replace(/^mongodb(\+srv)?:\/\//i, '');
+          const hostPart = afterProto.split('/')[0];
+          const rest = afterProto.substring(hostPart.length); // starts with '/' or ''
+          const hasDb = rest && rest.length > 1 && !rest.startsWith('/?');
+          if (!hasDb) {
+            if (raw.includes('?')) {
+              uri = raw.replace('?', `/${defaultDb}?`);
+            } else {
+              uri = raw.endsWith('/') ? raw + defaultDb : raw + '/' + defaultDb;
             }
-          } catch (e) {
-            // if parsing fails, fall back to raw
-            uri = raw;
           }
+        } catch (e) {
+          // if parsing fails, use raw URI as-is
+          uri = raw;
         }
 
         // Mask credentials for logs
         const masked = uri.replace(/(:\/\/)([^:]+):([^@]+)@/, '$1$2:*****@');
-        console.log('🔗 MongoDB connection string resolved to:', raw ? 'env MONGODB_URI (masked) ' + masked : `fallback ${fallback}`);
+        console.log('🔗 MongoDB connected to:', masked);
 
         return {
           uri,
