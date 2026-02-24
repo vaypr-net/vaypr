@@ -47,21 +47,31 @@ export class ExpenseController {
     @Request() req,
     @UploadedFile() receipt?: Express.Multer.File,
   ) {
-    let receiptUrl: string | undefined;
+    try {
+      let receiptUrl: string | undefined;
 
-    if (receipt) {
-      const uploadResult = await this.cloudinaryService.uploadFile(
-        receipt,
-        'expense-receipts',
+      if (receipt) {
+        try {
+          const uploadResult = await this.cloudinaryService.uploadFile(
+            receipt,
+            'expense-receipts',
+          );
+          receiptUrl = uploadResult.secure_url;
+        } catch (uploadError) {
+          console.error('Receipt upload error:', uploadError);
+          throw new Error(`Failed to upload receipt: ${uploadError.message}`);
+        }
+      }
+
+      return this.expenseService.create(
+        createExpenseDto,
+        req.user.userId,
+        receiptUrl,
       );
-      receiptUrl = uploadResult.secure_url;
+    } catch (error) {
+      console.error('Expense creation error:', error);
+      throw error;
     }
-
-    return this.expenseService.create(
-      createExpenseDto,
-      req.user.userId,
-      receiptUrl,
-    );
   }
 
   @Get()
@@ -117,22 +127,32 @@ export class ExpenseController {
     @Request() req,
     @UploadedFile() receipt?: Express.Multer.File,
   ) {
-    let receiptUrl: string | undefined;
+    try {
+      let receiptUrl: string | undefined;
 
-    if (receipt) {
-      const uploadResult = await this.cloudinaryService.uploadFile(
-        receipt,
-        'expense-receipts',
+      if (receipt) {
+        try {
+          const uploadResult = await this.cloudinaryService.uploadFile(
+            receipt,
+            'expense-receipts',
+          );
+          receiptUrl = uploadResult.secure_url;
+        } catch (uploadError) {
+          console.error('Receipt upload error:', uploadError);
+          throw new Error(`Failed to upload receipt: ${uploadError.message}`);
+        }
+      }
+
+      return this.expenseService.update(
+        id,
+        updateExpenseDto,
+        req.user.userId,
+        receiptUrl,
       );
-      receiptUrl = uploadResult.secure_url;
+    } catch (error) {
+      console.error('Expense update error:', error);
+      throw error;
     }
-
-    return this.expenseService.update(
-      id,
-      updateExpenseDto,
-      req.user.userId,
-      receiptUrl,
-    );
   }
 
   @Delete(':id')
