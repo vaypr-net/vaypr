@@ -7,9 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Phone, MapPin, Send, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useManagedSupportPage } from "@/hooks/useManagedSupportPage";
 import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+const normalize = (value: string) => value.trim().toLowerCase();
+
+const toLines = (value?: string) =>
+  (value || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 
 export default function Contact() {
   const {
@@ -23,6 +32,25 @@ export default function Contact() {
     subject: "",
     message: ""
   });
+  const managedPage = useManagedSupportPage("contact");
+  const sections = managedPage?.sections || [];
+
+  const findSection = (keywords: string[]) =>
+    sections.find((section) => {
+      const title = normalize(section.title || "");
+      return keywords.some((keyword) => title.includes(keyword));
+    });
+
+  const introSection = findSection(["contact", "touch", "help"]);
+  const emailSection = findSection(["email", "mail"]);
+  const phoneSection = findSection(["phone", "mobile", "call"]);
+  const officeSection = findSection(["office", "address", "location"]);
+  const hoursSection = findSection(["response", "hour", "time"]);
+
+  const emailLines = toLines(emailSection?.content);
+  const phoneLines = toLines(phoneSection?.content);
+  const officeLines = toLines(officeSection?.content);
+  const hoursLines = toLines(hoursSection?.content);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -92,11 +120,10 @@ export default function Contact() {
       <section className="py-16 sm:py-24 bg-gradient-to-b from-muted/50 to-background">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl sm:text-5xl font-display font-bold text-foreground mb-4">
-            Get in Touch
+            {managedPage?.title || "Get in Touch"}
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Have a question or need help? We'd love to hear from you. 
-            Send us a message and we'll respond as soon as possible.
+            {managedPage?.metaDescription || "Have a question or need help? We'd love to hear from you. Send us a message and we'll respond as soon as possible."}
           </p>
         </div>
       </section>
@@ -109,10 +136,10 @@ export default function Contact() {
             <div className="space-y-8">
               <div>
                 <h2 className="text-2xl font-display font-semibold text-foreground mb-6">
-                  Contact Information
+                  {introSection?.title || "Contact Information"}
                 </h2>
                 <p className="text-muted-foreground">
-                  Reach out through any of these channels and we'll get back to you promptly.
+                  {introSection?.content || "Reach out through any of these channels and we'll get back to you promptly."}
                 </p>
               </div>
 
@@ -122,9 +149,17 @@ export default function Contact() {
                     <Mail className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-foreground">Email</h3>
-                    <p className="text-muted-foreground">support@vaypr.net</p>
-                    <p className="text-muted-foreground">sales@vaypr.net</p>
+                    <h3 className="font-medium text-foreground">{emailSection?.title || "Email"}</h3>
+                    {emailLines.length > 0 ? (
+                      emailLines.map((line, idx) => (
+                        <p key={idx} className="text-muted-foreground">{line}</p>
+                      ))
+                    ) : (
+                      <>
+                        <p className="text-muted-foreground">support@vaypr.net</p>
+                        <p className="text-muted-foreground">sales@vaypr.net</p>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -133,9 +168,9 @@ export default function Contact() {
                     <Phone className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-foreground">Phone</h3>
-                    <p className="text-muted-foreground">(+965) 2246-4030</p>
-                    <p className="text-sm text-muted-foreground">Sun-Thr 9am-6pm GMT +3</p>
+                    <h3 className="font-medium text-foreground">{phoneSection?.title || "Phone"}</h3>
+                    <p className="text-muted-foreground">{phoneLines[0] || "(+965) 2246-4030"}</p>
+                    <p className="text-sm text-muted-foreground">{phoneLines[1] || "Sun-Thr 9am-6pm GMT +3"}</p>
                   </div>
                 </div>
 
@@ -144,9 +179,9 @@ export default function Contact() {
                     <MapPin className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-foreground">Office</h3>
-                    <p className="text-muted-foreground">Salhiya, Mohammad Thunayan</p>
-                    <p className="text-muted-foreground">Alghanim Street, Kuwait City</p>
+                    <h3 className="font-medium text-foreground">{officeSection?.title || "Office"}</h3>
+                    <p className="text-muted-foreground">{officeLines[0] || "Salhiya, Mohammad Thunayan"}</p>
+                    <p className="text-muted-foreground">{officeLines[1] || "Alghanim Street, Kuwait City"}</p>
                   </div>
                 </div>
 
@@ -155,8 +190,9 @@ export default function Contact() {
                     <Clock className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-foreground">Response Time</h3>
-                    <p className="text-muted-foreground">Usually within 3 hours</p>
+                    <h3 className="font-medium text-foreground">{hoursSection?.title || "Response Time"}</h3>
+                    <p className="text-muted-foreground">{hoursLines[0] || "Usually within 3 hours"}</p>
+                    {hoursLines[1] && <p className="text-sm text-muted-foreground">{hoursLines[1]}</p>}
                   </div>
                 </div>
               </div>
