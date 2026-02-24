@@ -70,8 +70,18 @@ export default function QuoteView() {
       }
 
       setQuote(fetchedQuote as unknown as Quote);
+      
+      // Check if quote was updated after modification request
+      // If status is now SENT/VIEWED but clientResponse exists, allow responding again
+      const isQuoteUpdatedAfterModificationRequest = 
+        fetchedQuote.clientResponse?.action === 'modification_requested' &&
+        (fetchedQuote.status === 'sent' || fetchedQuote.status === 'viewed');
+      
       if (fetchedQuote.clientResponse) {
-        setHasResponded(true);
+        // Only mark as responded if quote wasn't updated after the response
+        if (!isQuoteUpdatedAfterModificationRequest) {
+          setHasResponded(true);
+        }
       }
     } catch (apiError) {
       // If API fails, fall back to localStorage
@@ -94,8 +104,17 @@ export default function QuoteView() {
 
         if (foundQuote && storageKey) {
           setQuote(foundQuote);
+          
+          // Check if quote was updated after modification request
+          const isQuoteUpdatedAfterModificationRequest = 
+            foundQuote.clientResponse?.action === 'modification_requested' &&
+            (foundQuote.status === 'sent' || foundQuote.status === 'viewed');
+          
           if (foundQuote.clientResponse) {
-            setHasResponded(true);
+            // Only mark as responded if quote wasn't updated after the response
+            if (!isQuoteUpdatedAfterModificationRequest) {
+              setHasResponded(true);
+            }
           }
           
           // Track view and update status to "viewed" if not already viewed/responded
@@ -295,6 +314,7 @@ export default function QuoteView() {
     const ok = await updateQuoteResponse('modification_requested', modificationMessage);
     if (!ok) return;
     setIsModifyDialogOpen(false);
+    setModificationMessage('');
     toast({ 
       title: 'Modification Requested', 
       description: 'Your modification request has been sent.',
@@ -375,9 +395,14 @@ export default function QuoteView() {
 
   const validUntilDeadline = getValidUntilDeadline(quote.validUntil);
   const isExpired = validUntilDeadline ? validUntilDeadline.getTime() < Date.now() : false;
-  const canRespondStatuses: Quote['status'][] = ['draft', 'sent', 'viewed'];
-  const canRespond =
-    !hasResponded && !isExpired && canRespondStatuses.includes(quote.status);
+  const canRespondStatuses: Quote['status'][] = ['draft', 'sent', 'viewed', 'modification_requested'];
+  
+  // Allow responding if:
+  // 1. Status allows responses (draft/sent/viewed/modification_requested)
+  // 2. Quote is not expired
+  // 3. Either haven't responded yet, OR quote is in modification_requested state (allow re-responding to allow changes)
+  const canRespond = !isExpired && canRespondStatuses.includes(quote.status) && 
+    (!hasResponded || quote.status === 'modification_requested');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
