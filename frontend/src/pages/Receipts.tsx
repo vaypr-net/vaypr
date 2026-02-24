@@ -421,6 +421,15 @@ export default function Receipts() {
         attachmentFilename: `Receipt_${selectedReceipt.receiptNumber}.pdf`,
       });
 
+      // Step 4: Update receipt status to issued
+      const receiptId = getReceiptId(selectedReceipt);
+      if (receiptId) {
+        await updateReceiptMutation.mutateAsync({
+          id: receiptId,
+          data: { status: 'issued' },
+        });
+      }
+
       toast({
         title: 'Email Sent Successfully!',
         description: `Receipt sent to ${clientEmail} with PDF attachment (via ${result.sentVia === 'brevo' ? 'Brevo' : 'Gmail'})`,
