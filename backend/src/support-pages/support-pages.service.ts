@@ -132,14 +132,9 @@ export class SupportPagesService {
             order: 1,
           },
           {
-            title: 'Office Hours',
-            content: 'Monday - Friday: 9:00 AM - 6:00 PM (Kuwait Time)\nSaturday - Sunday: Closed',
-            order: 2,
-          },
-          {
             title: 'Email',
             content: 'support@vaypr.com',
-            order: 3,
+            order: 2,
           },
         ],
         contactFormSettings: {

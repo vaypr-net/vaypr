@@ -35,17 +35,30 @@ export default function Contact() {
   const managedPage = useManagedSupportPage("contact");
   const sections = managedPage?.sections || [];
 
-  const findSection = (keywords: string[]) =>
-    sections.find((section) => {
+  const usedSectionIndexes = new Set<number>();
+
+  const findSection = (keywords: string[], excludeKeywords: string[] = []) => {
+    const index = sections.findIndex((section, idx) => {
+      if (usedSectionIndexes.has(idx)) return false;
       const title = normalize(section.title || "");
+
+      if (excludeKeywords.some((keyword) => title.includes(keyword))) {
+        return false;
+      }
+
       return keywords.some((keyword) => title.includes(keyword));
     });
+
+    if (index === -1) return undefined;
+    usedSectionIndexes.add(index);
+    return sections[index];
+  };
 
   const introSection = findSection(["contact", "touch", "help"]);
   const emailSection = findSection(["email", "mail"]);
   const phoneSection = findSection(["phone", "mobile", "call"]);
-  const officeSection = findSection(["office", "address", "location"]);
-  const hoursSection = findSection(["response", "hour", "time"]);
+  const hoursSection = findSection(["office hour", "hours", "hour", "response time", "response"]);
+  const officeSection = findSection(["address", "location", "map", "office location"], ["hour", "time"]);
 
   const emailLines = toLines(emailSection?.content);
   const phoneLines = toLines(phoneSection?.content);
