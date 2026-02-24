@@ -1,7 +1,12 @@
 import { Link } from "react-router-dom";
 import { FileText } from "lucide-react";
+import { useManagedSupportPage } from "@/hooks/useManagedSupportPage";
+import { RichTextContent } from "@/components/landing/RichTextContent";
 
 export default function TermsOfService() {
+  const managedPage = useManagedSupportPage("terms");
+  const hasManagedSections = Boolean(managedPage?.sections?.length);
+
   return <div>
       {/* Hero */}
       <section className="py-16 sm:py-24 bg-gradient-to-b from-muted/50 to-background">
@@ -10,13 +15,15 @@ export default function TermsOfService() {
             <FileText className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-4xl sm:text-5xl font-display font-bold text-foreground mb-4">
-            Terms of Service
+            {managedPage?.title || "Terms of Service"}
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            By using VAYPR, you agree to these terms. Please read them carefully.
+            {managedPage?.metaDescription || "By using VAYPR, you agree to these terms. Please read them carefully."}
           </p>
           <p className="text-sm text-muted-foreground mt-4">
-            Last Updated: February 14, 2026
+            Last Updated: {managedPage?.updatedAt
+              ? new Date(managedPage.updatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+              : "February 14, 2026"}
           </p>
         </div>
       </section>
@@ -24,7 +31,21 @@ export default function TermsOfService() {
       {/* Content */}
       <section className="py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
-          <div className="prose prose-lg max-w-none">
+          {hasManagedSections ? (
+            <div className="prose prose-lg max-w-none">
+              {managedPage?.sections?.map((section, idx) => (
+                <section key={`${section.order}-${idx}`} className="mb-12">
+                  <h2 className="text-2xl font-display font-bold text-foreground mb-4">
+                    {idx + 1}. {section.title}
+                  </h2>
+                  <div className="text-muted-foreground">
+                    <RichTextContent text={section.content} />
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="prose prose-lg max-w-none">
             {/* Acceptance of Terms */}
             <section className="mb-12">
               <h2 className="text-2xl font-display font-bold text-foreground mb-4">
@@ -175,7 +196,8 @@ export default function TermsOfService() {
                 </ul>
               </div>
             </section>
-          </div>
+            </div>
+          )}
         </div>
       </section>
 

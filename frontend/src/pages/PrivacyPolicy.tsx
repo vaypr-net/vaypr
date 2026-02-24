@@ -1,4 +1,6 @@
 import { Shield } from "lucide-react";
+import { useManagedSupportPage } from "@/hooks/useManagedSupportPage";
+import { RichTextContent } from "@/components/landing/RichTextContent";
 
 const sections = [
   {
@@ -100,6 +102,9 @@ You can control cookies through your browser settings. Note that disabling certa
 ];
 
 export default function PrivacyPolicy() {
+  const managedPage = useManagedSupportPage("privacy");
+  const displaySections = managedPage?.sections?.length ? managedPage.sections : sections;
+
   return (
     <div>
       {/* Hero */}
@@ -109,13 +114,15 @@ export default function PrivacyPolicy() {
             <Shield className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-4xl sm:text-5xl font-display font-bold text-foreground mb-4">
-            Privacy Policy
+            {managedPage?.title || "Privacy Policy"}
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Your privacy is important to us. This policy explains how we collect, use, and protect your information.
+            {managedPage?.metaDescription || "Your privacy is important to us. This policy explains how we collect, use, and protect your information."}
           </p>
           <p className="text-sm text-muted-foreground mt-4">
-            Last Updated: January 15, 2026
+            Last Updated: {managedPage?.updatedAt
+              ? new Date(managedPage.updatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+              : "January 15, 2026"}
           </p>
         </div>
       </section>
@@ -124,15 +131,13 @@ export default function PrivacyPolicy() {
       <section className="py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
           <div className="prose prose-gray dark:prose-invert max-w-none">
-            {sections.map((section, idx) => (
+            {displaySections.map((section, idx) => (
               <div key={idx} className="mb-12">
                 <h2 className="text-2xl font-display font-semibold text-foreground mb-4">
                   {idx + 1}. {section.title}
                 </h2>
-                <div className="text-muted-foreground whitespace-pre-line leading-relaxed">
-                  {section.content.split('**').map((part, i) => 
-                    i % 2 === 1 ? <strong key={i} className="text-foreground">{part}</strong> : part
-                  )}
+                <div className="text-muted-foreground">
+                  <RichTextContent text={section.content} />
                 </div>
               </div>
             ))}
