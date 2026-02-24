@@ -77,19 +77,12 @@ export class CorporatePagesService {
   }
 
   async update(id: string, updateCorporatePageDto: UpdateCorporatePageDto): Promise<CorporatePage> {
-    // If updating slug, check for conflicts
-    if (updateCorporatePageDto.slug) {
-      const existingPage = await this.corporatePageModel
-        .findOne({ slug: updateCorporatePageDto.slug, _id: { $ne: id } })
-        .exec();
-      
-      if (existingPage) {
-        throw new ConflictException(`Page with slug '${updateCorporatePageDto.slug}' already exists`);
-      }
-    }
+    // Ensure slug is never updated to preserve page route
+    // @ts-ignore - slug should never be in updateCorporatePageDto, but just in case
+    const { slug, ...safeUpdateData } = { ...updateCorporatePageDto };
 
     const page = await this.corporatePageModel
-      .findByIdAndUpdate(id, updateCorporatePageDto, { new: true })
+      .findByIdAndUpdate(id, safeUpdateData, { new: true })
       .exec();
 
     if (!page) {

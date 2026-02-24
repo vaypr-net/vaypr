@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { BaseEntity } from 'src/common/entities/base.entity';
+import { BaseEntity } from '../../common/entities/base.entity';
 
 export type ExpenseDocument = Expense & Document;
 
