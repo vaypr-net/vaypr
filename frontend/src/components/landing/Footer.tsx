@@ -72,21 +72,6 @@ const mapPageLinks = (
           return { label: page.title, href: '/refund' };
         }
 
-        // For corporate hardcoded pages, if a prefix is provided and the DB
-        // page has been updated after creation, prefer the corporate route.
-        // Support hardcoded pages should always stay on canonical root routes.
-        if (prefix === '/corporate' && page.createdAt && page.updatedAt) {
-          try {
-            const created = new Date(page.createdAt);
-            const updated = new Date(page.updatedAt);
-            if (updated > created) {
-              return { label: page.title, href: `${prefix}/${slugLower}` };
-            }
-          } catch (e) {
-            // fallback to static route below
-          }
-        }
-
         // Normalize the label for some known pages (use short label in footer)
         const footerLabel = page.title;
 

@@ -62,6 +62,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { useLandingPage, useUpdateLandingSection, useResetLandingPage } from "@/hooks/useLandingPage";
+import { useGetSocialLinks } from "@/hooks/api/useSocialLinks";
+import { useSupportPages } from "@/hooks/useSupportPages";
 import {
   useCorporatePages,
   useCreateCorporatePage,
@@ -949,6 +951,9 @@ function CorporatePagesEditor() {
 // -------------------- Landing Page Editor --------------------
 function LandingPageEditor() {
   const { data: landingPage, isLoading } = useLandingPage();
+  const { data: socialLinks = [] } = useGetSocialLinks();
+  const { data: supportPages = [] } = useSupportPages({ enabledOnly: true });
+  const { data: corporatePages = [] } = useCorporatePages({ enabledOnly: true });
   const updateSection = useUpdateLandingSection();
 
   const [heroForm, setHeroForm] = useState({
@@ -977,6 +982,20 @@ function LandingPageEditor() {
     headline: "",
     description: "",
   });
+  const [statsForm, setStatsForm] = useState({
+    stats: [] as Array<{ icon: string; value: string; label: string }>,
+  });
+  const [howItWorksForm, setHowItWorksForm] = useState({
+    badge: "",
+    headline: "",
+    description: "",
+  });
+  const [pricingForm, setPricingForm] = useState({
+    headline: "",
+    description: "",
+    enabled: true,
+    showYearlyToggle: true,
+  });
 
   const [ctaForm, setCtaForm] = useState({
     headline: "",
@@ -986,6 +1005,9 @@ function LandingPageEditor() {
     disclaimer: "",
     enabled: true,
   });
+
+  const supportFooterCount = supportPages.filter((page) => page.showInFooter).length;
+  const corporateFooterCount = corporatePages.filter((page) => page.showInFooter).length;
 
   // Initialize forms when data loads
   useEffect(() => {
@@ -1013,6 +1035,24 @@ function LandingPageEditor() {
         badge: landingPage.featuresSection.badge || "",
         headline: landingPage.featuresSection.headline || "",
         description: landingPage.featuresSection.description || "",
+      });
+      setStatsForm({
+        stats: (landingPage.statsSection?.stats || []).map((stat) => ({
+          icon: stat.icon || "BarChart3",
+          value: stat.value || "",
+          label: stat.label || "",
+        })),
+      });
+      setHowItWorksForm({
+        badge: landingPage.howItWorksSection.badge || "",
+        headline: landingPage.howItWorksSection.headline || "",
+        description: landingPage.howItWorksSection.description || "",
+      });
+      setPricingForm({
+        headline: landingPage.pricingSection.headline || "",
+        description: landingPage.pricingSection.description || "",
+        enabled: landingPage.pricingSection.enabled ?? true,
+        showYearlyToggle: landingPage.pricingSection.showYearlyToggle ?? true,
       });
 
       setCtaForm({
@@ -1095,6 +1135,27 @@ function LandingPageEditor() {
     updateSection.mutate({
       section: 'ctaSection',
       data: ctaForm,
+    });
+  };
+
+  const handleUpdateHowItWorks = () => {
+    updateSection.mutate({
+      section: 'howItWorksSection',
+      data: howItWorksForm,
+    });
+  };
+
+  const handleUpdatePricing = () => {
+    updateSection.mutate({
+      section: 'pricingSection',
+      data: pricingForm,
+    });
+  };
+
+  const handleUpdateStats = () => {
+    updateSection.mutate({
+      section: 'statsSection',
+      data: statsForm,
     });
   };
 
@@ -1239,11 +1300,83 @@ function LandingPageEditor() {
             <CardDescription>Display key statistics and metrics</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <Label>Statistics ({landingPage.statsSection?.stats?.length || 0})</Label>
-              <p className="text-xs text-muted-foreground">
-                Stats management coming soon. Currently displaying {landingPage.statsSection?.stats?.length || 0} stats.
+            <div className="flex items-center justify-between">
+              <Label>Statistics ({statsForm.stats.length})</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setStatsForm((prev) => ({
+                    stats: [...prev.stats, { icon: "BarChart3", value: "", label: "" }],
+                  }));
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Stat
+              </Button>
+            </div>
+
+            {statsForm.stats.length > 0 ? (
+              <div className="space-y-3">
+                {statsForm.stats.map((stat, index) => (
+                  <div key={index} className="p-4 border rounded-lg bg-muted/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Stat {index + 1}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setStatsForm((prev) => ({
+                            stats: prev.stats.filter((_, i) => i !== index),
+                          }));
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs">Value</Label>
+                      <Input
+                        value={stat.value}
+                        onChange={(e) => {
+                          const updated = [...statsForm.stats];
+                          updated[index].value = e.target.value;
+                          setStatsForm({ stats: updated });
+                        }}
+                        className="mt-1"
+                        placeholder="e.g., 50K+"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-xs">Label</Label>
+                      <Input
+                        value={stat.label}
+                        onChange={(e) => {
+                          const updated = [...statsForm.stats];
+                          updated[index].label = e.target.value;
+                          setStatsForm({ stats: updated });
+                        }}
+                        className="mt-1"
+                        placeholder="e.g., Active Users"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic p-4 bg-muted/30 rounded-lg">
+                No stats yet. Click "Add Stat" to create one.
               </p>
+            )}
+
+            <div className="pt-2">
+              <Button onClick={handleUpdateStats} disabled={updateSection.isPending}>
+                {updateSection.isPending ? 'Saving...' : 'Save Stats Section'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1258,17 +1391,29 @@ function LandingPageEditor() {
           <CardContent className="space-y-4">
             <div>
               <Label>Badge</Label>
-              <Input defaultValue={landingPage.howItWorksSection.badge} className="mt-1" />
+              <Input
+                value={howItWorksForm.badge}
+                onChange={(e) => setHowItWorksForm({ ...howItWorksForm, badge: e.target.value })}
+                className="mt-1"
+              />
             </div>
 
             <div>
               <Label>Headline</Label>
-              <Input defaultValue={landingPage.howItWorksSection.headline} className="mt-1" />
+              <Input
+                value={howItWorksForm.headline}
+                onChange={(e) => setHowItWorksForm({ ...howItWorksForm, headline: e.target.value })}
+                className="mt-1"
+              />
             </div>
 
             <div>
               <Label>Description</Label>
-              <Textarea defaultValue={landingPage.howItWorksSection.description} className="mt-1" />
+              <Textarea
+                value={howItWorksForm.description}
+                onChange={(e) => setHowItWorksForm({ ...howItWorksForm, description: e.target.value })}
+                className="mt-1"
+              />
             </div>
 
             <Separator />
@@ -1278,6 +1423,12 @@ function LandingPageEditor() {
               <p className="text-xs text-muted-foreground">
                 Step management coming soon. Currently displaying {landingPage.howItWorksSection?.steps?.length || 0} steps.
               </p>
+            </div>
+
+            <div className="pt-4">
+              <Button onClick={handleUpdateHowItWorks} disabled={updateSection.isPending}>
+                {updateSection.isPending ? 'Saving...' : 'Save How It Works Section'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1457,12 +1608,20 @@ function LandingPageEditor() {
           <CardContent className="space-y-4">
             <div>
               <Label>Headline</Label>
-              <Input defaultValue={landingPage.pricingSection.headline} className="mt-1" />
+              <Input
+                value={pricingForm.headline}
+                onChange={(e) => setPricingForm({ ...pricingForm, headline: e.target.value })}
+                className="mt-1"
+              />
             </div>
 
             <div>
               <Label>Description</Label>
-              <Input defaultValue={landingPage.pricingSection.description} className="mt-1" />
+              <Input
+                value={pricingForm.description}
+                onChange={(e) => setPricingForm({ ...pricingForm, description: e.target.value })}
+                className="mt-1"
+              />
             </div>
 
             <Separator />
@@ -1472,7 +1631,10 @@ function LandingPageEditor() {
                 <h4 className="font-medium">Enable Pricing Section</h4>
                 <p className="text-sm text-muted-foreground">Show/hide pricing on landing page</p>
               </div>
-              <Switch checked={landingPage.pricingSection.enabled} />
+              <Switch
+                checked={pricingForm.enabled}
+                onCheckedChange={(checked) => setPricingForm({ ...pricingForm, enabled: checked })}
+              />
             </div>
 
             <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
@@ -1480,7 +1642,10 @@ function LandingPageEditor() {
                 <h4 className="font-medium">Show Monthly/Yearly Toggle</h4>
                 <p className="text-sm text-muted-foreground">Allow users to switch between billing periods</p>
               </div>
-              <Switch checked={landingPage.pricingSection.showYearlyToggle} />
+              <Switch
+                checked={pricingForm.showYearlyToggle}
+                onCheckedChange={(checked) => setPricingForm({ ...pricingForm, showYearlyToggle: checked })}
+              />
             </div>
 
             <Separator />
@@ -1490,6 +1655,12 @@ function LandingPageEditor() {
               <p className="text-xs text-muted-foreground">
                 Plan management coming soon. Currently displaying {landingPage.pricingSection?.plans?.length || 0} plans.
               </p>
+            </div>
+
+            <div className="pt-4">
+              <Button onClick={handleUpdatePricing} disabled={updateSection.isPending}>
+                {updateSection.isPending ? 'Saving...' : 'Save Pricing Section'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1596,12 +1767,9 @@ function LandingPageEditor() {
             <div className="space-y-3">
               <Label>Footer Links</Label>
               <p className="text-xs text-muted-foreground">
-                Social: {landingPage.footerSection?.socialMediaLinks?.length ?? 0} links | 
-                Support: {landingPage.footerSection?.supportLinks?.length ?? 0} links | 
-                Corporate: {landingPage.footerSection?.corporateLinks?.length ?? 0} links
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Footer link management coming soon.
+                Social: {socialLinks.length} links | 
+                Support: {supportFooterCount} links | 
+                Corporate: {corporateFooterCount} links
               </p>
             </div>
 
