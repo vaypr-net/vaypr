@@ -484,7 +484,20 @@ const Index = () => {
           ? `Receipt-${receiptData.receiptNumber || "document"}`
           : `Quote-${quoteData.quoteNumber || "document"}`;
 
-    downloadPDF(exportId, exportName);
+    // Wait for element to be fully rendered before generating PDF
+    const waitForRender = async () => {
+      const element = document.getElementById(exportId);
+      if (!element) return;
+      
+      // Wait for fonts and styles to fully render
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      
+      // Use fitToPage for receipts to prevent text scaling issues
+      const options = activeTab === "receipt" ? { fitToPage: true } : undefined;
+      downloadPDF(exportId, exportName, undefined, options);
+    };
+
+    waitForRender();
   };
 
   const getDocumentLabel = () => {

@@ -232,7 +232,11 @@ export default function Receipts() {
     let waited = 0;
     while (waited < timeout) {
       const el = document.getElementById(elementId);
-      if (el && el.offsetWidth > 0 && el.offsetHeight > 0) return true;
+      if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
+        // Additional delay to ensure fonts and styles are fully rendered
+        await new Promise((r) => setTimeout(r, 300));
+        return true;
+      }
       await new Promise((r) => setTimeout(r, interval));
       waited += interval;
     }
