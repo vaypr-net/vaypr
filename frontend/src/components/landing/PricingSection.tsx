@@ -83,6 +83,7 @@ const staticEnterprisePlan = {
 export function PricingSection() {
   const [isYearly, setIsYearly] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState(CURRENCY_CONFIG.displayCurrency); // Default to KWD
+  const showCurrencySelector = false;
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -297,6 +298,7 @@ export function PricingSection() {
   // Filter out Enterprise plan from API if it exists, show all other plans
   // The hardcoded Enterprise plan will be rendered separately
   const displayPlans = plans.filter(p => p.name !== "Enterprise");
+  const firstPaidPlanId = displayPlans.find((plan) => plan.price > 0)?._id;
 
   return (
     <section id="pricing" className="py-24 relative overflow-hidden bg-[#f7f7fb]">
@@ -345,22 +347,24 @@ export function PricingSection() {
         </div>
 
         {/* Currency Selector */}
-        <div className="flex justify-center mt-8 mb-12">
-          <div className="inline-flex items-center gap-3 bg-muted rounded-full p-2">
-            <span className="text-sm font-medium text-foreground px-3">Currency:</span>
-            <select
-              value={selectedCurrency}
-              onChange={(e) => setSelectedCurrency(e.target.value)}
-              className="px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-foreground border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              {supportedCurrencies.map((curr) => (
-                <option key={curr} value={curr}>
-                  {curr}
-                </option>
-              ))}
-            </select>
+        {showCurrencySelector && (
+          <div className="flex justify-center mt-8 mb-12">
+            <div className="inline-flex items-center gap-3 bg-muted rounded-full p-2">
+              <span className="text-sm font-medium text-foreground px-3">Currency:</span>
+              <select
+                value={selectedCurrency}
+                onChange={(e) => setSelectedCurrency(e.target.value)}
+                className="px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-foreground border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                {supportedCurrencies.map((curr) => (
+                  <option key={curr} value={curr}>
+                    {curr}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
@@ -368,14 +372,14 @@ export function PricingSection() {
             const price = getDisplayPrice(plan);
             const formattedPrice = price === 0 ? 'Free' : (Number.isInteger(price) ? price.toString() : price.toFixed(2));
 
-            // Treat Business as highlighted even when backend does not set isPopular
-            if (plan.isPopular || isBusinessPlan(plan)) {
+            // Highlight the intended center paid plan even if backend flags/name vary (e.g. "premium")
+            if (plan.isPopular || isBusinessPlan(plan) || plan._id === firstPaidPlanId) {
               return (
                 <div key={plan._id} style={{ animationDelay: `${index * 0.1}s` }}>
-                  <div className="rounded-2xl border-2 border-primary flex justify-center shadow-[0_8px_18px_hsl(var(--primary)/0.18)]">
-                    <div className="relative p-8 rounded-2xl bg-white border border-transparent w-full">
+                  <div className="rounded-2xl border border-primary flex justify-center shadow-[0_10px_24px_hsl(var(--primary)/0.18)]">
+                    <div className="relative p-8 rounded-2xl bg-[#fcfbff] w-full">
                       <div className="mb-6">
-                        <span className="inline-block px-4 py-1.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground">
+                        <span className="inline-block px-4 py-1.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground shadow-[0_6px_14px_hsl(var(--primary)/0.35)]">
                           {plan.name}
                         </span>
                       </div>
@@ -412,7 +416,7 @@ export function PricingSection() {
                       <Button
                         onClick={() => handleGetStarted(plan)}
                         disabled={checkoutLoading === plan._id}
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 rounded-lg"
+                        className="w-full bg-primary hover:bg-primary/90 border border-primary text-primary-foreground py-3 rounded-lg"
                       >
                         {checkoutLoading === plan._id ? 'Processing...' : 'Get Started'}
                       </Button>
