@@ -40,6 +40,11 @@ interface EditSubscriberDialogProps {
 
 const availablePlans = ["Free", "Starter", "Professional", "Enterprise"];
 
+const isCanceledStatus = (status?: string): boolean => {
+  const normalizedStatus = (status || "").trim().toLowerCase();
+  return normalizedStatus === "canceled" || normalizedStatus === "cancelled";
+};
+
 export function EditSubscriberDialog({
   subscriber,
   open,
@@ -214,7 +219,7 @@ export function EditSubscriberDialog({
             <Separator />
 
             {/* Cancel Subscription */}
-            {subscriber?.status !== 'canceled' && (
+            {!isCanceledStatus(subscriber?.status) && (
               <div className="space-y-2">
                 <Label className="text-destructive">Danger Zone</Label>
                 <Button

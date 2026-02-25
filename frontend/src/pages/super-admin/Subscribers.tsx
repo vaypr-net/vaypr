@@ -36,6 +36,11 @@ const safeFormatDate = (date: string | null | undefined): string => {
   return format(dateObj, 'MMM d, yyyy');
 };
 
+const isCanceledStatus = (status?: string): boolean => {
+  const normalizedStatus = (status || "").trim().toLowerCase();
+  return normalizedStatus === "canceled" || normalizedStatus === "cancelled";
+};
+
 export default function Subscribers() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -446,14 +451,16 @@ export default function Subscribers() {
                       Downgrade Plan
                     </Button>
                   </div>
-                  <Button
-                    variant="destructive"
-                    className="w-full"
-                    onClick={handleCancelSubscription}
-                    disabled={updateSubscriberMutation.isPending}
-                  >
-                    Cancel Subscription
-                  </Button>
+                  {!isCanceledStatus(selectedSubscriber.status) && (
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={handleCancelSubscription}
+                      disabled={updateSubscriberMutation.isPending}
+                    >
+                      Cancel Subscription
+                    </Button>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="billing" className="space-y-4 mt-4">
