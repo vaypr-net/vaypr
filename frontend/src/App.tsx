@@ -92,6 +92,14 @@ function AppRoutes() {
       </Route>
       <Route path="/generator" element={<Generator />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route
+        path="/super-admin/login"
+        element={
+          user
+            ? (user.isSuperAdmin ? <Navigate to="/super-admin" replace /> : <Navigate to="/dashboard" replace />)
+            : <Login />
+        }
+      />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" replace /> : <Signup />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/pricing" element={<Pricing />} />

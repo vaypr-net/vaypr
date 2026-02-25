@@ -250,7 +250,8 @@ export function Footer() {
             </ul>
             <div className="mt-3 flex justify-start">
               {(() => {
-                const href = landingPage?.footerSection?.corporateLoginHref || '/login';
+                const configuredHref = landingPage?.footerSection?.corporateLoginHref || '/super-admin/login';
+                const href = configuredHref === '/login' ? '/super-admin/login' : configuredHref;
                 const label = landingPage?.footerSection?.corporateLoginLabel || 'Corporate Login';
                 const baseClasses = 'inline-block px-5 py-2 rounded-lg border border-foreground text-base font-medium text-foreground bg-background hover:bg-muted/5 transition-colors';
                 return isExternalHref(href) ? (

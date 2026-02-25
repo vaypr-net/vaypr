@@ -48,8 +48,12 @@ export function AdminRoute({ children }: AdminRouteProps) {
     willRedirect: !user || !user.isSuperAdmin,
   });
 
-  // If not authenticated or not super admin, redirect to dashboard
-  if (!user || !user.isSuperAdmin) {
+  if (!user) {
+    console.log('❌ AdminRoute: Redirecting to /super-admin/login (not authenticated)');
+    return <Navigate to="/super-admin/login" replace />;
+  }
+
+  if (!user.isSuperAdmin) {
     console.log('❌ AdminRoute: Redirecting to /dashboard (not super admin)');
     return <Navigate to="/dashboard" replace />;
   }
