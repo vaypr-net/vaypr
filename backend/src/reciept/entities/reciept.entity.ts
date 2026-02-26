@@ -14,7 +14,7 @@ export class Receipt extends BaseEntity {
   @Prop({ type: Types.ObjectId, ref: 'Invoice' })
   invoiceId: Types.ObjectId;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   receiptNumber: string;
 
   @Prop({ type: String, enum: ReceiptStatus, default: ReceiptStatus.DRAFT })
@@ -67,3 +67,13 @@ export class Receipt extends BaseEntity {
 }
 
 export const ReceiptSchema = SchemaFactory.createForClass(Receipt);
+
+// Create a partial unique index on (userId, receiptNumber) where isDeleted is false
+// This allows duplicate receipt numbers across different users or for deleted receipts
+ReceiptSchema.index(
+  { userId: 1, receiptNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isDeleted: false },
+  }
+);
