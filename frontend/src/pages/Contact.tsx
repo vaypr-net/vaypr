@@ -16,11 +16,15 @@ const defaultContent = {
   description: "Have questions? We're here to help and will respond as soon as possible.",
   contactInfoTitle: "Contact Information",
   contactInfoDescription: "Reach out through any of these channels and we'll get back to you promptly.",
+  emailHeading: "Email",
   emails: ["support@vaypr.net", "sales@vaypr.net"],
+  phoneHeading: "Phone",
   phone: "(+965) 2246-4030",
   phoneHours: "Sun-Thr 9am-6pm GMT +3",
+  officeHeading: "Office",
   officeLine1: "Salhiya, Mohammad Thunayan",
   officeLine2: "Alghanim Street, Kuwait City",
+  responseTimeHeading: "Response Time",
   responseTime: "Usually within 3 hours",
   formTitle: "Send us a Message",
   subjectOptions: [
@@ -147,7 +151,7 @@ export default function Contact() {
                     <Mail className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-foreground">Email</h3>
+                    <h3 className="font-medium text-foreground">{content?.emailHeading || defaultContent.emailHeading}</h3>
                     {(content?.emails || defaultContent.emails).map((email: string, index: number) => (
                       <p key={index} className="text-muted-foreground">{email}</p>
                     ))}
@@ -159,9 +163,8 @@ export default function Contact() {
                     <Phone className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-foreground">Phone</h3>
+                    <h3 className="font-medium text-foreground">{content?.phoneHeading || defaultContent.phoneHeading}</h3>
                     <p className="text-muted-foreground">{content?.phone || defaultContent.phone}</p>
-                    <p className="text-sm text-muted-foreground">{content?.phoneHours || defaultContent.phoneHours}</p>
                   </div>
                 </div>
 
@@ -170,7 +173,7 @@ export default function Contact() {
                     <MapPin className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-foreground">Office</h3>
+                    <h3 className="font-medium text-foreground">{content?.officeHeading || defaultContent.officeHeading}</h3>
                     <p className="text-muted-foreground">{content?.officeLine1 || defaultContent.officeLine1}</p>
                     <p className="text-muted-foreground">{content?.officeLine2 || defaultContent.officeLine2}</p>
                   </div>
@@ -181,7 +184,7 @@ export default function Contact() {
                     <Clock className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-foreground">Response Time</h3>
+                    <h3 className="font-medium text-foreground">{content?.responseTimeHeading || defaultContent.responseTimeHeading}</h3>
                     <p className="text-muted-foreground">{content?.responseTime || defaultContent.responseTime}</p>
                   </div>
                 </div>

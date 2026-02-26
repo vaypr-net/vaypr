@@ -52,11 +52,15 @@ const defaultContentByKind: Record<SupportKind, Record<string, any>> = {
     description: "Have questions? We're here to help and will respond as soon as possible.",
     contactInfoTitle: "Contact Information",
     contactInfoDescription: "Reach out through any of these channels and we'll get back to you promptly.",
+    emailHeading: "Email",
     emails: ["support@vaypr.net", "sales@vaypr.net"],
+    phoneHeading: "Phone",
     phone: "(+965) 2246-4030",
     phoneHours: "Sun-Thr 9am-6pm GMT +3",
+    officeHeading: "Office",
     officeLine1: "Salhiya, Mohammad Thunayan",
     officeLine2: "Alghanim Street, Kuwait City",
+    responseTimeHeading: "Response Time",
     responseTime: "Usually within 3 hours",
     formTitle: "Send us a Message",
     subjectOptions: [
@@ -378,6 +382,12 @@ export function SupportPagesManagement() {
         ...(pageKind === "contact"
           ? {
               emails: validEmails.length ? validEmails : defaultContentByKind.contact.emails,
+              emailHeading:
+                rawContent.emailHeading ||
+                defaultContentByKind.contact.emailHeading,
+              phoneHeading:
+                rawContent.phoneHeading ||
+                defaultContentByKind.contact.phoneHeading,
               phone:
                 rawContent.phone ||
                 misplacedContactValues[0] ||
@@ -386,6 +396,9 @@ export function SupportPagesManagement() {
                 rawContent.phoneHours ||
                 misplacedContactValues[1] ||
                 defaultContentByKind.contact.phoneHours,
+              officeHeading:
+                rawContent.officeHeading ||
+                defaultContentByKind.contact.officeHeading,
               officeLine1:
                 rawContent.officeLine1 ||
                 misplacedContactValues[2] ||
@@ -394,6 +407,9 @@ export function SupportPagesManagement() {
                 rawContent.officeLine2 ||
                 misplacedContactValues[3] ||
                 defaultContentByKind.contact.officeLine2,
+              responseTimeHeading:
+                rawContent.responseTimeHeading ||
+                defaultContentByKind.contact.responseTimeHeading,
               responseTime:
                 rawContent.responseTime ||
                 misplacedContactValues[4] ||
@@ -830,6 +846,11 @@ export function SupportPagesManagement() {
                                       <Plus className="w-3 h-3 mr-1" /> Add Email
                                     </Button>
                                   </div>
+                                  <Input
+                                    placeholder="Email heading"
+                                    value={((formData.content || {}) as Record<string, any>).emailHeading || ""}
+                                    onChange={(e) => updateContentField("emailHeading", e.target.value)}
+                                  />
                                   {((((formData.content || {}) as Record<string, any>).emails || []) as string[]).map((item, idx) => (
                                     <div key={idx} className="flex items-center gap-2">
                                       <Input
@@ -847,19 +868,24 @@ export function SupportPagesManagement() {
                                 <div className="rounded-lg border bg-background p-3 space-y-3">
                                   <Label className="text-xs font-semibold">Phone Section</Label>
                                   <Input
+                                    placeholder="Phone heading"
+                                    value={((formData.content || {}) as Record<string, any>).phoneHeading || ""}
+                                    onChange={(e) => updateContentField("phoneHeading", e.target.value)}
+                                  />
+                                  <Input
                                     placeholder="Phone number"
                                     value={((formData.content || {}) as Record<string, any>).phone || ""}
                                     onChange={(e) => updateContentField("phone", e.target.value)}
-                                  />
-                                  <Input
-                                    placeholder="Phone hours (e.g. Sun-Thu 9am-6pm)"
-                                    value={((formData.content || {}) as Record<string, any>).phoneHours || ""}
-                                    onChange={(e) => updateContentField("phoneHours", e.target.value)}
                                   />
                                 </div>
 
                                 <div className="rounded-lg border bg-background p-3 space-y-3">
                                   <Label className="text-xs font-semibold">Office Section</Label>
+                                  <Input
+                                    placeholder="Office heading"
+                                    value={((formData.content || {}) as Record<string, any>).officeHeading || ""}
+                                    onChange={(e) => updateContentField("officeHeading", e.target.value)}
+                                  />
                                   <Input
                                     placeholder="Office line 1"
                                     value={((formData.content || {}) as Record<string, any>).officeLine1 || ""}
@@ -874,6 +900,11 @@ export function SupportPagesManagement() {
 
                                 <div className="rounded-lg border bg-background p-3 space-y-3">
                                   <Label className="text-xs font-semibold">Response Time Section</Label>
+                                  <Input
+                                    placeholder="Response time heading"
+                                    value={((formData.content || {}) as Record<string, any>).responseTimeHeading || ""}
+                                    onChange={(e) => updateContentField("responseTimeHeading", e.target.value)}
+                                  />
                                   <Input
                                     placeholder="Response time text"
                                     value={((formData.content || {}) as Record<string, any>).responseTime || ""}

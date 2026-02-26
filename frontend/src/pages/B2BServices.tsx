@@ -278,6 +278,12 @@ export default function B2BServices() {
     };
   });
   const trustedLogos = content?.trustedLogos || defaultContent.trustedLogos;
+  const heroTrustIndustries = Array.isArray(content?.heroTrustIndustries) && content.heroTrustIndustries.length > 0
+    ? content.heroTrustIndustries
+    : defaultContent.heroTrustIndustries;
+  const finalCtaItems = Array.isArray(content?.ctaItems) && content.ctaItems.length > 0
+    ? content.ctaItems
+    : defaultContent.ctaItems;
   const heroLine1 =
     content?.heroTitleLine1 ||
     page?.heroTitle ||
@@ -330,7 +336,13 @@ export default function B2BServices() {
             </div>
             
             <p className="text-sm text-muted-foreground">
-              {content?.heroTrustText || defaultContent.heroTrustText} <span className="text-foreground font-medium">{(content?.heroTrustIndustries || defaultContent.heroTrustIndustries)[0]}</span>, <span className="text-foreground font-medium">{(content?.heroTrustIndustries || defaultContent.heroTrustIndustries)[1]}</span>, <span className="text-foreground font-medium">{(content?.heroTrustIndustries || defaultContent.heroTrustIndustries)[2]}</span>, and <span className="text-foreground font-medium">{(content?.heroTrustIndustries || defaultContent.heroTrustIndustries)[3]}</span>
+              {content?.heroTrustText || defaultContent.heroTrustText}{" "}
+              {heroTrustIndustries.map((item: string, index: number) => (
+                <span key={`${item}-${index}`}>
+                  {index > 0 && (index === heroTrustIndustries.length - 1 ? ", and " : ", ")}
+                  <span className="text-foreground font-medium">{item}</span>
+                </span>
+              ))}
             </p>
           </div>
         </div>
@@ -484,22 +496,17 @@ export default function B2BServices() {
                 </Link>
               </Button>
               
-              <p className="mt-8 text-sm text-muted-foreground">
-                <span className="inline-flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  {(content?.ctaItems || defaultContent.ctaItems)[0]}
-                </span>
-                <span className="mx-3 text-border">•</span>
-                <span className="inline-flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  {(content?.ctaItems || defaultContent.ctaItems)[1]}
-                </span>
-                <span className="mx-3 text-border">•</span>
-                <span className="inline-flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  {(content?.ctaItems || defaultContent.ctaItems)[2]}
-                </span>
-              </p>
+              {finalCtaItems.length > 0 && (
+                <p className="mt-8 text-sm text-muted-foreground flex flex-wrap items-center justify-center gap-y-2">
+                  {finalCtaItems.map((item: string, index: number) => (
+                    <span key={`${item}-${index}`} className="inline-flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+                      {item}
+                      {index < finalCtaItems.length - 1 && <span className="mx-3 text-border">•</span>}
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
           </div>
         </div>
