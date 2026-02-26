@@ -192,23 +192,36 @@ const defaultContentByKind: Record<SupportKind, Record<string, any>> = {
     title: "Terms of Service",
     description: "By using VAYPR, you agree to these terms. Please read them carefully.",
     lastUpdated: "February 14, 2026",
+    acceptanceHeading: "1. Acceptance of Terms",
     acceptanceOfTerms: "",
+    useOfServiceHeading: "2. Use of Service",
     useOfServiceIntro: "",
     useOfServiceItems: [],
+    accountResponsibilitiesHeading: "3. Account Responsibilities",
     accountResponsibilitiesIntro: "",
     accountResponsibilitiesItems: [],
+    subscriptionAndBillingHeading: "4. Subscription and Billing",
     subscriptionAndBilling: "",
+    intellectualPropertyHeading: "5. Intellectual Property",
     intellectualProperty: "",
+    dataAndPrivacyHeading: "6. Data and Privacy",
     dataAndPrivacy: "",
+    serviceAvailabilityHeading: "7. Service Availability",
     serviceAvailability: "",
+    terminationHeading: "8. Termination",
     termination: "",
+    limitationOfLiabilityHeading: "9. Limitation of Liability",
     limitationOfLiability: "",
+    changesToTermsHeading: "10. Changes to Terms",
     changesToTerms: "",
+    governingLawHeading: "11. Governing Law",
     governingLaw: "",
+    contactHeading: "12. Contact Information",
     contactIntro: "",
     contactEmail: "",
     contactAddress: "",
     contactPhone: "",
+    additionalSections: [],
   },
   custom: {},
 };
@@ -289,6 +302,31 @@ export function SupportPagesManagement() {
     const refundRequestSteps = Array.isArray(rawContent.requestSteps)
       ? rawContent.requestSteps
       : [];
+    const termsUseOfServiceItems = Array.isArray(rawContent.useOfServiceItems)
+      ? rawContent.useOfServiceItems
+      : [];
+    const termsAccountResponsibilityItems = Array.isArray(rawContent.accountResponsibilitiesItems)
+      ? rawContent.accountResponsibilitiesItems
+      : [];
+    const termsAdditionalSections = Array.isArray(rawContent.additionalSections)
+      ? rawContent.additionalSections
+      : [];
+    const normalizedTermsContent =
+      pageKind === "terms"
+        ? {
+            ...defaultContentByKind.terms,
+            ...rawContent,
+            useOfServiceItems:
+              termsUseOfServiceItems.length > 0
+                ? termsUseOfServiceItems
+                : defaultContentByKind.terms.useOfServiceItems,
+            accountResponsibilitiesItems:
+              termsAccountResponsibilityItems.length > 0
+                ? termsAccountResponsibilityItems
+                : defaultContentByKind.terms.accountResponsibilitiesItems,
+            additionalSections: termsAdditionalSections,
+          }
+        : {};
     const normalizedRefundContent =
       pageKind === "refund"
         ? {
@@ -368,10 +406,12 @@ export function SupportPagesManagement() {
                 ? normalizedSubjectOptions
                 : defaultContentByKind.contact.subjectOptions,
             }
-          : pageKind === "privacy"
-            ? { sections: privacySections }
+            : pageKind === "privacy"
+              ? { sections: privacySections }
             : pageKind === "refund"
               ? normalizedRefundContent
+            : pageKind === "terms"
+              ? normalizedTermsContent
             : {}),
       },
       enabled: page.enabled,
@@ -1054,56 +1094,151 @@ export function SupportPagesManagement() {
 
                             {pageKind === "terms" && (
                               <div className="space-y-3">
-                                <Input placeholder="Hero title" value={((formData.content || {}) as Record<string, any>).title || ""} onChange={(e) => updateContentField("title", e.target.value)} />
-                                <Textarea placeholder="Hero description" value={((formData.content || {}) as Record<string, any>).description || ""} onChange={(e) => updateContentField("description", e.target.value)} />
-                                <Input placeholder="Last updated text" value={((formData.content || {}) as Record<string, any>).lastUpdated || ""} onChange={(e) => updateContentField("lastUpdated", e.target.value)} />
-                                <Textarea placeholder="Acceptance of terms" value={((formData.content || {}) as Record<string, any>).acceptanceOfTerms || ""} onChange={(e) => updateContentField("acceptanceOfTerms", e.target.value)} />
-                                <Textarea placeholder="Use of service intro" value={((formData.content || {}) as Record<string, any>).useOfServiceIntro || ""} onChange={(e) => updateContentField("useOfServiceIntro", e.target.value)} />
-                                <div className="space-y-2">
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Hero Section</Label>
+                                  <Input placeholder="Hero title" value={((formData.content || {}) as Record<string, any>).title || ""} onChange={(e) => updateContentField("title", e.target.value)} />
+                                  <Textarea placeholder="Hero description" value={((formData.content || {}) as Record<string, any>).description || ""} onChange={(e) => updateContentField("description", e.target.value)} />
+                                  <Input placeholder="Last updated text" value={((formData.content || {}) as Record<string, any>).lastUpdated || ""} onChange={(e) => updateContentField("lastUpdated", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 1</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).acceptanceHeading || ""} onChange={(e) => updateContentField("acceptanceHeading", e.target.value)} />
+                                  <Textarea placeholder="Acceptance of terms content" value={((formData.content || {}) as Record<string, any>).acceptanceOfTerms || ""} onChange={(e) => updateContentField("acceptanceOfTerms", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 2</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).useOfServiceHeading || ""} onChange={(e) => updateContentField("useOfServiceHeading", e.target.value)} />
+                                  <Textarea placeholder="Use of service intro" value={((formData.content || {}) as Record<string, any>).useOfServiceIntro || ""} onChange={(e) => updateContentField("useOfServiceIntro", e.target.value)} />
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <Label className="text-xs">Use of Service Items</Label>
+                                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStringArrayItem("useOfServiceItems")}>
+                                        <Plus className="w-3 h-3 mr-1" /> Add
+                                      </Button>
+                                    </div>
+                                    {((((formData.content || {}) as Record<string, any>).useOfServiceItems || []) as string[]).map((item, idx) => (
+                                      <div key={idx} className="flex items-center gap-2">
+                                        <Input value={item} onChange={(e) => updateStringArrayItem("useOfServiceItems", idx, e.target.value)} />
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeStringArrayItem("useOfServiceItems", idx)}>
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 3</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).accountResponsibilitiesHeading || ""} onChange={(e) => updateContentField("accountResponsibilitiesHeading", e.target.value)} />
+                                  <Textarea placeholder="Account responsibilities intro" value={((formData.content || {}) as Record<string, any>).accountResponsibilitiesIntro || ""} onChange={(e) => updateContentField("accountResponsibilitiesIntro", e.target.value)} />
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <Label className="text-xs">Account Responsibilities Items</Label>
+                                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStringArrayItem("accountResponsibilitiesItems")}>
+                                        <Plus className="w-3 h-3 mr-1" /> Add
+                                      </Button>
+                                    </div>
+                                    {((((formData.content || {}) as Record<string, any>).accountResponsibilitiesItems || []) as string[]).map((item, idx) => (
+                                      <div key={idx} className="flex items-center gap-2">
+                                        <Input value={item} onChange={(e) => updateStringArrayItem("accountResponsibilitiesItems", idx, e.target.value)} />
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeStringArrayItem("accountResponsibilitiesItems", idx)}>
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 4</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).subscriptionAndBillingHeading || ""} onChange={(e) => updateContentField("subscriptionAndBillingHeading", e.target.value)} />
+                                  <Textarea placeholder="Subscription and billing" value={((formData.content || {}) as Record<string, any>).subscriptionAndBilling || ""} onChange={(e) => updateContentField("subscriptionAndBilling", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 5</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).intellectualPropertyHeading || ""} onChange={(e) => updateContentField("intellectualPropertyHeading", e.target.value)} />
+                                  <Textarea placeholder="Intellectual property" value={((formData.content || {}) as Record<string, any>).intellectualProperty || ""} onChange={(e) => updateContentField("intellectualProperty", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 6</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).dataAndPrivacyHeading || ""} onChange={(e) => updateContentField("dataAndPrivacyHeading", e.target.value)} />
+                                  <Textarea placeholder="Data and privacy" value={((formData.content || {}) as Record<string, any>).dataAndPrivacy || ""} onChange={(e) => updateContentField("dataAndPrivacy", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 7</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).serviceAvailabilityHeading || ""} onChange={(e) => updateContentField("serviceAvailabilityHeading", e.target.value)} />
+                                  <Textarea placeholder="Service availability" value={((formData.content || {}) as Record<string, any>).serviceAvailability || ""} onChange={(e) => updateContentField("serviceAvailability", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 8</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).terminationHeading || ""} onChange={(e) => updateContentField("terminationHeading", e.target.value)} />
+                                  <Textarea placeholder="Termination" value={((formData.content || {}) as Record<string, any>).termination || ""} onChange={(e) => updateContentField("termination", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 9</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).limitationOfLiabilityHeading || ""} onChange={(e) => updateContentField("limitationOfLiabilityHeading", e.target.value)} />
+                                  <Textarea placeholder="Limitation of liability" value={((formData.content || {}) as Record<string, any>).limitationOfLiability || ""} onChange={(e) => updateContentField("limitationOfLiability", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 10</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).changesToTermsHeading || ""} onChange={(e) => updateContentField("changesToTermsHeading", e.target.value)} />
+                                  <Textarea placeholder="Changes to terms" value={((formData.content || {}) as Record<string, any>).changesToTerms || ""} onChange={(e) => updateContentField("changesToTerms", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 11</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).governingLawHeading || ""} onChange={(e) => updateContentField("governingLawHeading", e.target.value)} />
+                                  <Textarea placeholder="Governing law" value={((formData.content || {}) as Record<string, any>).governingLaw || ""} onChange={(e) => updateContentField("governingLaw", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Section 12</Label>
+                                  <Input placeholder="Heading" value={((formData.content || {}) as Record<string, any>).contactHeading || ""} onChange={(e) => updateContentField("contactHeading", e.target.value)} />
+                                  <Textarea placeholder="Contact intro" value={((formData.content || {}) as Record<string, any>).contactIntro || ""} onChange={(e) => updateContentField("contactIntro", e.target.value)} />
+                                  <Input placeholder="Contact email" value={((formData.content || {}) as Record<string, any>).contactEmail || ""} onChange={(e) => updateContentField("contactEmail", e.target.value)} />
+                                  <Input placeholder="Contact address" value={((formData.content || {}) as Record<string, any>).contactAddress || ""} onChange={(e) => updateContentField("contactAddress", e.target.value)} />
+                                  <Input placeholder="Contact phone" value={((formData.content || {}) as Record<string, any>).contactPhone || ""} onChange={(e) => updateContentField("contactPhone", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-2">
                                   <div className="flex items-center justify-between">
-                                    <Label className="text-xs">Use of Service Items</Label>
-                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStringArrayItem("useOfServiceItems")}>
-                                      <Plus className="w-3 h-3 mr-1" /> Add
+                                    <Label className="text-xs font-semibold">Additional Sections</Label>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => addContentArrayItem("additionalSections", { title: "", content: "" })}
+                                    >
+                                      <Plus className="w-3 h-3 mr-1" /> Add Section
                                     </Button>
                                   </div>
-                                  {((((formData.content || {}) as Record<string, any>).useOfServiceItems || []) as string[]).map((item, idx) => (
-                                    <div key={idx} className="flex items-center gap-2">
-                                      <Input value={item} onChange={(e) => updateStringArrayItem("useOfServiceItems", idx, e.target.value)} />
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeStringArrayItem("useOfServiceItems", idx)}>
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
+                                  {((((formData.content || {}) as Record<string, any>).additionalSections || []) as Array<{ title: string; content: string }>).map((item, idx) => (
+                                    <div key={idx} className="rounded border p-3 bg-card/50 space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label className="text-xs">Extra Section {idx + 1}</Label>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeContentArrayItem("additionalSections", idx)}>
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Heading</Label>
+                                        <Input className="mt-1" placeholder="Heading" value={item?.title || ""} onChange={(e) => updateContentArrayItem("additionalSections", idx, "title", e.target.value)} />
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Content</Label>
+                                        <Textarea className="mt-1" placeholder="Content" value={item?.content || ""} onChange={(e) => updateContentArrayItem("additionalSections", idx, "content", e.target.value)} />
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
-                                <Textarea placeholder="Account responsibilities intro" value={((formData.content || {}) as Record<string, any>).accountResponsibilitiesIntro || ""} onChange={(e) => updateContentField("accountResponsibilitiesIntro", e.target.value)} />
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <Label className="text-xs">Account Responsibilities Items</Label>
-                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStringArrayItem("accountResponsibilitiesItems")}>
-                                      <Plus className="w-3 h-3 mr-1" /> Add
-                                    </Button>
-                                  </div>
-                                  {((((formData.content || {}) as Record<string, any>).accountResponsibilitiesItems || []) as string[]).map((item, idx) => (
-                                    <div key={idx} className="flex items-center gap-2">
-                                      <Input value={item} onChange={(e) => updateStringArrayItem("accountResponsibilitiesItems", idx, e.target.value)} />
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeStringArrayItem("accountResponsibilitiesItems", idx)}>
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                                <Textarea placeholder="Subscription and billing" value={((formData.content || {}) as Record<string, any>).subscriptionAndBilling || ""} onChange={(e) => updateContentField("subscriptionAndBilling", e.target.value)} />
-                                <Textarea placeholder="Intellectual property" value={((formData.content || {}) as Record<string, any>).intellectualProperty || ""} onChange={(e) => updateContentField("intellectualProperty", e.target.value)} />
-                                <Textarea placeholder="Data and privacy" value={((formData.content || {}) as Record<string, any>).dataAndPrivacy || ""} onChange={(e) => updateContentField("dataAndPrivacy", e.target.value)} />
-                                <Textarea placeholder="Service availability" value={((formData.content || {}) as Record<string, any>).serviceAvailability || ""} onChange={(e) => updateContentField("serviceAvailability", e.target.value)} />
-                                <Textarea placeholder="Termination" value={((formData.content || {}) as Record<string, any>).termination || ""} onChange={(e) => updateContentField("termination", e.target.value)} />
-                                <Textarea placeholder="Limitation of liability" value={((formData.content || {}) as Record<string, any>).limitationOfLiability || ""} onChange={(e) => updateContentField("limitationOfLiability", e.target.value)} />
-                                <Textarea placeholder="Changes to terms" value={((formData.content || {}) as Record<string, any>).changesToTerms || ""} onChange={(e) => updateContentField("changesToTerms", e.target.value)} />
-                                <Textarea placeholder="Governing law" value={((formData.content || {}) as Record<string, any>).governingLaw || ""} onChange={(e) => updateContentField("governingLaw", e.target.value)} />
-                                <Textarea placeholder="Contact intro" value={((formData.content || {}) as Record<string, any>).contactIntro || ""} onChange={(e) => updateContentField("contactIntro", e.target.value)} />
-                                <Input placeholder="Contact email" value={((formData.content || {}) as Record<string, any>).contactEmail || ""} onChange={(e) => updateContentField("contactEmail", e.target.value)} />
-                                <Input placeholder="Contact address" value={((formData.content || {}) as Record<string, any>).contactAddress || ""} onChange={(e) => updateContentField("contactAddress", e.target.value)} />
-                                <Input placeholder="Contact phone" value={((formData.content || {}) as Record<string, any>).contactPhone || ""} onChange={(e) => updateContentField("contactPhone", e.target.value)} />
                               </div>
                             )}
                             <p className="text-xs text-muted-foreground">

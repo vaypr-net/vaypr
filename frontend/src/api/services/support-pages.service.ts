@@ -34,6 +34,7 @@ export interface SupportPage {
   icon?: string;
   sections: ContentSection[];
   contactFormSettings?: ContactFormSettings;
+  content?: Record<string, any>;
   enabled: boolean;
   showInFooter: boolean;
   order: number;
@@ -49,6 +50,7 @@ export interface CreateSupportPageDto {
   icon?: string;
   sections?: ContentSection[];
   contactFormSettings?: ContactFormSettings;
+  content?: Record<string, any>;
   enabled?: boolean;
   showInFooter?: boolean;
   order?: number;
@@ -62,6 +64,7 @@ export interface UpdateSupportPageDto {
   icon?: string;
   sections?: ContentSection[];
   contactFormSettings?: ContactFormSettings;
+  content?: Record<string, any>;
   enabled?: boolean;
   showInFooter?: boolean;
   order?: number;

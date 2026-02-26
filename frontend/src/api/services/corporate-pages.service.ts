@@ -52,6 +52,7 @@ export interface CorporatePage {
   teamMembers?: TeamMember[];
   features?: ServiceFeature[];
   ctaSection?: CTASection;
+  content?: Record<string, any>;
   enabled: boolean;
   showInFooter: boolean;
   order: number;
@@ -72,6 +73,7 @@ export interface CreateCorporatePageDto {
   teamMembers?: TeamMember[];
   features?: ServiceFeature[];
   ctaSection?: CTASection;
+  content?: Record<string, any>;
   enabled?: boolean;
   showInFooter?: boolean;
   order?: number;
@@ -90,6 +92,7 @@ export interface UpdateCorporatePageDto {
   teamMembers?: TeamMember[];
   features?: ServiceFeature[];
   ctaSection?: CTASection;
+  content?: Record<string, any>;
   enabled?: boolean;
   showInFooter?: boolean;
   order?: number;
@@ -100,7 +103,10 @@ export type GuideFileType = 'pdf' | 'image';
 export interface Guide {
   _id: string;
   title: string;
+  category?: string;
   description: string;
+  difficulty?: string;
+  duration?: string;
   fileType: GuideFileType;
   fileName: string;
   fileUrl: string;
@@ -112,7 +118,10 @@ export interface Guide {
 
 export interface CreateGuideDto {
   title: string;
+  category?: string;
   description: string;
+  difficulty?: string;
+  duration?: string;
   fileType: GuideFileType;
   fileName: string;
   fileUrl: string;
@@ -233,6 +242,23 @@ export const corporatePagesService = {
       `${API_BASE_URL}/corporate/admin/guides`,
       data,
       getAuthHeaders()
+    );
+    return response.data;
+  },
+
+  uploadGuideFile: async (file: File): Promise<{ url: string; publicId?: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await axios.post<{ url: string; publicId?: string }>(
+      `${API_BASE_URL}/corporate/admin/guides/upload`,
+      formData,
+      {
+        ...getAuthHeaders(),
+        headers: {
+          ...getAuthHeaders().headers,
+          'Content-Type': 'multipart/form-data',
+        },
+      },
     );
     return response.data;
   },

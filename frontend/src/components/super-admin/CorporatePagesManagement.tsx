@@ -44,7 +44,7 @@ export function CorporatePagesManagement() {
   const [showInitDialog, setShowInitDialog] = useState(false);
 
   // React Query hooks
-  const { data: pages = [], isLoading } = useCorporatePages();
+  const { data: pages = [], isLoading } = useCorporatePages({ enabledOnly: false });
   const updatePageMutation = useUpdateCorporatePage();
   const toggleEnabledMutation = useToggleCorporatePageEnabled();
   const toggleFooterMutation = useToggleCorporatePageFooter();

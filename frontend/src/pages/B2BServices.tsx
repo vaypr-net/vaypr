@@ -1,151 +1,200 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield, Settings2, Zap, HeadphonesIcon, FileText, Receipt, Users, RefreshCw, PieChart, Palette, Brush, Globe, Brain, Code, Mail, UserCheck, TrendingUp, Layers, Link2, Building2, Briefcase, ShoppingCart, Scale, Database, GraduationCap, LayoutDashboard, AlertTriangle } from "lucide-react";
+import { useCorporatePageBySlug } from "@/hooks/useCorporatePages";
 
-// Enterprise Value Pillars
-const valuePillars = [{
-  icon: Shield,
-  title: "Control & Permissions",
-  description: "Granular role-based access, approval workflows, and audit trails for complete financial governance."
-}, {
-  icon: Zap,
-  title: "Automate at Scale",
-  description: "Eliminate manual work with recurring billing, automated reminders, and intelligent categorization."
-}, {
-  icon: Layers,
-  title: "Integrate with Your Stack",
-  description: "Connect VAYPR to your ERP, CRM, and accounting tools via secure REST APIs and webhooks."
-}, {
-  icon: HeadphonesIcon,
-  title: "Dedicated Support",
-  description: "A named account manager, priority escalation, and tailored onboarding for your teams."
-}];
+const defaultContent = {
+  heroEyebrow: "Enterprise Finance Platform",
+  heroTitleLine1: "Built for Enterprise",
+  heroTitleLine2: "Finance Operations",
+  heroDescription:
+    "Centralize invoicing, subscriptions, expenses, and reporting with approvals, integrations, and dedicated support, designed for scale.",
+  heroTrustText: "Trusted by teams in",
+  heroTrustIndustries: ["SaaS", "Agencies", "Retail", "Professional Services"],
 
-// Enterprise Capabilities
-const enterpriseCapabilities = {
-  "Billing & Documents": [{
-    icon: FileText,
-    title: "Unlimited Invoices",
-    description: "Create and manage invoices at scale with consistent formatting and controls."
+  valuePillars: [{
+    icon: Shield,
+    title: "Control & Permissions",
+    description: "Granular role-based access, approval workflows, and audit trails for complete financial governance."
   }, {
-    icon: FileText,
-    title: "Unlimited Quotes",
-    description: "Generate professional quotes and convert them into invoices seamlessly."
+    icon: Zap,
+    title: "Automate at Scale",
+    description: "Eliminate manual work with recurring billing, automated reminders, and intelligent categorization."
   }, {
-    icon: Receipt,
-    title: "Unlimited Receipts",
-    description: "Store and organize receipts for clean reconciliation and reporting."
+    icon: Layers,
+    title: "Integrate with Your Stack",
+    description: "Connect VAYPR to your ERP, CRM, and accounting tools via secure REST APIs and webhooks."
+  }, {
+    icon: HeadphonesIcon,
+    title: "Dedicated Support",
+    description: "A named account manager, priority escalation, and tailored onboarding for your teams."
   }],
-  "Automation & Subscriptions": [{
-    icon: RefreshCw,
-    title: "Recurring Subscriptions",
-    description: "Automate recurring billing schedules, renewals, and reminders."
+
+  capabilitiesTitle: "Enterprise Capabilities",
+  capabilitiesDescription:
+    "A comprehensive suite of tools designed for organizations that demand reliability, scalability, and complete control over their financial operations.",
+  enterpriseCapabilities: {
+    "Billing & Documents": [{
+      icon: FileText,
+      title: "Unlimited Invoices",
+      description: "Create and manage invoices at scale with consistent formatting and controls."
+    }, {
+      icon: FileText,
+      title: "Unlimited Quotes",
+      description: "Generate professional quotes and convert them into invoices seamlessly."
+    }, {
+      icon: Receipt,
+      title: "Unlimited Receipts",
+      description: "Store and organize receipts for clean reconciliation and reporting."
+    }],
+    "Automation & Subscriptions": [{
+      icon: RefreshCw,
+      title: "Recurring Subscriptions",
+      description: "Automate recurring billing schedules, renewals, and reminders."
+    }, {
+      icon: PieChart,
+      title: "Expense Tracking",
+      description: "Capture, categorize, and monitor expenses across teams and projects."
+    }, {
+      icon: Settings2,
+      title: "Advanced Expense Tracking",
+      description: "Add granular rules, approvals, and audit-friendly workflows."
+    }],
+    "Branding & Customization": [{
+      icon: Palette,
+      title: "Custom Templates",
+      description: "Build standardized templates aligned with your corporate identity."
+    }, {
+      icon: Brush,
+      title: "Graphic Designer for Templates",
+      description: "Get expert help crafting polished, on-brand templates quickly."
+    }, {
+      icon: Globe,
+      title: "White-label Options",
+      description: "Present a fully branded experience for subsidiaries or client-facing portals."
+    }],
+    "Integrations & Platform": [{
+      icon: Brain,
+      title: "AI Integration System",
+      description: "Automate data extraction, categorization, and workflow suggestions using AI-ready tools."
+    }, {
+      icon: Code,
+      title: "API Access",
+      description: "Connect VAYPR to internal systems and external apps with secure endpoints."
+    }, {
+      icon: Database,
+      title: "Secure Data Connectors",
+      description: "Sync VAYPR with ERPs, banking feeds, and cloud tools using pre-built connectors, scheduled imports, and validation checks."
+    }],
+    "Support & Success": [{
+      icon: Mail,
+      title: "Priority Email Support",
+      description: "Faster responses and escalations when your team needs help."
+    }, {
+      icon: UserCheck,
+      title: "Dedicated Account Manager",
+      description: "A single point of contact for onboarding, rollout, and ongoing success."
+    }, {
+      icon: GraduationCap,
+      title: "Onboarding & Enablement",
+      description: "Guided setup, tailored best practices, and team training to accelerate rollout and drive adoption across your org."
+    }],
+    "Insights & Analytics": [{
+      icon: TrendingUp,
+      title: "Smart Financial Analytics",
+      description: "High-level visibility into trends, performance, and operational efficiency."
+    }, {
+      icon: LayoutDashboard,
+      title: "Real-Time Performance Dashboards",
+      description: "Track key KPIs in one place with customizable dashboards, filters, and shareable views for every stakeholder."
+    }, {
+      icon: AlertTriangle,
+      title: "Forecasting & Anomaly Alerts",
+      description: "Run what-if scenarios, project trends, and get notified when spend, cash flow, or performance metrics deviate from plan."
+    }]
+  },
+
+  integrationsTitle: "Integrations & Automation",
+  integrationsDescription:
+    "Connect your existing stack with secure REST APIs, webhooks, and AI-powered automation.",
+  integrations: [{
+    name: "Slack",
+    icon: "💬"
   }, {
-    icon: PieChart,
-    title: "Expense Tracking",
-    description: "Capture, categorize, and monitor expenses across teams and projects."
+    name: "Zapier",
+    icon: "⚡"
   }, {
-    icon: Settings2,
-    title: "Advanced Expense Tracking",
-    description: "Add granular rules, approvals, and audit-friendly workflows."
+    name: "QuickBooks",
+    icon: "📊"
+  }, {
+    name: "Xero",
+    icon: "📈"
+  }, {
+    name: "Salesforce",
+    icon: "☁️"
+  }, {
+    name: "HubSpot",
+    icon: "🔶"
   }],
-  "Branding & Customization": [{
-    icon: Palette,
-    title: "Custom Templates",
-    description: "Build standardized templates aligned with your corporate identity."
+  customIntegrationsText: "Plus custom integrations for enterprise needs",
+
+  industriesTitle: "Trusted Across Industries",
+  industriesDescription:
+    "See how organizations like yours use VAYPR to streamline their financial operations.",
+  trustedLogos: ["TechCorp", "FinanceHub", "CloudScale", "DataFlow", "InnovateCo", "GlobalTech"],
+  industries: [{
+    icon: Layers,
+    title: "SaaS & Tech",
+    description: "Automate subscription billing, manage usage-based pricing, and integrate with your existing stack."
   }, {
-    icon: Brush,
-    title: "Graphic Designer for Templates",
-    description: "Get expert help crafting polished, on-brand templates quickly."
+    icon: Briefcase,
+    title: "Agencies & Consultancies",
+    description: "Streamline client billing with project-based invoicing, retainer management, and branded portals."
   }, {
-    icon: Globe,
-    title: "White-label Options",
-    description: "Present a fully branded experience for subsidiaries or client-facing portals."
+    icon: ShoppingCart,
+    title: "E-commerce & Retail",
+    description: "Multi-currency support, bulk invoicing, and seamless integration with sales platforms."
+  }, {
+    icon: Scale,
+    title: "Professional Services",
+    description: "Time tracking integration, expense management, and detailed reporting for law firms and accountants."
   }],
-  "Integrations & Platform": [{
-    icon: Brain,
-    title: "AI Integration System",
-    description: "Automate data extraction, categorization, and workflow suggestions using AI-ready tools."
-  }, {
-    icon: Code,
-    title: "API Access",
-    description: "Connect VAYPR to internal systems and external apps with secure endpoints."
-  }, {
-    icon: Database,
-    title: "Secure Data Connectors",
-    description: "Sync VAYPR with ERPs, banking feeds, and cloud tools using pre-built connectors, scheduled imports, and validation checks."
-  }],
-  "Support & Success": [{
-    icon: Mail,
-    title: "Priority Email Support",
-    description: "Faster responses and escalations when your team needs help."
-  }, {
-    icon: UserCheck,
-    title: "Dedicated Account Manager",
-    description: "A single point of contact for onboarding, rollout, and ongoing success."
-  }, {
-    icon: GraduationCap,
-    title: "Onboarding & Enablement",
-    description: "Guided setup, tailored best practices, and team training to accelerate rollout and drive adoption across your org."
-  }],
-  "Insights & Analytics": [{
-    icon: TrendingUp,
-    title: "Smart Financial Analytics",
-    description: "High-level visibility into trends, performance, and operational efficiency."
-  }, {
-    icon: LayoutDashboard,
-    title: "Real-Time Performance Dashboards",
-    description: "Track key KPIs in one place with customizable dashboards, filters, and shareable views for every stakeholder."
-  }, {
-    icon: AlertTriangle,
-    title: "Forecasting & Anomaly Alerts",
-    description: "Run what-if scenarios, project trends, and get notified when spend, cash flow, or performance metrics deviate from plan."
-  }]
+
+  ctaTitle: "Ready to Scale Finance Operations?",
+  ctaDescription: "Let's map VAYPR to your workflows, integrations, and approval structure.",
+  ctaItems: ["Enterprise onboarding", "Dedicated support", "Custom rollout"]
 };
-
-// Integration logos (placeholders)
-const integrations = [{
-  name: "Slack",
-  icon: "💬"
-}, {
-  name: "Zapier",
-  icon: "⚡"
-}, {
-  name: "QuickBooks",
-  icon: "📊"
-}, {
-  name: "Xero",
-  icon: "📈"
-}, {
-  name: "Salesforce",
-  icon: "☁️"
-}, {
-  name: "HubSpot",
-  icon: "🔶"
-}];
-
-// Industries
-const industries = [{
-  icon: Layers,
-  title: "SaaS & Tech",
-  description: "Automate subscription billing, manage usage-based pricing, and integrate with your existing stack."
-}, {
-  icon: Briefcase,
-  title: "Agencies & Consultancies",
-  description: "Streamline client billing with project-based invoicing, retainer management, and branded portals."
-}, {
-  icon: ShoppingCart,
-  title: "E-commerce & Retail",
-  description: "Multi-currency support, bulk invoicing, and seamless integration with sales platforms."
-}, {
-  icon: Scale,
-  title: "Professional Services",
-  description: "Time tracking integration, expense management, and detailed reporting for law firms and accountants."
-}];
-
-// Trusted company logos (placeholders)
-const trustedLogos = ["TechCorp", "FinanceHub", "CloudScale", "DataFlow", "InnovateCo", "GlobalTech"];
 export default function B2BServices() {
+  const { data: apiContent } = useCorporatePageBySlug("b2b");
+  const content = (apiContent as any)?.content ?? defaultContent;
+  const valuePillarIcons = [Shield, Zap, Layers, HeadphonesIcon];
+  const industryIcons = [Layers, Briefcase, ShoppingCart, Scale];
+  const valuePillars = (content?.valuePillars || defaultContent.valuePillars).map((pillar: any, index: number) => {
+    const defaultItem = defaultContent.valuePillars[index] || {};
+    return {
+      ...defaultItem,
+      ...pillar,
+      icon:
+        pillar?.icon ||
+        defaultItem?.icon ||
+        valuePillarIcons[index % valuePillarIcons.length],
+    };
+  });
+  const enterpriseCapabilities = content?.enterpriseCapabilities || defaultContent.enterpriseCapabilities;
+  const integrations = content?.integrations || defaultContent.integrations;
+  const industries = (content?.industries || defaultContent.industries).map((industry: any, index: number) => {
+    const defaultItem = defaultContent.industries[index] || {};
+    return {
+      ...defaultItem,
+      ...industry,
+      icon:
+        industry?.icon ||
+        defaultItem?.icon ||
+        industryIcons[index % industryIcons.length],
+    };
+  });
+  const trustedLogos = content?.trustedLogos || defaultContent.trustedLogos;
+
   return <div>
       {/* Hero Section */}
       <section className="py-20 sm:py-28 lg:py-32 relative overflow-hidden">
@@ -155,15 +204,15 @@ export default function B2BServices() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="max-w-4xl mx-auto text-center">
             <p className="text-primary font-semibold text-sm uppercase tracking-widest mb-4">
-              Enterprise Finance Platform
+              {content?.heroEyebrow || defaultContent.heroEyebrow}
             </p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-display font-bold text-foreground mb-6 leading-[1.1] tracking-tight">
-              Built for Enterprise
+              {content?.heroTitleLine1 || defaultContent.heroTitleLine1}
               <br />
-              <span className="text-primary">Finance Operations</span>
+              <span className="text-primary">{content?.heroTitleLine2 || defaultContent.heroTitleLine2}</span>
             </h1>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Centralize invoicing, subscriptions, expenses, and reporting with approvals, integrations, and dedicated support, designed for scale.
+              {content?.heroDescription || defaultContent.heroDescription}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 mb-8 justify-center">
@@ -176,7 +225,7 @@ export default function B2BServices() {
             </div>
             
             <p className="text-sm text-muted-foreground">
-              Trusted by teams in <span className="text-foreground font-medium">SaaS</span>, <span className="text-foreground font-medium">Agencies</span>, <span className="text-foreground font-medium">Retail</span>, and <span className="text-foreground font-medium">Professional Services</span>
+              {content?.heroTrustText || defaultContent.heroTrustText} <span className="text-foreground font-medium">{(content?.heroTrustIndustries || defaultContent.heroTrustIndustries)[0]}</span>, <span className="text-foreground font-medium">{(content?.heroTrustIndustries || defaultContent.heroTrustIndustries)[1]}</span>, <span className="text-foreground font-medium">{(content?.heroTrustIndustries || defaultContent.heroTrustIndustries)[2]}</span>, and <span className="text-foreground font-medium">{(content?.heroTrustIndustries || defaultContent.heroTrustIndustries)[3]}</span>
             </p>
           </div>
         </div>
@@ -209,11 +258,10 @@ export default function B2BServices() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center mb-12 lg:mb-16">
             <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4 tracking-tight">
-              Enterprise Capabilities
+              {content?.capabilitiesTitle || defaultContent.capabilitiesTitle}
             </h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              A comprehensive suite of tools designed for organizations that demand reliability, 
-              scalability, and complete control over their financial operations.
+              {content?.capabilitiesDescription || defaultContent.capabilitiesDescription}
             </p>
           </div>
 
@@ -250,10 +298,10 @@ export default function B2BServices() {
                 <Link2 className="h-7 w-7 text-primary" />
               </div>
               <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4 tracking-tight">
-                Integrations & Automation
+                {content?.integrationsTitle || defaultContent.integrationsTitle}
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Connect your existing stack with secure REST APIs, webhooks, and AI-powered automation.
+                {content?.integrationsDescription || defaultContent.integrationsDescription}
               </p>
             </div>
 
@@ -265,7 +313,7 @@ export default function B2BServices() {
             </div>
             
             <p className="text-center text-sm text-muted-foreground">
-              Plus custom integrations for enterprise needs
+              {content?.customIntegrationsText || defaultContent.customIntegrationsText}
             </p>
           </div>
         </div>
@@ -276,10 +324,10 @@ export default function B2BServices() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 lg:mb-16">
             <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4 tracking-tight">
-              Trusted Across Industries
+              {content?.industriesTitle || defaultContent.industriesTitle}
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              See how organizations like yours use VAYPR to streamline their financial operations.
+              {content?.industriesDescription || defaultContent.industriesDescription}
             </p>
           </div>
 
@@ -318,10 +366,10 @@ export default function B2BServices() {
                 <Building2 className="h-8 w-8 text-primary" />
               </div>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-foreground mb-6 tracking-tight">
-                Ready to Scale Finance Operations?
+                {content?.ctaTitle || defaultContent.ctaTitle}
               </h2>
               <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-                Let's map VAYPR to your workflows, integrations, and approval structure.
+                {content?.ctaDescription || defaultContent.ctaDescription}
               </p>
               
               <Button size="lg" asChild className="h-13 px-10 text-base font-medium shadow-lg shadow-primary/20">
@@ -334,17 +382,17 @@ export default function B2BServices() {
               <p className="mt-8 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  Enterprise onboarding
+                  {(content?.ctaItems || defaultContent.ctaItems)[0]}
                 </span>
                 <span className="mx-3 text-border">•</span>
                 <span className="inline-flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  Dedicated support
+                  {(content?.ctaItems || defaultContent.ctaItems)[1]}
                 </span>
                 <span className="mx-3 text-border">•</span>
                 <span className="inline-flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  Custom rollout
+                  {(content?.ctaItems || defaultContent.ctaItems)[2]}
                 </span>
               </p>
             </div>

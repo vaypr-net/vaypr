@@ -76,7 +76,7 @@ import {
   useToggleGuidePublished,
   useDeleteGuide,
 } from "@/hooks/useCorporatePages";
-import { CorporatePageType } from "@/api/services/corporate-pages.service";
+import { CorporatePageType, corporatePagesService } from "@/api/services/corporate-pages.service";
 
 import { SocialMediaEditor } from "@/components/super-admin/SocialMediaEditor";
 import { FAQsEditor } from "@/components/super-admin/FAQsEditor";
@@ -222,6 +222,58 @@ const initialLandingSections: LandingSection[] = [
   { id: "footer", title: "Footer", enabled: true, icon: FileText, order: 5 },
 ];
 
+const defaultGuideCategories = [
+  {
+    category: "Getting Started",
+    items: [
+      { title: "Quick Start Guide", description: "Get up and running with VAYPR in under 10 minutes. Learn the basics of creating your first invoice.", duration: "10 min", difficulty: "Beginner", slug: "#" },
+      { title: "Setting Up Your Business Profile", description: "Configure your company details, logo, and default settings for professional documents.", duration: "5 min", difficulty: "Beginner", slug: "#" },
+      { title: "Understanding the Dashboard", description: "Navigate the dashboard efficiently and discover key features to manage your business.", duration: "8 min", difficulty: "Beginner", slug: "#" },
+    ],
+  },
+  {
+    category: "Invoicing",
+    items: [
+      { title: "Creating Professional Invoices", description: "Master the art of creating clear, professional invoices that get you paid faster.", duration: "15 min", difficulty: "Beginner", slug: "#" },
+      { title: "Customizing Invoice Templates", description: "Design stunning invoice templates that match your brand identity.", duration: "20 min", difficulty: "Intermediate", slug: "#" },
+      { title: "Setting Up Recurring Invoices", description: "Automate your billing with recurring invoices for retainer clients and subscriptions.", duration: "12 min", difficulty: "Intermediate", slug: "#" },
+      { title: "Multi-Currency Invoicing", description: "Learn how to invoice international clients in their local currency.", duration: "10 min", difficulty: "Intermediate", slug: "#" },
+    ],
+  },
+  {
+    category: "Client Management",
+    items: [
+      { title: "Managing Your Client Database", description: "Organize and maintain your client information for efficient invoicing and communication.", duration: "12 min", difficulty: "Beginner", slug: "#" },
+      { title: "Client Portal Overview", description: "Give your clients access to view and pay invoices through their personalized portal.", duration: "15 min", difficulty: "Intermediate", slug: "#" },
+      { title: "Tracking Client Payment History", description: "Monitor payment patterns and identify your best (and worst) paying clients.", duration: "10 min", difficulty: "Beginner", slug: "#" },
+    ],
+  },
+  {
+    category: "Payments & Billing",
+    items: [
+      { title: "Payment Methods Setup", description: "Configure payment options including credit cards, bank transfers, and PayPal.", duration: "15 min", difficulty: "Intermediate", slug: "#" },
+      { title: "Handling Partial Payments", description: "Accept and track partial payments and payment plans for large invoices.", duration: "8 min", difficulty: "Intermediate", slug: "#" },
+      { title: "Late Payment Reminders", description: "Set up automated reminders to chase overdue invoices professionally.", duration: "10 min", difficulty: "Beginner", slug: "#" },
+    ],
+  },
+  {
+    category: "Reports & Analytics",
+    items: [
+      { title: "Understanding Your Reports", description: "Make sense of your financial data with our comprehensive reporting tools.", duration: "20 min", difficulty: "Intermediate", slug: "#" },
+      { title: "Tax Preparation Guide", description: "Export the right data and reports for seamless tax filing.", duration: "15 min", difficulty: "Intermediate", slug: "#" },
+      { title: "Cash Flow Analysis", description: "Monitor your business cash flow and predict future income.", duration: "18 min", difficulty: "Advanced", slug: "#" },
+    ],
+  },
+  {
+    category: "Advanced Settings",
+    items: [
+      { title: "API Integration Guide", description: "Connect VAYPR with your existing tools using our REST API.", duration: "30 min", difficulty: "Advanced", slug: "#" },
+      { title: "Team & Permissions", description: "Set up team members with appropriate access levels and permissions.", duration: "12 min", difficulty: "Intermediate", slug: "#" },
+      { title: "Webhooks & Automation", description: "Automate workflows by connecting VAYPR to Zapier, Make, and more.", duration: "25 min", difficulty: "Advanced", slug: "#" },
+    ],
+  },
+];
+
 // -------------------- Reusable Collapsible Section --------------------
 function EditorSection({
   title,
@@ -324,36 +376,57 @@ function CorporatePagesEditor() {
   const [guideForm, setGuideForm] = useState<Record<string, any>>({});
   const [newGuide, setNewGuide] = useState({
     title: "",
+    category: "Getting Started",
     description: "",
+    difficulty: "Beginner",
+    duration: "",
     fileType: "pdf" as "pdf" | "image",
     fileName: "",
     fileUrl: "",
   });
+  const [isUploadingGuideFile, setIsUploadingGuideFile] = useState(false);
 
-  const inferFileType = (file: File): "pdf" | "image" => {
-    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) return "pdf";
-    return "image";
-  };
+  const inferFileType = (_file: File): "pdf" | "image" => "pdf";
 
-  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>, isNew: boolean, guideId?: string) => {
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>, isNew: boolean, guideId?: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const type = inferFileType(file);
-    const fileUrl = URL.createObjectURL(file);
+    setIsUploadingGuideFile(true);
+    try {
+      const uploaded = await corporatePagesService.uploadGuideFile(file);
+      const fileUrl = uploaded?.url || "";
+      if (!fileUrl) {
+        throw new Error("No upload URL returned");
+      }
 
-    if (isNew) {
-      setNewGuide((prev) => ({ ...prev, fileType: type, fileName: file.name, fileUrl }));
-    } else if (guideId) {
-      setGuideForm((prev) => ({
-        ...prev,
-        [guideId]: {
-          ...(prev[guideId] || {}),
-          fileType: type,
-          fileName: file.name,
-          fileUrl,
-        },
-      }));
+      if (isNew) {
+        setNewGuide((prev) => ({ ...prev, fileType: type, fileName: file.name, fileUrl }));
+      } else if (guideId) {
+        setGuideForm((prev) => ({
+          ...prev,
+          [guideId]: {
+            ...(prev[guideId] || {}),
+            fileType: type,
+            fileName: file.name,
+            fileUrl,
+          },
+        }));
+      }
+
+      toast({
+        title: "Upload complete",
+        description: `${file.name} uploaded to cloud storage.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error?.response?.data?.message || error?.message || "Failed to upload guide file.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingGuideFile(false);
     }
 
     e.target.value = "";
@@ -375,6 +448,15 @@ function CorporatePagesEditor() {
   };
 
   const startPageEdit = (page: any) => {
+    const normalizedContent = { ...(page.content || {}) };
+    const isGuidesPage = (page?.slug || "").toString().toLowerCase() === "guides";
+    const categories = Array.isArray(normalizedContent.categories)
+      ? normalizedContent.categories
+      : [];
+    if (isGuidesPage && categories.length < 6) {
+      normalizedContent.categories = defaultGuideCategories;
+    }
+
     setEditingId(page._id);
     setPageForm((prev) => ({
       ...prev,
@@ -383,7 +465,7 @@ function CorporatePagesEditor() {
         slug: page.slug,
         metaDescription: page.metaDescription || "",
         sections: page.sections || [],
-        content: page.content || {},
+        content: normalizedContent,
       },
     }));
   };
@@ -435,6 +517,7 @@ function CorporatePagesEditor() {
   const addGuide = async () => {
     const missingFields: string[] = [];
     if (!newGuide.title.trim()) missingFields.push("Guide Title");
+    if (!newGuide.category.trim()) missingFields.push("Category");
     if (!newGuide.description.trim()) missingFields.push("Description");
     if (!newGuide.fileName || !newGuide.fileUrl) missingFields.push("Upload File");
 
@@ -453,7 +536,10 @@ function CorporatePagesEditor() {
 
     await createGuideMutation.mutateAsync({
       title: newGuide.title.trim(),
+      category: newGuide.category.trim() || "Getting Started",
       description: newGuide.description.trim(),
+      difficulty: newGuide.difficulty.trim() || "Beginner",
+      duration: newGuide.duration.trim(),
       fileType: newGuide.fileType,
       fileName: newGuide.fileName,
       fileUrl: newGuide.fileUrl,
@@ -461,7 +547,7 @@ function CorporatePagesEditor() {
     });
 
     setShowAddGuide(false);
-    setNewGuide({ title: "", description: "", fileType: "pdf", fileName: "", fileUrl: "" });
+    setNewGuide({ title: "", category: "Getting Started", description: "", difficulty: "Beginner", duration: "", fileType: "pdf", fileName: "", fileUrl: "" });
   };
 
   const startGuideEdit = (guide: any) => {
@@ -470,7 +556,10 @@ function CorporatePagesEditor() {
       ...prev,
       [guide._id]: {
         title: guide.title,
+        category: guide.category || "Getting Started",
         description: guide.description,
+        difficulty: guide.difficulty || "Beginner",
+        duration: guide.duration || "",
         fileType: guide.fileType,
         fileName: guide.fileName,
         fileUrl: guide.fileUrl,
@@ -1141,6 +1230,45 @@ function CorporatePagesEditor() {
                                         updateContentField(page._id, "categories", arr);
                                       }}
                                     />
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                      <Input
+                                        placeholder="Duration (e.g. 10 min)"
+                                        value={item.duration || ""}
+                                        onChange={(e) => {
+                                          const arr = [...(content.categories || [])];
+                                          const items = [...((arr[cIdx]?.items) || [])];
+                                          items[iIdx] = { ...(items[iIdx] || {}), duration: e.target.value };
+                                          arr[cIdx] = { ...(arr[cIdx] || {}), items };
+                                          updateContentField(page._id, "categories", arr);
+                                        }}
+                                      />
+                                      <Input
+                                        placeholder="Difficulty (Beginner/Intermediate/Advanced)"
+                                        value={item.difficulty || ""}
+                                        onChange={(e) => {
+                                          const arr = [...(content.categories || [])];
+                                          const items = [...((arr[cIdx]?.items) || [])];
+                                          items[iIdx] = { ...(items[iIdx] || {}), difficulty: e.target.value };
+                                          arr[cIdx] = { ...(arr[cIdx] || {}), items };
+                                          updateContentField(page._id, "categories", arr);
+                                        }}
+                                      />
+                                      <Input
+                                        placeholder="PDF URL / Download Link"
+                                        value={item.slug || item.fileUrl || item.downloadUrl || ""}
+                                        onChange={(e) => {
+                                          const arr = [...(content.categories || [])];
+                                          const items = [...((arr[cIdx]?.items) || [])];
+                                          items[iIdx] = {
+                                            ...(items[iIdx] || {}),
+                                            slug: e.target.value,
+                                            fileUrl: e.target.value,
+                                          };
+                                          arr[cIdx] = { ...(arr[cIdx] || {}), items };
+                                          updateContentField(page._id, "categories", arr);
+                                        }}
+                                      />
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -1232,19 +1360,29 @@ function CorporatePagesEditor() {
                 </div>
 
                 <div>
-                  <Label className="text-xs">Upload File (Image/PDF) *</Label>
+                  <Label className="text-xs">Category *</Label>
+                  <Input
+                    value={newGuide.category}
+                    onChange={(e) => setNewGuide({ ...newGuide, category: e.target.value })}
+                    placeholder="e.g. Getting Started"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Upload PDF *</Label>
                   <div className="mt-1 flex gap-2">
                       <div className="relative flex-1">
                         <Input
                           type="file"
-                          accept="image/*,.pdf"
+                          accept=".pdf,application/pdf"
                           onChange={(e) => handleFileUpload(e, true)}
                           className="absolute inset-0 opacity-0 cursor-pointer z-10"
                         />
                       <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-input bg-background text-sm">
                         <Upload className="w-4 h-4 text-muted-foreground" />
                         <span className="text-muted-foreground truncate">
-                          {newGuide.fileName || "Choose file..."}
+                          {isUploadingGuideFile ? "Uploading..." : (newGuide.fileName || "Choose file...")}
                         </span>
                       </div>
                     </div>
@@ -1260,6 +1398,27 @@ function CorporatePagesEditor() {
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">Difficulty</Label>
+                  <Input
+                    value={newGuide.difficulty}
+                    onChange={(e) => setNewGuide({ ...newGuide, difficulty: e.target.value })}
+                    placeholder="Beginner / Intermediate / Advanced"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Duration</Label>
+                  <Input
+                    value={newGuide.duration}
+                    onChange={(e) => setNewGuide({ ...newGuide, duration: e.target.value })}
+                    placeholder="e.g. 10 min"
+                    className="mt-1"
+                  />
                 </div>
               </div>
 
@@ -1279,12 +1438,12 @@ function CorporatePagesEditor() {
                   size="sm"
                   onClick={() => {
                     setShowAddGuide(false);
-                    setNewGuide({ title: "", description: "", fileType: "pdf", fileName: "", fileUrl: "" });
+                    setNewGuide({ title: "", category: "Getting Started", description: "", difficulty: "Beginner", duration: "", fileType: "pdf", fileName: "", fileUrl: "" });
                   }}
                 >
                   Cancel
                 </Button>
-                <Button size="sm" onClick={addGuide}>
+                <Button size="sm" onClick={addGuide} disabled={isUploadingGuideFile}>
                   Add Guide
                 </Button>
               </div>
@@ -1318,6 +1477,9 @@ function CorporatePagesEditor() {
                       <h4 className="font-medium truncate">{guide.title}</h4>
                       <Badge variant={guide.published ? "default" : "secondary"} className="text-xs">
                         {guide.published ? "Published" : "Draft"}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {guide.category || "General"}
                       </Badge>
                       <Badge variant="outline" className="text-xs uppercase">
                         {guide.fileType}
@@ -1393,30 +1555,70 @@ function CorporatePagesEditor() {
                             />
                           </div>
                           <div>
-                            <Label className="text-xs">Replace File (Image/PDF)</Label>
+                            <Label className="text-xs">Category</Label>
+                            <Input
+                              value={guideForm[guide._id]?.category || ""}
+                              onChange={(e) =>
+                                setGuideForm((prev) => ({
+                                  ...prev,
+                                  [guide._id]: { ...(prev[guide._id] || {}), category: e.target.value },
+                                }))
+                              }
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Replace PDF</Label>
                             <div className="mt-1 flex gap-2">
                               <div className="relative flex-1">
                                 <Input
                                   type="file"
-                                  accept="image/*,.pdf"
+                                  accept=".pdf,application/pdf"
                                   onChange={(e) => handleFileUpload(e, false, guide._id)}
                                   className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                 />
                                 <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-input bg-background text-sm">
                                   <Upload className="w-4 h-4 text-muted-foreground" />
-                                  <span className="text-muted-foreground truncate">{guide.fileName}</span>
+                                  <span className="text-muted-foreground truncate">
+                                    {isUploadingGuideFile ? "Uploading..." : (guideForm[guide._id]?.fileName || guide.fileName)}
+                                  </span>
                                 </div>
                               </div>
 
                               <div className="flex items-center gap-1 px-2 rounded-md bg-primary/10">
-                                {guide.fileType === "pdf" ? (
-                                  <File className="w-4 h-4 text-primary" />
-                                ) : (
-                                  <FileImage className="w-4 h-4 text-primary" />
-                                )}
-                                <span className="text-xs text-primary uppercase">{guide.fileType}</span>
+                                <File className="w-4 h-4 text-primary" />
+                                <span className="text-xs text-primary uppercase">PDF</span>
                               </div>
                             </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs">Difficulty</Label>
+                            <Input
+                              value={guideForm[guide._id]?.difficulty || ""}
+                              onChange={(e) =>
+                                setGuideForm((prev) => ({
+                                  ...prev,
+                                  [guide._id]: { ...(prev[guide._id] || {}), difficulty: e.target.value },
+                                }))
+                              }
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Duration</Label>
+                            <Input
+                              value={guideForm[guide._id]?.duration || ""}
+                              onChange={(e) =>
+                                setGuideForm((prev) => ({
+                                  ...prev,
+                                  [guide._id]: { ...(prev[guide._id] || {}), duration: e.target.value },
+                                }))
+                              }
+                              className="mt-1"
+                            />
                           </div>
                         </div>
 
@@ -1441,7 +1643,7 @@ function CorporatePagesEditor() {
                           <Button
                             size="sm"
                             onClick={() => saveGuide(guide._id)}
-                            disabled={updateGuideMutation.isPending}
+                            disabled={updateGuideMutation.isPending || isUploadingGuideFile}
                           >
                             Save Changes
                           </Button>
