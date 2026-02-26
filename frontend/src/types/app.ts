@@ -233,6 +233,7 @@ export interface RecurringBilling {
   id: string;
   clientId: string;
   clientName: string;
+  clientEmail?: string;
   frequency: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
   nextBillingDate: string;
   items: InvoiceItem[];

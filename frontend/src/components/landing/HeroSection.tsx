@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, FileText, FileCheck, Receipt, Users, CalendarCheck, TrendingUp, Palette } from "lucide-react";
+import * as LucideIcons from "lucide-react";
+import { ArrowRight, FileText, FileCheck, Receipt, Users, CalendarCheck, TrendingUp, Palette, LucideIcon } from "lucide-react";
 import { PricingDialog } from "./PricingDialog";
 import { useLandingPage } from "@/hooks/useLandingPage";
 
-const features = [
+const defaultFeatures = [
   { icon: FileText, label: "Invoices" },
   { icon: FileCheck, label: "Quotes" },
   { icon: Receipt, label: "Receipts" },
@@ -13,6 +14,25 @@ const features = [
   { icon: TrendingUp, label: "Expense\nTracking" },
   { icon: Palette, label: "Custom\nTemplates" },
 ];
+
+const heroFeatureIconMap: Record<string, LucideIcon> = {
+  FileText,
+  FileCheck,
+  Receipt,
+  Users,
+  CalendarCheck,
+  TrendingUp,
+  Palette,
+};
+
+const resolveHeroIcon = (iconName?: string): LucideIcon => {
+  if (!iconName) return FileText;
+  const namedIcon = (LucideIcons as Record<string, unknown>)[iconName];
+  if (typeof namedIcon === "function") {
+    return namedIcon as LucideIcon;
+  }
+  return heroFeatureIconMap[iconName] || FileText;
+};
 
 export function HeroSection() {
   const { data: landingPage } = useLandingPage();
@@ -25,6 +45,15 @@ export function HeroSection() {
     "VAYPR keeps your invoicing, quotes, receipts, and clients organized,\nbuilt for your first job and ready when you scale.";
   const primaryText = hero?.primaryButtonText ?? "Start Free";
   const secondaryText = hero?.secondaryButtonText ?? "Sign In";
+  const features =
+    hero?.heroFeatures && hero.heroFeatures.length > 0
+      ? [...hero.heroFeatures]
+          .sort((a, b) => (a.order || 0) - (b.order || 0))
+          .map((item) => ({
+            icon: resolveHeroIcon(item.icon),
+            label: item.label,
+          }))
+      : defaultFeatures;
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">

@@ -76,6 +76,7 @@ import {
   useToggleGuidePublished,
   useDeleteGuide,
 } from "@/hooks/useCorporatePages";
+import { useGetPlans } from "@/hooks/api/useBillingPlans";
 import { CorporatePageType, corporatePagesService } from "@/api/services/corporate-pages.service";
 
 import { SocialMediaEditor } from "@/components/super-admin/SocialMediaEditor";
@@ -220,6 +221,16 @@ const initialLandingSections: LandingSection[] = [
   { id: "how-it-works", title: "How It Works", enabled: true, icon: ListOrdered, order: 3 },
   { id: "plans", title: "Subscription Plans", enabled: true, icon: CreditCard, order: 4 },
   { id: "footer", title: "Footer", enabled: true, icon: FileText, order: 5 },
+];
+
+const defaultHeroFeatures = [
+  { icon: "FileText", label: "Invoices", order: 1 },
+  { icon: "FileCheck", label: "Quotes", order: 2 },
+  { icon: "Receipt", label: "Receipts", order: 3 },
+  { icon: "Users", label: "Clients", order: 4 },
+  { icon: "CalendarCheck", label: "Subscriptions", order: 5 },
+  { icon: "TrendingUp", label: "Expense\nTracking", order: 6 },
+  { icon: "Palette", label: "Custom\nTemplates", order: 7 },
 ];
 
 const defaultGuideCategories = [
@@ -2183,7 +2194,9 @@ function LandingPageEditor() {
   const { data: socialLinks = [] } = useGetSocialLinks();
   const { data: supportPages = [] } = useSupportPages({ enabledOnly: true });
   const { data: corporatePages = [] } = useCorporatePages({ enabledOnly: true });
+  const { data: billingPlansResponse } = useGetPlans(undefined, 100, 0);
   const updateSection = useUpdateLandingSection();
+  const pricingPlansCount = billingPlansResponse?.total ?? billingPlansResponse?.items?.length ?? 0;
 
   const [heroForm, setHeroForm] = useState({
     badge: "",
@@ -2191,6 +2204,7 @@ function LandingPageEditor() {
     subheadline: "",
     primaryButtonText: "",
     secondaryButtonText: "",
+    heroFeatures: [] as Array<{ icon: string; label: string; order: number }>,
   });
 
   const [footerForm, setFooterForm] = useState({
@@ -2249,6 +2263,10 @@ function LandingPageEditor() {
         subheadline: landingPage.heroSection.subheadline,
         primaryButtonText: landingPage.heroSection.primaryButtonText,
         secondaryButtonText: landingPage.heroSection.secondaryButtonText,
+        heroFeatures:
+          landingPage.heroSection.heroFeatures && landingPage.heroSection.heroFeatures.length > 0
+            ? landingPage.heroSection.heroFeatures
+            : defaultHeroFeatures,
       });
       setFooterForm({
         companyName: landingPage.footerSection.companyName,
@@ -2482,6 +2500,90 @@ function LandingPageEditor() {
                   className="mt-1"
                 />
               </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Hero Icon Points ({heroForm.heroFeatures.length})</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setHeroForm((prev) => ({
+                      ...prev,
+                      heroFeatures: [
+                        ...prev.heroFeatures,
+                        { icon: "FileText", label: "", order: prev.heroFeatures.length + 1 },
+                      ],
+                    }))
+                  }
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Point
+                </Button>
+              </div>
+
+              {heroForm.heroFeatures.map((item, index) => (
+                <div key={`${item.order}-${index}`} className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Point {index + 1}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setHeroForm((prev) => ({
+                          ...prev,
+                          heroFeatures: prev.heroFeatures
+                            .filter((_, i) => i !== index)
+                            .map((point, i) => ({ ...point, order: i + 1 })),
+                        }))
+                      }
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Icon</Label>
+                      <Input
+                        value={item.icon}
+                        onChange={(e) =>
+                          setHeroForm((prev) => {
+                            const updated = [...prev.heroFeatures];
+                            updated[index] = { ...updated[index], icon: e.target.value };
+                            return { ...prev, heroFeatures: updated };
+                          })
+                        }
+                        className="mt-1"
+                        placeholder="Icon name (e.g. FileText, Briefcase)"
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Enter any Lucide icon name.
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Label</Label>
+                      <Input
+                        value={item.label}
+                        onChange={(e) =>
+                          setHeroForm((prev) => {
+                            const updated = [...prev.heroFeatures];
+                            updated[index] = { ...updated[index], label: e.target.value };
+                            return { ...prev, heroFeatures: updated };
+                          })
+                        }
+                        className="mt-1"
+                        placeholder="e.g. Invoices"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="pt-4">
@@ -3081,9 +3183,9 @@ function LandingPageEditor() {
             <Separator />
 
             <div className="space-y-3">
-              <Label>Plans ({landingPage.pricingSection?.plans?.length || 0})</Label>
+              <Label>Plans ({pricingPlansCount})</Label>
               <p className="text-xs text-muted-foreground">
-                Plan management coming soon. Currently displaying {landingPage.pricingSection?.plans?.length || 0} plans.
+                Currently displaying {pricingPlansCount} plans from Billing Plans.
               </p>
             </div>
 

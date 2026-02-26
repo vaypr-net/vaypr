@@ -83,6 +83,9 @@ export default function Invoices() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [invoiceForDownload, setInvoiceForDownload] = useState<Invoice | null>(null);
 
+  const isRecurringInvoice = (invoice?: Invoice | null) =>
+    Boolean((invoice as any)?.recurringId);
+
   const getInvoiceCompanyName = (invoice?: Invoice | null) =>
     invoice?.companyFooter?.name ||
     (invoice as any)?.companyFooter?.companyName ||
@@ -91,6 +94,42 @@ export default function Invoices() {
     user?.fullName ||
     user?.name ||
     'VAYPR';
+
+  const getDefaultEmailSubject = (invoice?: Invoice | null) => {
+    if (!invoice) return '';
+    const companyName = getInvoiceCompanyName(invoice);
+    if (isRecurringInvoice(invoice)) {
+      return `Subscription Invoice ${invoice.invoiceNumber} from ${companyName}`;
+    }
+    return `Invoice ${invoice.invoiceNumber} from ${companyName}`;
+  };
+
+  const getDefaultEmailMessage = (invoice?: Invoice | null) => {
+    if (!invoice) return '';
+    const companyName = getInvoiceCompanyName(invoice);
+    const clientName = invoice.billTo?.name || 'there';
+
+    if (isRecurringInvoice(invoice)) {
+      return `Hi ${clientName},
+
+This is your monthly subscription invoice.
+Please find your invoice PDF attached with this email.
+
+If you have any questions, just reply to this message.
+
+Best regards,
+${companyName}`;
+    }
+
+    return `Hi ${clientName},
+
+Please find your invoice attached with this email.
+
+If you have any questions, just reply to this message.
+
+Best regards,
+${companyName}`;
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -381,7 +420,7 @@ export default function Invoices() {
 
       // Step 2: Create HTML email body with custom message
       const companyName = getInvoiceCompanyName(selectedInvoice);
-      const emailSubject = customSubject.trim() || `Invoice ${selectedInvoice.invoiceNumber} from ${companyName}`;
+      const emailSubject = customSubject.trim() || getDefaultEmailSubject(selectedInvoice);
       
       // Convert custom message to HTML (preserve line breaks)
       const messageHtml = customMessage
@@ -616,7 +655,8 @@ export default function Invoices() {
                             <DropdownMenuItem onClick={() => {
                               setSelectedInvoice(invoice);
                               setClientEmail(invoice.billTo?.email || '');
-                              setCustomSubject(`Invoice ${invoice.invoiceNumber} from ${getInvoiceCompanyName(invoice)}`);
+                              setCustomSubject(getDefaultEmailSubject(invoice));
+                              setCustomMessage(getDefaultEmailMessage(invoice));
                               setIsEmailDialogOpen(true);
                             }}>
                               <Mail className="h-4 w-4 mr-2" />
@@ -976,7 +1016,7 @@ export default function Invoices() {
                   </Label>
                   <Input
                     id="emailSubject"
-                    placeholder={`Invoice from ${getInvoiceCompanyName(selectedInvoice)}`}
+                    placeholder={getDefaultEmailSubject(selectedInvoice)}
                     value={customSubject}
                     onChange={(e) => setCustomSubject(e.target.value)}
                     className="text-sm"
@@ -1037,7 +1077,7 @@ export default function Invoices() {
                     if (selectedInvoice && customMessage.trim()) {
                       sendEmail({
                         to: clientEmail,
-                        subject: customSubject || `Invoice from ${getInvoiceCompanyName(selectedInvoice)}`,
+                        subject: customSubject || getDefaultEmailSubject(selectedInvoice),
                         body: customMessage,
                       });
                       setIsEmailDialogOpen(false);

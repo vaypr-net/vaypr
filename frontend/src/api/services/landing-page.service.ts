@@ -64,6 +64,11 @@ export interface HeroSection {
   subheadline: string;
   primaryButtonText: string;
   secondaryButtonText: string;
+  heroFeatures?: Array<{
+    icon: string;
+    label: string;
+    order: number;
+  }>;
 }
 
 export interface FeaturesSection {

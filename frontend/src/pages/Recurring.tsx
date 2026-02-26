@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRecurringAPI, useCreateRecurring, useUpdateRecurring, useDeleteRecurring, useToggleRecurring, useGenerateInvoice } from '@/hooks/api/useRecurring';
 import { useClients } from '@/hooks/api/useClients';
+import { EmailService } from '@/api/services/email.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, RefreshCw, Trash2, Play, Pause, MoreHorizontal, Building2, Mail, Upload, X, Palette, Pencil, FileText, Eye, Loader2 } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Play, Pause, MoreHorizontal, Building2, Mail, Upload, X, Palette, Pencil, FileText, Eye, Loader2, Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
@@ -42,9 +43,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, addDays, addWeeks, addMonths, addYears } from 'date-fns';
-import { InvoiceItem, RecurringBilling } from '@/types/app';
+import { Invoice, InvoiceItem, RecurringBilling } from '@/types/app';
 import { LogoSizeControl } from '@/components/invoice/LogoSizeControl';
 import { RecurringPreview } from '@/components/recurring/RecurringPreview';
+import { InvoicePreview } from '@/components/invoice/InvoicePreview';
+import { useDocumentActions } from '@/hooks/useDocumentActions';
+import { InvoiceData } from '@/types/invoice';
 
 export default function Recurring() {
   // State declarations
@@ -59,6 +63,7 @@ export default function Recurring() {
   const toggleRecurringMutation = useToggleRecurring();
   const generateInvoiceMutation = useGenerateInvoice();
   const { data: clients = [], isLoading: loadingClients } = useClients();
+  const { generatePdfBase64 } = useDocumentActions();
   
   // Ensure all data is arrays
   const apiRecurringArray = Array.isArray(apiRecurring) ? apiRecurring : [];
@@ -69,6 +74,7 @@ export default function Recurring() {
     id: r._id,
     clientId: (typeof r.clientId === 'object' && r.clientId) ? r.clientId._id : r.clientId,
     clientName: (typeof r.clientId === 'object' && r.clientId) ? r.clientId.name : 'Unknown Client',
+    clientEmail: (typeof r.clientId === 'object' && r.clientId) ? r.clientId.email : '',
     frequency: r.frequency,
     nextBillingDate: r.nextBillingDate,
     items: r.items || [],
@@ -124,9 +130,97 @@ export default function Recurring() {
   });
   
   const [dialogViewMode, setDialogViewMode] = useState<'edit' | 'preview'>('edit');
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [selectedRecurring, setSelectedRecurring] = useState<RecurringBilling | null>(null);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [generatedInvoiceForEmail, setGeneratedInvoiceForEmail] = useState<Invoice | null>(null);
 
   const formatCurrency = (amount: number, currency = 'KWD') => {
     return `KD ${amount.toFixed(3)}`;
+  };
+
+  const getCompanyNameForEmail = (recurring?: RecurringBilling | null, invoice?: Invoice | null) =>
+    (invoice as any)?.companyFooter?.name ||
+    (invoice as any)?.companyFooter?.companyName ||
+    recurring?.companyFooter?.companyName ||
+    'VAYPR';
+
+  const getDefaultSubscriptionSubject = (recurring: RecurringBilling) => {
+    const companyName = getCompanyNameForEmail(recurring);
+    return `Subscription Invoice from ${companyName}`;
+  };
+
+  const getDefaultSubscriptionMessage = (recurring: RecurringBilling) => {
+    const companyName = getCompanyNameForEmail(recurring);
+    return `Hi ${recurring.clientName},
+
+This is your ${getFrequencyLabel(recurring.frequency).toLowerCase()} subscription invoice.
+Please find your invoice PDF attached with this email.
+
+If you have any questions, just reply to this message.
+
+Best regards,
+${companyName}`;
+  };
+
+  const mapInvoiceToPreviewData = (invoice: Invoice): InvoiceData => {
+    const footer = (invoice as any)?.companyFooter || {};
+    const bank = (invoice as any)?.bankAccount || {};
+    const paymentMethod = ((invoice as any)?.paymentMethodType || 'cash') as InvoiceData['paymentMethodType'];
+
+    return {
+      logo: (invoice as any)?.logo || null,
+      logoScale: (invoice as any)?.logoScale || 1,
+      currency: (invoice as any)?.currency || 'KWD',
+      currencySymbol: (invoice as any)?.currencySymbol || (invoice as any)?.currency || 'KWD',
+      billTo: {
+        name: invoice.billTo?.name || '',
+        phone: invoice.billTo?.phone || '',
+        area: invoice.billTo?.area || '',
+        block: invoice.billTo?.block || '',
+        street: invoice.billTo?.street || '',
+        house: invoice.billTo?.house || '',
+        other: invoice.billTo?.other || '',
+      },
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceDate: invoice.issueDate,
+      paymentDate: invoice.dueDate,
+      items: (invoice.items || []).map((item: any) => ({
+        id: item.id || crypto.randomUUID(),
+        description: item.description || '',
+        quantity: Number(item.quantity) || 0,
+        unitPrice: Number(item.unitPrice) || 0,
+      })),
+      discount: Number((invoice as any)?.discount) || 0,
+      deliveryFee: Number((invoice as any)?.deliveryFee) || 0,
+      companyFooter: {
+        companyName: footer.companyName || footer.name || '',
+        officePhone: footer.officePhone || footer.phone || '',
+        address: footer.address || '',
+        websiteEmail: footer.websiteEmail || footer.email || '',
+      },
+      paymentDetails: (invoice as any)?.paymentMethodType || '',
+      showPaymentMethod: Boolean((invoice as any)?.showPaymentMethod),
+      paymentMethodType: paymentMethod,
+      showBankAccount: Boolean((invoice as any)?.showBankAccount),
+      bankAccount: {
+        bankName: bank.bankName || '',
+        accountName: bank.accountName || '',
+        iban: bank.iban || '',
+      },
+      showPaymentTerms: Boolean((invoice as any)?.showPaymentTerms),
+      paymentTerms: (invoice as any)?.paymentTerms || '',
+      hideQuantity: Boolean((invoice as any)?.hideQuantity),
+      hideUnitPrice: Boolean((invoice as any)?.hideUnitPrice),
+      hideTotalCost: Boolean((invoice as any)?.hideTotalCost),
+      hideSubTotal: Boolean((invoice as any)?.hideSubTotal),
+      useManualGrandTotal: Boolean((invoice as any)?.useManualGrandTotal),
+      manualGrandTotal: Number((invoice as any)?.manualGrandTotal) || 0,
+      tableHeaderColor: (invoice as any)?.tableHeaderColor || '#000000',
+    };
   };
 
   const getFrequencyLabel = (frequency: string) => {
@@ -257,6 +351,118 @@ export default function Recurring() {
       await generateInvoiceMutation.mutateAsync(recurring.id);
     } catch (error) {
       console.error('Failed to generate invoice:', error);
+    }
+  };
+
+  const handleOpenEmailDialog = (recurring: RecurringBilling) => {
+    const fallbackClientEmail = clientsArray.find((client: any) => client._id === recurring.clientId)?.email || '';
+    setSelectedRecurring(recurring);
+    setEmailTo(recurring.clientEmail || fallbackClientEmail);
+    setEmailSubject(getDefaultSubscriptionSubject(recurring));
+    setEmailMessage(getDefaultSubscriptionMessage(recurring));
+    setIsEmailDialogOpen(true);
+  };
+
+  const handleSendRecurringEmail = async () => {
+    if (!selectedRecurring) return;
+    if (!emailTo.trim()) {
+      toast({
+        title: 'Missing Email',
+        description: 'Please enter the client email address.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!emailMessage.trim()) {
+      toast({
+        title: 'Message Required',
+        description: 'Please add a message before sending.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const createdInvoice = await generateInvoiceMutation.mutateAsync(selectedRecurring.id);
+      setGeneratedInvoiceForEmail(createdInvoice as Invoice);
+
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const pdfBase64 = await generatePdfBase64('recurring-invoice-preview-email');
+      const companyName = getCompanyNameForEmail(selectedRecurring, createdInvoice as Invoice);
+
+      const messageHtml = emailMessage
+        .split('\n')
+        .map(line => `<p>${line || '<br />'}</p>`)
+        .join('');
+
+      const emailBody = `
+        <html>
+          <head>
+            <style>
+              body { margin: 0; padding: 0; background: #f3f4f6; font-family: 'Segoe UI', Arial, sans-serif; color: #111827; }
+              .container { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+              .card { background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 8px 30px rgba(16, 185, 129, 0.12); }
+              .hero { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff; padding: 28px 24px; }
+              .hero h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.2px; }
+              .hero p { margin: 8px 0 0; font-size: 13px; opacity: 0.92; }
+              .content { padding: 24px; }
+              .message-box { background: #f8fafc; border: 1px solid #e5e7eb; border-left: 4px solid #10b981; border-radius: 12px; padding: 18px; margin: 0 0 18px; }
+              .message-box p { margin: 8px 0; font-size: 14px; line-height: 1.65; color: #1f2937; }
+              .attachment { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; margin-top: 10px; font-size: 12px; color: #4b5563; }
+              .signature { margin-top: 18px; font-size: 13px; color: #374151; }
+              .signature strong { color: #111827; }
+              .footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="card">
+                <div class="hero">
+                  <h1>Monthly Subscription Invoice</h1>
+                  <p>${companyName}</p>
+                </div>
+                <div class="content">
+                  <div class="message-box">
+                    ${messageHtml}
+                  </div>
+                  <div class="attachment">Your PDF invoice is attached below in this email.</div>
+                  <p class="signature">Best regards,<br/><strong>${companyName}</strong></p>
+                </div>
+              </div>
+              <p class="footer">Powered by VAYPR</p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      await EmailService.sendEmail({
+        to: emailTo.trim(),
+        subject: emailSubject.trim() || getDefaultSubscriptionSubject(selectedRecurring),
+        body: emailBody,
+        attachmentData: pdfBase64,
+        attachmentFilename: `Invoice_${(createdInvoice as any)?.invoiceNumber || 'subscription'}.pdf`,
+      });
+
+      toast({
+        title: 'Email Sent Successfully!',
+        description: 'Recurring invoice was generated and sent with PDF attachment.',
+      });
+
+      setIsEmailDialogOpen(false);
+      setSelectedRecurring(null);
+      setEmailTo('');
+      setEmailSubject('');
+      setEmailMessage('');
+    } catch (error: any) {
+      toast({
+        title: 'Failed to Send Email',
+        description: error?.message || 'Could not generate and send email.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingEmail(false);
+      setGeneratedInvoiceForEmail(null);
     }
   };
 
@@ -556,6 +762,10 @@ export default function Recurring() {
                             <DropdownMenuItem onClick={() => handleGenerateInvoice(recurring)}>
                               <RefreshCw className="h-4 w-4 mr-2" />
                               Generate Invoice
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenEmailDialog(recurring)}>
+                              <Send className="h-4 w-4 mr-2" />
+                              Send Email
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggle(recurring)}>
                               {recurring.isActive ? (
@@ -979,6 +1189,97 @@ export default function Recurring() {
               <Button variant="outline" onClick={() => handleDialogClose(false)}>Cancel</Button>
               <Button onClick={handleSave}>
                 {editingRecurring ? 'Update Recurring' : 'Create Recurring'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isEmailDialogOpen} onOpenChange={(open) => {
+          setIsEmailDialogOpen(open);
+          if (!open) {
+            setSelectedRecurring(null);
+            setEmailTo('');
+            setEmailSubject('');
+            setEmailMessage('');
+            setGeneratedInvoiceForEmail(null);
+          }
+        }}>
+          <DialogContent className="w-[95vw] max-w-lg p-6 overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Send Recurring Invoice via Email</DialogTitle>
+              <DialogDescription>
+                Generate and send a subscription invoice with PDF attachment.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              <Label htmlFor="recurringEmailTo">Client Email</Label>
+              <Input
+                id="recurringEmailTo"
+                type="email"
+                placeholder="client@example.com"
+                value={emailTo}
+                onChange={(e) => setEmailTo(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="recurringEmailSubject">Subject</Label>
+              <Input
+                id="recurringEmailSubject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                placeholder="Subscription invoice subject"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="recurringEmailMessage">Message *</Label>
+              <Textarea
+                id="recurringEmailMessage"
+                rows={5}
+                value={emailMessage}
+                onChange={(e) => setEmailMessage(e.target.value)}
+                placeholder="Write your message here..."
+                className="resize-none text-sm"
+              />
+              <p className="text-xs text-muted-foreground">PDF invoice will be attached automatically.</p>
+            </div>
+
+            {generatedInvoiceForEmail && (
+              <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+                <InvoicePreview
+                  previewId="recurring-invoice-preview-email"
+                  data={mapInvoiceToPreviewData(generatedInvoiceForEmail)}
+                />
+              </div>
+            )}
+
+            <DialogFooter className="flex-col gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsEmailDialogOpen(false)}
+                className="w-full"
+                disabled={isSendingEmail}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSendRecurringEmail}
+                className="w-full gap-2 bg-purple-600 hover:bg-purple-700"
+                disabled={isSendingEmail || !emailTo.trim() || !emailMessage.trim()}
+              >
+                {isSendingEmail ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Generate & Send
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

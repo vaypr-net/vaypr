@@ -50,7 +50,7 @@ const navItems = [
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
-  const { reminders, unreadCount, markAsRead, hydrateReminders } = useReminders();
+  const { reminders, markAsRead, hydrateReminders } = useReminders();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -60,7 +60,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     navigate('/login');
   };
 
-  const unreadReminders = reminders.filter(r => !r.isRead).slice(0, 5);
+  const unreadReminders = reminders.filter(r => !r.isRead);
 
   useEffect(() => {
     if (!user) return;
@@ -95,7 +95,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex items-center gap-2">
           <NotificationDropdown 
             reminders={unreadReminders} 
-            unreadCount={unreadCount}
             onMarkAsRead={markAsRead}
           />
         </div>
@@ -195,7 +194,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="flex items-center gap-4">
             <NotificationDropdown 
               reminders={unreadReminders} 
-              unreadCount={unreadCount}
               onMarkAsRead={markAsRead}
             />
             <Link 
@@ -219,11 +217,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
 function NotificationDropdown({ 
   reminders, 
-  unreadCount,
   onMarkAsRead 
 }: { 
   reminders: any[]; 
-  unreadCount: number;
   onMarkAsRead: (id: string) => void;
 }) {
   // Get dismissed notifications from localStorage (synced from Notifications page)
@@ -263,6 +259,7 @@ function NotificationDropdown({
     () => reminders.filter(r => !dismissedNotifications.includes(r.id)),
     [reminders, dismissedNotifications]
   );
+  const previewReminders = visibleReminders.slice(0, 5);
 
   return (
     <DropdownMenu>
@@ -274,7 +271,7 @@ function NotificationDropdown({
               variant="destructive" 
               className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
             >
-              {visibleReminders.length > 9 ? '9+' : visibleReminders.length}
+              {visibleReminders.length > 99 ? '99+' : visibleReminders.length}
             </Badge>
           )}
         </Button>
@@ -288,10 +285,10 @@ function NotificationDropdown({
             No new notifications
           </div>
         ) : (
-          visibleReminders.map((reminder) => (
+          previewReminders.map((reminder) => (
             <DropdownMenuItem 
               key={reminder.id} 
-              className="flex flex-col items-start px-3 py-2 cursor-pointer"
+              className="flex flex-col items-start px-3 py-2 cursor-pointer text-foreground data-[highlighted]:text-foreground"
               onClick={() => onMarkAsRead(reminder.id)}
             >
               <span className="font-medium text-sm">{reminder.title}</span>
@@ -299,9 +296,14 @@ function NotificationDropdown({
             </DropdownMenuItem>
           ))
         )}
+        {visibleReminders.length > 5 && (
+          <div className="px-3 py-2 text-xs text-muted-foreground border-t">
+            {visibleReminders.length - 5} more notification{visibleReminders.length - 5 > 1 ? 's' : ''}
+          </div>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link to="/dashboard/notifications" className="w-full text-center text-sm">
+          <Link to="/dashboard/notifications" className="w-full text-center text-sm text-foreground data-[highlighted]:text-foreground">
             View all notifications
           </Link>
         </DropdownMenuItem>
