@@ -36,7 +36,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, MoreHorizontal, Eye, DollarSign, Trash2, Send, FileText, Printer, Download, Mail, Pencil, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Plus, Search, MoreHorizontal, Eye, DollarSign, Trash2, Send, FileText, Printer, Download, Mail, Pencil, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   DropdownMenu,
@@ -53,6 +54,7 @@ import { formatDateDMY } from '@/lib/document-date';
 import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 export default function Invoices() {
+  const { user } = useAuth();
   const { data: invoices = [], isLoading, error } = useInvoicesAPI();
   const { data: clients = [] } = useClientsAPI();
   
@@ -75,8 +77,20 @@ export default function Invoices() {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [clientEmail, setClientEmail] = useState('');
+  const [customMessage, setCustomMessage] = useState('');
+  const [customSubject, setCustomSubject] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [invoiceForDownload, setInvoiceForDownload] = useState<Invoice | null>(null);
+
+  const getInvoiceCompanyName = (invoice?: Invoice | null) =>
+    invoice?.companyFooter?.name ||
+    (invoice as any)?.companyFooter?.companyName ||
+    (invoice as any)?.companyName ||
+    user?.company ||
+    user?.fullName ||
+    user?.name ||
+    'VAYPR';
 
   // Form state
   const [formData, setFormData] = useState({
@@ -328,13 +342,22 @@ export default function Invoices() {
 
   /**
    * Send invoice via Gmail API with PDF attachment
-   * Email is sent from user's Gmail account to client
+   * Email is sent from user's Gmail account to client with custom message
    */
   const handleSendViaGmail = async () => {
     if (!selectedInvoice || !clientEmail) {
       toast({
         title: 'Missing Information',
         description: 'Please enter the client email address',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!customMessage.trim()) {
+      toast({
+        title: 'Message Required',
+        description: 'Please add a message before sending the invoice',
         variant: 'destructive',
       });
       return;
@@ -356,45 +379,51 @@ export default function Invoices() {
 
       const pdfBase64 = await generatePdfBase64('invoice-preview-email');
 
-      // Step 2: Create HTML email body
-      const emailSubject = `Invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.companyFooter?.name || 'Our Company'}`;
+      // Step 2: Create HTML email body with custom message
+      const companyName = getInvoiceCompanyName(selectedInvoice);
+      const emailSubject = customSubject.trim() || `Invoice ${selectedInvoice.invoiceNumber} from ${companyName}`;
       
+      // Convert custom message to HTML (preserve line breaks)
+      const messageHtml = customMessage
+        .split('\n')
+        .map(line => `<p>${line || '<br />'}</p>`)
+        .join('');
+
       const emailBody = `
         <html>
           <head>
             <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-              .invoice-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
-              .amount { font-size: 24px; font-weight: bold; color: #667eea; }
-              .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+              body { margin: 0; padding: 0; background: #f3f4f6; font-family: 'Segoe UI', Arial, sans-serif; color: #111827; }
+              .container { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+              .card { background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 8px 30px rgba(79, 70, 229, 0.12); }
+              .hero { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; padding: 28px 24px; }
+              .hero h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.2px; }
+              .hero p { margin: 8px 0 0; font-size: 13px; opacity: 0.92; }
+              .content { padding: 24px; }
+              .message-box { background: #f8fafc; border: 1px solid #e5e7eb; border-left: 4px solid #7c3aed; border-radius: 12px; padding: 18px; margin: 0 0 18px; }
+              .message-box p { margin: 8px 0; font-size: 14px; line-height: 1.65; color: #1f2937; }
+              .attachment { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; margin-top: 10px; font-size: 12px; color: #4b5563; }
+              .signature { margin-top: 18px; font-size: 13px; color: #374151; }
+              .signature strong { color: #111827; }
+              .footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 14px; }
             </style>
           </head>
           <body>
             <div class="container">
-              <div class="header">
-                <h1>Invoice ${selectedInvoice.invoiceNumber}</h1>
-              </div>
-              <div class="content">
-                <p>Dear ${selectedInvoice.billTo.name},</p>
-                <p>Thank you for your business! Please find the attached invoice.</p>
-                
-                <div class="invoice-details">
-                  <p><strong>Invoice Number:</strong> ${selectedInvoice.invoiceNumber}</p>
-                  <p><strong>Issue Date:</strong> ${formatDateDMY(selectedInvoice.issueDate) || '-'}</p>
-                  <p><strong>Due Date:</strong> ${formatDateDMY(selectedInvoice.dueDate) || '-'}</p>
-                  <p><strong>Amount Due:</strong> <span class="amount">${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}</span></p>
+              <div class="card">
+                <div class="hero">
+                  <h1>Invoice ${selectedInvoice.invoiceNumber}</h1>
+                  <p>${companyName}</p>
                 </div>
-
-                <p>Please process the payment by the due date. If you have any questions, feel free to reach out.</p>
-                
-                <p>Best regards,<br>${selectedInvoice.companyFooter?.name || 'Our Company'}</p>
+                <div class="content">
+                  <div class="message-box">
+                    ${messageHtml}
+                  </div>
+                  <div class="attachment">Your PDF is attached below in this email.</div>
+                  <p class="signature">Best regards,<br/><strong>${companyName}</strong></p>
+                </div>
               </div>
-              <div class="footer">
-                <p>This is an automated email. Please do not reply to this message.</p>
-              </div>
+              <p class="footer">Powered by VAYPR</p>
             </div>
           </body>
         </html>
@@ -419,6 +448,9 @@ export default function Invoices() {
 
       setIsEmailDialogOpen(false);
       setClientEmail('');
+      setCustomMessage('');
+      setCustomSubject('');
+      setIsComposing(false);
     } catch (error: any) {
       console.error('Gmail send error:', error);
       toast({
@@ -583,7 +615,8 @@ export default function Invoices() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                               setSelectedInvoice(invoice);
-                              setClientEmail('');
+                              setClientEmail(invoice.billTo?.email || '');
+                              setCustomSubject(`Invoice ${invoice.invoiceNumber} from ${getInvoiceCompanyName(invoice)}`);
                               setIsEmailDialogOpen(true);
                             }}>
                               <Mail className="h-4 w-4 mr-2" />
@@ -878,27 +911,102 @@ export default function Invoices() {
         </Dialog>
 
         {/* Email Invoice Dialog */}
-        <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
-          <DialogContent>
+        <Dialog open={isEmailDialogOpen} onOpenChange={(open) => {
+          setIsEmailDialogOpen(open);
+          if (!open) {
+            setClientEmail('');
+            setCustomMessage('');
+            setCustomSubject('');
+            setIsComposing(false);
+          }
+        }}>
+          <DialogContent className="w-[95vw] max-w-lg p-6 overflow-hidden">
             <DialogHeader>
               <DialogTitle>Send Invoice via Email</DialogTitle>
               <DialogDescription>
                 Enter the client's email address to send invoice {selectedInvoice?.invoiceNumber}
               </DialogDescription>
             </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="clientEmail">Client Email</Label>
-                <Input
-                  id="clientEmail"
-                  type="email"
-                  placeholder="client@example.com"
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
-                />
-              </div>
+
+            {/* Email Input */}
+            <div className="space-y-2">
+              <Label htmlFor="clientEmail">Client Email</Label>
+              <Input
+                id="clientEmail"
+                type="email"
+                placeholder="client@example.com"
+                value={clientEmail}
+                onChange={(e) => setClientEmail(e.target.value)}
+              />
             </div>
+
+            {/* Add Message Button */}
+            {!isComposing && (
+              <Button
+                type="button"
+                className="w-full gap-2 justify-center bg-purple-600 text-white hover:bg-purple-600"
+                onClick={() => setIsComposing(true)}
+              >
+                <Mail className="h-4 w-4" />
+                Add Message
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Message Composer - Show when composing */}
+            {isComposing && (
+              <div className="space-y-4 border-t pt-4 w-full overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Compose Message</h3>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsComposing(false)}
+                    className="h-6 w-6 p-0"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Subject Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="emailSubject" className="text-sm">
+                    Subject
+                  </Label>
+                  <Input
+                    id="emailSubject"
+                    placeholder={`Invoice from ${getInvoiceCompanyName(selectedInvoice)}`}
+                    value={customSubject}
+                    onChange={(e) => setCustomSubject(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+
+                {/* Message Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="customMessage" className="text-sm">
+                    Message *
+                  </Label>
+                  <Textarea
+                    id="customMessage"
+                    placeholder="Write your message here..."
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    rows={4}
+                    className="resize-none text-sm"
+                  />
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-xs text-muted-foreground">
+                      {customMessage.length} characters
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      📎 PDF will be attached
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Hidden invoice preview for PDF generation */}
             {selectedInvoice && (
@@ -910,54 +1018,62 @@ export default function Invoices() {
               </div>
             )}
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setIsEmailDialogOpen(false)}
-                disabled={isSendingEmail}
-              >
-                Cancel
-              </Button>
-              
-              {/* Fallback: Open local email client */}
-              <Button 
-                variant="outline"
-                onClick={() => {
-                  if (selectedInvoice) {
-                    sendEmail({
-                      to: clientEmail,
-                      subject: `Invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.companyFooter?.name || 'Our Company'}`,
-                      body: `Dear ${selectedInvoice.billTo.name},\n\nPlease find attached Invoice ${selectedInvoice.invoiceNumber}.\n\nAmount Due: ${formatCurrency(selectedInvoice.total, selectedInvoice.currency)}\nDue Date: ${formatDateDMY(selectedInvoice.dueDate) || '-'}\n\nThank you for your business.\n\nBest regards,\n${selectedInvoice.companyFooter?.name || 'Our Company'}`,
-                    });
-                    setIsEmailDialogOpen(false);
-                  }
-                }} 
-                className="gap-2"
-                disabled={isSendingEmail}
-              >
-                <Mail className="h-4 w-4" />
-                Open Email Client
-              </Button>
+            {/* Footer Buttons - Only show when composing */}
+            {isComposing && (
+              <DialogFooter className="flex-col gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsComposing(false)}
+                  disabled={isSendingEmail}
+                  className="w-full"
+                >
+                  Cancel
+                </Button>
+                
+                {/* Fallback: Open local email client */}
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    if (selectedInvoice && customMessage.trim()) {
+                      sendEmail({
+                        to: clientEmail,
+                        subject: customSubject || `Invoice from ${getInvoiceCompanyName(selectedInvoice)}`,
+                        body: customMessage,
+                      });
+                      setIsEmailDialogOpen(false);
+                      setClientEmail('');
+                      setCustomMessage('');
+                      setCustomSubject('');
+                      setIsComposing(false);
+                    }
+                  }} 
+                  className="gap-2 w-full"
+                  disabled={isSendingEmail || !clientEmail.trim() || !customMessage.trim()}
+                >
+                  <Mail className="h-4 w-4" />
+                  Open Email Client
+                </Button>
 
-              {/* Primary: Send via Gmail API */}
-              <Button 
-                onClick={handleSendViaGmail}
-                className="gap-2"
-                disabled={isSendingEmail || !clientEmail}
-              >
-                {isSendingEmail ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    Send via Gmail
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
+                {/* Primary: Send via Gmail API */}
+                <Button 
+                  onClick={handleSendViaGmail}
+                  className="gap-2 bg-purple-600 hover:bg-purple-700 w-full"
+                  disabled={isSendingEmail || !clientEmail.trim() || !customMessage.trim()}
+                >
+                  {isSendingEmail ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      Send via Gmail
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            )}
           </DialogContent>
         </Dialog>
 
