@@ -19,7 +19,8 @@ import {
   RefreshCw,
   Sparkles,
   ArrowRight,
-  Globe
+  Globe,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -44,6 +45,7 @@ const navItems = [
   { href: '/dashboard/recurring', label: 'Subscriptions', icon: RefreshCw },
   { href: '/dashboard/domains', label: 'Domains', icon: Globe },
   { href: '/dashboard/expenses', label: 'Expenses', icon: Wallet },
+  { href: '/dashboard/support', label: 'Support', icon: MessageSquare },
 ];
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {

@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateTicketDto } from './dto/create-ticket.dto';
+import { CreateMyTicketDto } from './dto/create-my-ticket.dto';
+import { UpdateMyTicketDto } from './dto/update-my-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { Ticket } from './entities/ticket.entity';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
 import { EmailNotificationService } from '../userprofile/email-notification.service';
+
+type InternalNoteScope = 'admin' | 'user';
 
 @Injectable()
 export class TicketsService {
@@ -15,9 +19,54 @@ export class TicketsService {
     @Inject(EmailNotificationService) private emailNotificationService: EmailNotificationService,
   ) {}
 
+  private filterTicketForViewer(
+    ticket: Ticket,
+    viewer: InternalNoteScope,
+  ): Ticket {
+    const normalized =
+      typeof (ticket as any).toObject === 'function'
+        ? (ticket as any).toObject()
+        : (ticket as any);
+
+    const notes = Array.isArray(normalized.internalNotes)
+      ? normalized.internalNotes
+      : [];
+
+    normalized.internalNotes = notes.filter((note: any) =>
+      viewer === 'admin' ? note.scope !== 'user' : note.scope === 'user',
+    );
+
+    return normalized as Ticket;
+  }
+
+  private filterTicketsForViewer(
+    tickets: Ticket[],
+    viewer: InternalNoteScope,
+  ): Ticket[] {
+    return tickets.map((ticket) => this.filterTicketForViewer(ticket, viewer));
+  }
+
   async create(createTicketDto: CreateTicketDto): Promise<Ticket> {
     const ticket = new this.ticketModel(createTicketDto);
     return await ticket.save();
+  }
+
+  async createForCustomer(
+    customerId: string,
+    customerEmail: string,
+    createTicketDto: CreateMyTicketDto,
+  ): Promise<Ticket> {
+    const ticket = new this.ticketModel({
+      ...createTicketDto,
+      customerId,
+      customerEmail,
+      customerName:
+        createTicketDto.customerName?.trim() ||
+        customerEmail.split('@')[0] ||
+        customerEmail,
+    });
+    const saved = await ticket.save();
+    return this.filterTicketForViewer(saved, 'user');
   }
 
   async findAll(
@@ -64,7 +113,7 @@ export class TicketsService {
       .skip(offset);
 
     return {
-      items,
+      items: this.filterTicketsForViewer(items as unknown as Ticket[], 'admin'),
       total,
       limit,
       offset,
@@ -77,7 +126,69 @@ export class TicketsService {
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
-    return ticket;
+    return this.filterTicketForViewer(ticket, 'admin');
+  }
+
+  async findAllForCustomer(
+    customerId: string,
+    search?: string,
+    status?: string,
+    priority?: string,
+    category?: string,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{
+    items: Ticket[];
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  }> {
+    const query: any = {
+      customerId,
+    };
+
+    if (search) {
+      query.$or = [
+        { subject: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (priority) {
+      query.priority = priority;
+    }
+
+    if (category) {
+      query.category = category;
+    }
+
+    const total = await this.ticketModel.countDocuments(query);
+    const items = await this.ticketModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(offset);
+
+    return {
+      items: this.filterTicketsForViewer(items as unknown as Ticket[], 'user'),
+      total,
+      limit,
+      offset,
+      hasMore: offset + limit < total,
+    };
+  }
+
+  async findOneForCustomer(id: string, customerId: string): Promise<Ticket> {
+    const ticket = await this.ticketModel.findOne({ _id: id, customerId });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+    return this.filterTicketForViewer(ticket, 'user');
   }
 
   async update(id: string, updateTicketDto: UpdateTicketDto): Promise<Ticket> {
@@ -89,7 +200,32 @@ export class TicketsService {
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
-    return ticket;
+    return this.filterTicketForViewer(ticket, 'admin');
+  }
+
+  async updateForCustomer(
+    id: string,
+    customerId: string,
+    updateMyTicketDto: UpdateMyTicketDto,
+  ): Promise<Ticket> {
+    await this.findOneForCustomer(id, customerId);
+    const updateData: UpdateMyTicketDto = {};
+
+    if (updateMyTicketDto.priority !== undefined) {
+      updateData.priority = updateMyTicketDto.priority;
+    }
+
+    if (updateMyTicketDto.assignedTo !== undefined) {
+      updateData.assignedTo = updateMyTicketDto.assignedTo;
+    }
+
+    const ticket = await this.ticketModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+    return this.filterTicketForViewer(ticket, 'user');
   }
 
   async updateStatus(
@@ -128,13 +264,14 @@ export class TicketsService {
       });
     }
 
-    return ticket;
+    return this.filterTicketForViewer(ticket, 'admin');
   }
 
   async addMessage(
     id: string,
     message: string,
     author: string,
+    viewer: InternalNoteScope = 'admin',
   ): Promise<Ticket> {
     const ticket = await this.ticketModel.findByIdAndUpdate(
       id,
@@ -165,13 +302,25 @@ export class TicketsService {
       });
     }
 
-    return ticket;
+    return this.filterTicketForViewer(ticket, viewer);
+  }
+
+  async addMessageForCustomer(
+    id: string,
+    customerId: string,
+    message: string,
+  ): Promise<Ticket> {
+    const ticket = await this.findOneForCustomer(id, customerId);
+    const author = ticket.customerName || ticket.customerEmail;
+    return this.addMessage(id, message, author, 'user');
   }
 
   async addInternalNote(
     id: string,
     note: string,
     author: string,
+    scope: InternalNoteScope = 'admin',
+    viewer: InternalNoteScope = 'admin',
   ): Promise<Ticket> {
     const ticket = await this.ticketModel.findByIdAndUpdate(
       id,
@@ -181,6 +330,7 @@ export class TicketsService {
             note,
             author,
             timestamp: new Date(),
+            scope,
           },
         },
       },
@@ -190,7 +340,17 @@ export class TicketsService {
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
-    return ticket;
+    return this.filterTicketForViewer(ticket, viewer);
+  }
+
+  async addInternalNoteForCustomer(
+    id: string,
+    customerId: string,
+    note: string,
+  ): Promise<Ticket> {
+    const ticket = await this.findOneForCustomer(id, customerId);
+    const author = ticket.customerName || ticket.customerEmail;
+    return this.addInternalNote(id, note, author, 'user', 'user');
   }
 
   async remove(id: string): Promise<{ success: boolean; message: string }> {
@@ -217,6 +377,27 @@ export class TicketsService {
         this.ticketModel.countDocuments({ status: 'resolved' }),
         this.ticketModel.countDocuments({ status: 'closed' }),
         this.ticketModel.countDocuments(),
+      ]);
+
+    return { open, pending, inProgress, resolved, closed, total };
+  }
+
+  async getCustomerStats(customerId: string): Promise<{
+    open: number;
+    pending: number;
+    inProgress: number;
+    resolved: number;
+    closed: number;
+    total: number;
+  }> {
+    const [open, pending, inProgress, resolved, closed, total] =
+      await Promise.all([
+        this.ticketModel.countDocuments({ customerId, status: 'open' }),
+        this.ticketModel.countDocuments({ customerId, status: 'pending' }),
+        this.ticketModel.countDocuments({ customerId, status: 'in_progress' }),
+        this.ticketModel.countDocuments({ customerId, status: 'resolved' }),
+        this.ticketModel.countDocuments({ customerId, status: 'closed' }),
+        this.ticketModel.countDocuments({ customerId }),
       ]);
 
     return { open, pending, inProgress, resolved, closed, total };

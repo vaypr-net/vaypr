@@ -10,6 +10,9 @@ const TICKET_QUERY_KEYS = {
   filters: (filters: any) => [...TICKET_QUERY_KEYS.list(), filters] as const,
   detail: (id: string) => [...TICKET_QUERY_KEYS.all, 'detail', id] as const,
   stats: () => [...TICKET_QUERY_KEYS.all, 'stats'] as const,
+  myList: () => [...TICKET_QUERY_KEYS.all, 'my-list'] as const,
+  myFilters: (filters: any) => [...TICKET_QUERY_KEYS.myList(), filters] as const,
+  myStats: () => [...TICKET_QUERY_KEYS.all, 'my-stats'] as const,
 };
 
 // ==================== TICKET HOOKS ====================
@@ -160,6 +163,126 @@ export function useDeleteTicket() {
       toast({
         title: 'Error',
         description: error.response?.data?.message || 'Failed to delete ticket.',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useGetMyTickets(
+  search?: string,
+  status?: string,
+  priority?: string,
+  category?: string,
+  limit: number = 20,
+  offset: number = 0,
+) {
+  return useQuery({
+    queryKey: TICKET_QUERY_KEYS.myFilters({ search, status, priority, category, limit, offset }),
+    queryFn: () => TicketService.getMyTickets(search, status, priority, category, limit, offset),
+  });
+}
+
+export function useGetMyTicketStats() {
+  return useQuery({
+    queryKey: TICKET_QUERY_KEYS.myStats(),
+    queryFn: () => TicketService.getMyTicketStats(),
+  });
+}
+
+export function useCreateMyTicket() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (data: Omit<CreateTicketDto, 'customerId' | 'customerEmail'>) => TicketService.createMyTicket(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.myList() });
+      queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.myStats() });
+      toast({
+        title: 'Success',
+        description: 'Ticket created successfully.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to create ticket.',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useAddMyTicketMessage() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, message }: { id: string; message: string }) =>
+      TicketService.addMyTicketMessage(id, message),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.myList() });
+      queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.detail(data._id) });
+      toast({
+        title: 'Success',
+        description: 'Message sent successfully.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to send message.',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useUpdateMyTicket() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { priority?: string; assignedTo?: string } }) =>
+      TicketService.updateMyTicket(id, data),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.myList() });
+      queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.detail(data._id) });
+      toast({
+        title: 'Success',
+        description: 'Ticket updated successfully.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to update ticket.',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useAddMyTicketInternalNote() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) =>
+      TicketService.addMyTicketInternalNote(id, note),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.myList() });
+      queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.detail(data._id) });
+      toast({
+        title: 'Success',
+        description: 'Note added successfully.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to add note.',
         variant: 'destructive',
       });
     },

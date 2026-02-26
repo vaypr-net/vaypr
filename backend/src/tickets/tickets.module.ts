@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TicketsService } from './tickets.service';
 import { TicketsController } from './tickets.controller';
+import { UserTicketsController } from './user-tickets.controller';
 import { Ticket, TicketSchema } from './entities/ticket.entity';
 import { UserprofileModule } from '../userprofile/userprofile.module';
 
@@ -22,9 +23,8 @@ import { UserprofileModule } from '../userprofile/userprofile.module';
     }),
     UserprofileModule,  // Import to access NotificationPreferencesHelper
   ],
-  controllers: [TicketsController],
+  controllers: [TicketsController, UserTicketsController],
   providers: [TicketsService],
   exports: [TicketsService],
 })
 export class TicketsModule {}
-

@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MessageSquare, Plus, Clock, User, AlertTriangle, CheckCircle, Eye, Loader2 } from "lucide-react";
+import { MessageSquare, Eye, Loader2 } from "lucide-react";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
 import { DataTable } from "@/components/super-admin/DataTable";
-import { StatusBadge } from "@/components/super-admin/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,33 +11,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreateTicketDialog } from "@/components/super-admin/support/CreateTicketDialog";
 import { 
   useGetTickets, 
-  useGetTicketStats, 
-  useCreateTicket,
-  useUpdateTicketStatus,
-  useUpdateTicket, 
 } from "@/hooks/api/useTickets";
 import { Ticket } from "@/api/services/ticket.service";
 import { toast } from "sonner";
 import axiosInstance from "@/api/axios";
-
-const priorityStyles: Record<string, string> = {
-  low: "bg-gray-100 text-gray-600",
-  medium: "bg-blue-100 text-blue-600",
-  high: "bg-orange-100 text-orange-600",
-  urgent: "bg-red-100 text-red-600",
-};
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -127,10 +107,7 @@ function exportTicketsToCSV(tickets: Ticket[], filename: string = 'support_ticke
 
 export default function Support() {
   const [searchValue, setSearchValue] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [replyMessage, setReplyMessage] = useState("");
   const [internalNote, setInternalNote] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
@@ -139,17 +116,12 @@ export default function Support() {
   // API Hooks
   const { data: ticketsData, isLoading: ticketsLoading } = useGetTickets(
     searchValue || undefined,
-    statusFilter !== "all" ? statusFilter : undefined,
-    priorityFilter !== "all" ? priorityFilter : undefined,
+    undefined,
+    undefined,
     undefined, // category
     50, // limit
     0 // offset
   );
-  
-  const { data: stats } = useGetTicketStats();
-  const createTicketMutation = useCreateTicket();
-  const updateStatusMutation = useUpdateTicketStatus();
-  const updateTicketMutation = useUpdateTicket();
 
   const displayTickets = ticketsData?.items || [];
 
@@ -165,7 +137,7 @@ export default function Support() {
         `/super-admin/tickets/${selectedTicket._id}/messages`,
         {
           message: replyMessage,
-          author: "Support Team",
+          author: selectedTicket.assignedTo || "Support Team",
         }
       );
 
@@ -207,23 +179,6 @@ export default function Support() {
     }
   };
 
-  const handleCreateTicket = async (ticketData: {
-    customerName: string;
-    customerEmail: string;
-    customerPhone: string;
-    subject: string;
-    category: string;
-    priority: string;
-    description: string;
-    assignedTo: string;
-  }) => {
-    await createTicketMutation.mutateAsync({
-      ...ticketData,
-      customerId: "customer-" + Date.now(), // Temp ID for now
-    });
-    setCreateDialogOpen(false);
-  };
-
   const columns = [
     { 
       header: "Ticket ID", 
@@ -248,18 +203,6 @@ export default function Support() {
           <p className="text-sm text-muted-foreground">{row.customerEmail}</p>
         </div>
       ),
-    },
-    {
-      header: "Priority",
-      accessor: (row: Ticket) => (
-        <span className={`status-badge ${priorityStyles[row.priority]}`}>
-          {row.priority.charAt(0).toUpperCase() + row.priority.slice(1)}
-        </span>
-      ),
-    },
-    {
-      header: "Status",
-      accessor: (row: Ticket) => <StatusBadge status={row.status} />,
     },
     { header: "Assigned To", accessor: "assignedTo" as keyof Ticket },
     {
@@ -287,44 +230,6 @@ export default function Support() {
           <h1 className="page-title">Support Center</h1>
           <p className="page-subtitle">Manage customer support tickets</p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" /> Create Ticket
-        </Button>
-      </div>
-
-      {/* Create Ticket Dialog */}
-      <CreateTicketDialog 
-        open={createDialogOpen} 
-        onOpenChange={setCreateDialogOpen}
-        onSubmit={handleCreateTicket}
-      />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: "Open", value: stats?.open || 0, icon: AlertTriangle, color: "bg-blue-100 text-blue-600" },
-          { label: "Pending", value: stats?.pending || 0, icon: Clock, color: "bg-yellow-100 text-yellow-600" },
-          { label: "In Progress", value: stats?.inProgress || 0, icon: User, color: "bg-purple-100 text-purple-600" },
-          { label: "Resolved", value: stats?.resolved || 0, icon: CheckCircle, color: "bg-green-100 text-green-600" },
-        ].map((stat, i) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="kpi-card"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-                <p className="text-2xl font-semibold mt-1">{stat.value}</p>
-              </div>
-              <div className={`w-10 h-10 rounded-lg ${stat.color} flex items-center justify-center`}>
-                <stat.icon className="w-5 h-5" />
-              </div>
-            </div>
-          </motion.div>
-        ))}
       </div>
 
       <motion.div 
@@ -337,33 +242,7 @@ export default function Support() {
           searchPlaceholder="Search tickets..."
           searchValue={searchValue}
           onSearchChange={setSearchValue}
-          filters={[
-            {
-              name: "Status",
-              options: [
-                { label: "All Statuses", value: "all" },
-                { label: "Open", value: "open" },
-                { label: "Pending", value: "pending" },
-                { label: "In Progress", value: "in_progress" },
-                { label: "Resolved", value: "resolved" },
-                { label: "Closed", value: "closed" },
-              ],
-              value: statusFilter,
-              onChange: setStatusFilter,
-            },
-            {
-              name: "Priority",
-              options: [
-                { label: "All Priorities", value: "all" },
-                { label: "Urgent", value: "urgent" },
-                { label: "High", value: "high" },
-                { label: "Medium", value: "medium" },
-                { label: "Low", value: "low" },
-              ],
-              value: priorityFilter,
-              onChange: setPriorityFilter,
-            },
-          ]}
+          filters={[]}
           onExport={() => exportTicketsToCSV(displayTickets, `support_tickets_${new Date().toISOString().split('T')[0]}.csv`)}
         />
 
@@ -386,93 +265,6 @@ export default function Support() {
               </SheetHeader>
 
               <div className="mt-6 space-y-6">
-                {/* Ticket Meta */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    <Select 
-                      defaultValue={selectedTicket.status}
-                      onValueChange={(value) => {
-                        updateStatusMutation.mutate({
-                          id: selectedTicket._id,
-                          status: value as "open" | "pending" | "in_progress" | "resolved" | "closed",
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="open">Open</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="resolved">Resolved</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Priority</p>
-                    <Select
-                      key={`priority-${selectedTicket._id}`}
-                      defaultValue={selectedTicket.priority}
-                      onValueChange={async (value) => {
-                        try {
-                          const updated = await updateTicketMutation.mutateAsync({
-                            id: selectedTicket._id,
-                            data: { priority: value },
-                          });
-                          setSelectedTicket(updated);
-                        } catch (error) {
-                          console.error('Failed to update priority', error);
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Assigned To</p>
-                    <Select
-                      key={`assigned-${selectedTicket._id}`}
-                      defaultValue={selectedTicket.assignedTo}
-                      onValueChange={async (value) => {
-                        try {
-                          const updated = await updateTicketMutation.mutateAsync({
-                            id: selectedTicket._id,
-                            data: { assignedTo: value },
-                          });
-                          setSelectedTicket(updated);
-                        } catch (error) {
-                          console.error('Failed to update assignedTo', error);
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Support Team">Support Team</SelectItem>
-                        <SelectItem value="Billing Team">Billing Team</SelectItem>
-                        <SelectItem value="Tech Support">Tech Support</SelectItem>
-                        <SelectItem value="Admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Category</p>
-                    <Badge variant="outline" className="mt-2">{selectedTicket.category}</Badge>
-                  </div>
-                </div>
-
                 {/* Customer Info */}
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground mb-1">Customer</p>
