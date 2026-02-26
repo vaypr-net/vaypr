@@ -122,6 +122,13 @@ export class User extends BaseEntity {
 
   @Prop({ required: false, default: '' })
   internalNotes?: string; // Super admin internal notes for subscriber management
+
+  // ==================== AFFILIATE/REFERRAL TRACKING ====================
+  @Prop({ required: false })
+  referredBy?: string; // Affiliate referral code that referred this user
+
+  @Prop({ type: Types.ObjectId, ref: 'Affiliate', required: false })
+  affiliateId?: Types.ObjectId; // Reference to the affiliate who referred this user
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

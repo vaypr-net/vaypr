@@ -11,7 +11,19 @@ export class CreateGuideDto {
   title: string;
 
   @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsString()
   description: string;
+
+  @IsString()
+  @IsOptional()
+  difficulty?: string;
+
+  @IsString()
+  @IsOptional()
+  duration?: string;
 
   @IsEnum(FileType)
   fileType: FileType;

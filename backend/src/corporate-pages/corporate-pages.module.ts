@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { CorporatePagesService } from './corporate-pages.service';
 import { CorporatePagesController } from './corporate-pages.controller';
 import { 
@@ -27,6 +28,7 @@ import {
         },
       }),
     }),
+    CloudinaryModule,
   ],
   controllers: [CorporatePagesController],
   providers: [CorporatePagesService],

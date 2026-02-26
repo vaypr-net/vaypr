@@ -63,6 +63,10 @@ export class SupportPage {
   @Prop({ type: ContactFormSettings })
   contactFormSettings?: ContactFormSettings;
 
+  // Structured CMS content used by static-layout support pages
+  @Prop({ type: Object, default: {} })
+  content: Record<string, any>;
+
   @Prop({ required: true, default: true })
   enabled: boolean;
 

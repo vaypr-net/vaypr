@@ -8,7 +8,10 @@ import {
   Delete,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CorporatePagesService } from './corporate-pages.service';
 import { CreateCorporatePageDto } from './dto/create-corporate-page.dto';
 import { UpdateCorporatePageDto } from './dto/update-corporate-page.dto';
@@ -16,10 +19,14 @@ import { CreateGuideDto } from './dto/create-guide.dto';
 import { UpdateGuideDto } from './dto/update-guide.dto';
 import { SuperAdminGuard } from '../common/guards/super-admin.guard';
 import { CorporatePageType } from './entities/corporate-page.entity';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller('corporate')
 export class CorporatePagesController {
-  constructor(private readonly corporatePagesService: CorporatePagesService) {}
+  constructor(
+    private readonly corporatePagesService: CorporatePagesService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   /**
    * Public endpoint - Get all enabled corporate pages
@@ -148,6 +155,22 @@ export class CorporatePagesController {
   @Post('admin/guides')
   createGuide(@Body() createGuideDto: CreateGuideDto) {
     return this.corporatePagesService.createGuide(createGuideDto);
+  }
+
+  @UseGuards(SuperAdminGuard)
+  @Post('admin/guides/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadGuideFile(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      return { message: 'No file uploaded' };
+    }
+    const result = await this.cloudinaryService.uploadFile(file, 'guides');
+    return {
+      url: result?.secure_url,
+      publicId: result?.public_id,
+      originalName: file.originalname,
+      resourceType: result?.resource_type,
+    };
   }
 
   /**

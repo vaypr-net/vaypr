@@ -186,6 +186,45 @@ export class CorporatePagesService {
           buttonText: 'Get Started Free',
           buttonLink: '/signup',
         },
+        content: {
+          heroTitle: 'About VAYPR',
+          heroDescription:
+            'We are on a mission to simplify financial management for businesses worldwide.',
+          values: [
+            {
+              title: 'Customer Obsessed',
+              description:
+                'Everything we build starts from real customer workflows and outcomes.',
+            },
+            {
+              title: 'Simplicity First',
+              description:
+                'Powerful tools should still feel intuitive for every team member.',
+            },
+            {
+              title: 'Reliable Platform',
+              description:
+                'Security, performance, and consistency are built into every release.',
+            },
+          ],
+          team: [
+            {
+              name: 'John Smith',
+              role: 'CEO & Co-Founder',
+              bio: 'Former finance executive with 15+ years of fintech experience.',
+            },
+            {
+              name: 'Sarah Johnson',
+              role: 'CTO & Co-Founder',
+              bio: 'Software architect focused on scalable and user-friendly systems.',
+            },
+            {
+              name: 'Michael Chen',
+              role: 'Head of Product',
+              bio: 'Product strategist focused on customer value and usability.',
+            },
+          ],
+        },
         enabled: true,
         showInFooter: true,
         order: 1,
@@ -265,6 +304,41 @@ export class CorporatePagesService {
           buttonText: 'Schedule a Demo',
           buttonLink: '/contact',
         },
+        content: {
+          heroEyebrow: 'Enterprise Finance Platform',
+          heroTitleLine1: 'Built for Enterprise',
+          heroTitleLine2: 'Finance Operations',
+          heroDescription:
+            'Centralize invoicing, subscriptions, expenses, and reporting with approvals and integrations.',
+          valuePillars: [
+            {
+              title: 'Control & Permissions',
+              description: 'Role-based access, approval flows, and audit-friendly operations.',
+            },
+            {
+              title: 'Automate at Scale',
+              description: 'Recurring billing, reminders, and workflow automation for large teams.',
+            },
+            {
+              title: 'Integrate with Your Stack',
+              description: 'Connect VAYPR with ERP, CRM, and accounting tools.',
+            },
+          ],
+          industries: [
+            {
+              title: 'SaaS & Tech',
+              description: 'Automate recurring billing and subscription operations.',
+            },
+            {
+              title: 'Agencies & Consulting',
+              description: 'Manage retainers, milestones, and branded client billing.',
+            },
+            {
+              title: 'Retail & E-commerce',
+              description: 'Handle high-volume invoicing with clear reporting.',
+            },
+          ],
+        },
         enabled: true,
         showInFooter: true,
         order: 2,
@@ -309,6 +383,198 @@ export class CorporatePagesService {
             order: 6,
           },
         ],
+        content: {
+          title: 'Guides & Tutorials',
+          description:
+            'Learn how to get the most out of VAYPR with step-by-step practical guides.',
+          categories: [
+            {
+              category: 'Getting Started',
+              items: [
+                {
+                  title: 'Quick Start Guide',
+                  description:
+                    'Get up and running with VAYPR in under 10 minutes. Learn the basics of creating your first invoice.',
+                  duration: '10 min',
+                  difficulty: 'Beginner',
+                  slug: '#',
+                },
+                {
+                  title: 'Setting Up Your Business Profile',
+                  description:
+                    'Configure your company details, logo, and default settings for professional documents.',
+                  duration: '5 min',
+                  difficulty: 'Beginner',
+                  slug: '#',
+                },
+                {
+                  title: 'Understanding the Dashboard',
+                  description:
+                    'Navigate the dashboard efficiently and discover key features to manage your business.',
+                  duration: '8 min',
+                  difficulty: 'Beginner',
+                  slug: '#',
+                },
+              ],
+            },
+            {
+              category: 'Invoicing',
+              items: [
+                {
+                  title: 'Creating Professional Invoices',
+                  description:
+                    'Master the art of creating clear, professional invoices that get you paid faster.',
+                  duration: '15 min',
+                  difficulty: 'Beginner',
+                  slug: '#',
+                },
+                {
+                  title: 'Customizing Invoice Templates',
+                  description:
+                    'Design stunning invoice templates that match your brand identity.',
+                  duration: '20 min',
+                  difficulty: 'Intermediate',
+                  slug: '#',
+                },
+                {
+                  title: 'Setting Up Recurring Invoices',
+                  description:
+                    'Automate your billing with recurring invoices for retainer clients and subscriptions.',
+                  duration: '12 min',
+                  difficulty: 'Intermediate',
+                  slug: '#',
+                },
+                {
+                  title: 'Multi-Currency Invoicing',
+                  description:
+                    'Learn how to invoice international clients in their local currency.',
+                  duration: '10 min',
+                  difficulty: 'Intermediate',
+                  slug: '#',
+                },
+              ],
+            },
+            {
+              category: 'Client Management',
+              items: [
+                {
+                  title: 'Managing Your Client Database',
+                  description:
+                    'Organize and maintain your client information for efficient invoicing and communication.',
+                  duration: '12 min',
+                  difficulty: 'Beginner',
+                  slug: '#',
+                },
+                {
+                  title: 'Client Portal Overview',
+                  description:
+                    'Give your clients access to view and pay invoices through their personalized portal.',
+                  duration: '15 min',
+                  difficulty: 'Intermediate',
+                  slug: '#',
+                },
+                {
+                  title: 'Tracking Client Payment History',
+                  description:
+                    'Monitor payment patterns and identify your best (and worst) paying clients.',
+                  duration: '10 min',
+                  difficulty: 'Beginner',
+                  slug: '#',
+                },
+              ],
+            },
+            {
+              category: 'Payments & Billing',
+              items: [
+                {
+                  title: 'Payment Methods Setup',
+                  description:
+                    'Configure payment options including credit cards, bank transfers, and PayPal.',
+                  duration: '15 min',
+                  difficulty: 'Intermediate',
+                  slug: '#',
+                },
+                {
+                  title: 'Handling Partial Payments',
+                  description:
+                    'Accept and track partial payments and payment plans for large invoices.',
+                  duration: '8 min',
+                  difficulty: 'Intermediate',
+                  slug: '#',
+                },
+                {
+                  title: 'Late Payment Reminders',
+                  description:
+                    'Set up automated reminders to chase overdue invoices professionally.',
+                  duration: '10 min',
+                  difficulty: 'Beginner',
+                  slug: '#',
+                },
+              ],
+            },
+            {
+              category: 'Reports & Analytics',
+              items: [
+                {
+                  title: 'Understanding Your Reports',
+                  description:
+                    'Make sense of your financial data with our comprehensive reporting tools.',
+                  duration: '20 min',
+                  difficulty: 'Intermediate',
+                  slug: '#',
+                },
+                {
+                  title: 'Tax Preparation Guide',
+                  description:
+                    'Export the right data and reports for seamless tax filing.',
+                  duration: '15 min',
+                  difficulty: 'Intermediate',
+                  slug: '#',
+                },
+                {
+                  title: 'Cash Flow Analysis',
+                  description:
+                    'Monitor your business cash flow and predict future income.',
+                  duration: '18 min',
+                  difficulty: 'Advanced',
+                  slug: '#',
+                },
+              ],
+            },
+            {
+              category: 'Advanced Settings',
+              items: [
+                {
+                  title: 'API Integration Guide',
+                  description:
+                    'Connect VAYPR with your existing tools using our REST API.',
+                  duration: '30 min',
+                  difficulty: 'Advanced',
+                  slug: '#',
+                },
+                {
+                  title: 'Team & Permissions',
+                  description:
+                    'Set up team members with appropriate access levels and permissions.',
+                  duration: '12 min',
+                  difficulty: 'Intermediate',
+                  slug: '#',
+                },
+                {
+                  title: 'Webhooks & Automation',
+                  description:
+                    'Automate workflows by connecting VAYPR to Zapier, Make, and more.',
+                  duration: '25 min',
+                  difficulty: 'Advanced',
+                  slug: '#',
+                },
+              ],
+            },
+          ],
+          helpTitle: 'Need more help?',
+          helpDescription:
+            'Contact our support team if you need tailored walkthroughs for your workflow.',
+        },
         enabled: true,
         showInFooter: true,
         order: 3,
@@ -320,6 +586,36 @@ export class CorporatePagesService {
       if (!existingPage) {
         const page = new this.corporatePageModel(pageData);
         await page.save();
+        continue;
+      }
+
+      const hasContent =
+        existingPage.content &&
+        typeof existingPage.content === 'object' &&
+        Object.keys(existingPage.content).length > 0;
+
+      if (!hasContent && pageData.content) {
+        existingPage.content = pageData.content as any;
+        await existingPage.save();
+        continue;
+      }
+
+      if (
+        existingPage.type === CorporatePageType.GUIDES &&
+        pageData.content &&
+        typeof existingPage.content === 'object'
+      ) {
+        const existingCategories = Array.isArray((existingPage.content as any).categories)
+          ? (existingPage.content as any).categories
+          : [];
+        if (existingCategories.length < 6) {
+          existingPage.content = {
+            ...(pageData.content as any),
+            ...(existingPage.content as any),
+            categories: (pageData.content as any).categories,
+          };
+          await existingPage.save();
+        }
       }
     }
   }
@@ -402,4 +698,3 @@ export class CorporatePagesService {
     return guide;
   }
 }
-

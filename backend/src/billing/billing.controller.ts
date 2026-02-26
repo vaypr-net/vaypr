@@ -48,7 +48,7 @@ export class BillingController {
     @Body() body: CreateCheckoutSessionDto,
     @Request() req: any,
   ) {
-    const { planId, billingCycle, currency = 'USD' } = body;
+    const { planId, billingCycle, currency = 'USD', referralCode } = body;
 
     if (!planId || !billingCycle) {
       throw new BadRequestException('planId and billingCycle are required');
@@ -60,6 +60,7 @@ export class BillingController {
         planId,
         billingCycle,
         currency,
+        referralCode,
       );
       return result;
     } catch (error) {

@@ -8,6 +8,7 @@ import {
   IsUrl,
   ValidateNested,
   Min,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CorporatePageType } from '../entities/corporate-page.entity';
@@ -139,6 +140,10 @@ export class CreateCorporatePageDto {
   @Type(() => CTASectionDto)
   @IsOptional()
   ctaSection?: CTASectionDto;
+
+  @IsObject()
+  @IsOptional()
+  content?: Record<string, any>;
 
   @IsBoolean()
   @IsOptional()

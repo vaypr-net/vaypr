@@ -111,6 +111,10 @@ export class CorporatePage {
   @Prop({ type: CTASection })
   ctaSection: CTASection;
 
+  // Structured CMS content used by rich static-layout pages (About/B2B/Guides)
+  @Prop({ type: Object, default: {} })
+  content: Record<string, any>;
+
   @Prop({ required: true, default: true })
   enabled: boolean;
 
@@ -142,8 +146,17 @@ export class Guide {
   @Prop({ required: true })
   title: string;
 
+  @Prop({ default: 'General' })
+  category: string;
+
   @Prop({ required: true })
   description: string;
+
+  @Prop({ default: 'Beginner' })
+  difficulty: string;
+
+  @Prop({ default: '' })
+  duration: string;
 
   @Prop({ required: true, enum: FileType })
   fileType: FileType;

@@ -8,6 +8,7 @@ import {
   IsEmail,
   ValidateNested,
   Min,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PageType } from '../entities/support-page.entity';
@@ -73,6 +74,10 @@ export class CreateSupportPageDto {
   @Type(() => ContactFormSettingsDto)
   @IsOptional()
   contactFormSettings?: ContactFormSettingsDto;
+
+  @IsObject()
+  @IsOptional()
+  content?: Record<string, any>;
 
   @IsBoolean()
   @IsOptional()

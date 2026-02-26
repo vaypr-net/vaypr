@@ -11,4 +11,8 @@ export class CreateCheckoutSessionDto {
   @IsString()
   @IsIn(['USD', 'AED', 'QAR', 'EGP', 'SAR', 'KWD', 'BHD', 'OMR', 'JOD', 'LBP'])
   currency?: string; // Currency code, defaults to USD if not provided
+
+  @IsOptional()
+  @IsString()
+  referralCode?: string; // Optional affiliate referral code
 }
