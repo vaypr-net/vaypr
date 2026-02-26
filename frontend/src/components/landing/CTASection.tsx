@@ -8,10 +8,16 @@ export function CTASection() {
   const { data: landingPage } = useLandingPage();
   const cta = landingPage?.ctaSection;
 
+  const enabled = cta?.enabled ?? true;
   const headline = cta?.headline ?? 'Ready to simplify your finances?';
   const description = cta?.description ?? 'Join thousands of businesses using VAYPR to manage invoices, track expenses, and grow their revenue. Start free today.';
   const primary = cta?.primaryButtonText ?? 'Get Started Free';
   const secondary = cta?.secondaryButtonText ?? 'Sign In to Dashboard';
+  const disclaimer = cta?.disclaimer ?? 'No credit card required • Free forever plan available';
+
+  if (!enabled) {
+    return null;
+  }
 
   return (
     <section id="get-started" className="py-24 relative overflow-hidden">
@@ -54,9 +60,7 @@ export function CTASection() {
               </Button>
             </div>
 
-            <p className="text-sm text-muted-foreground mt-6">
-              No credit card required • Free forever plan available
-            </p>
+            <p className="text-sm text-muted-foreground mt-6">{disclaimer}</p>
 
             {/* Policy Links - Static for Google crawlability */}
             <div className="mt-8 pt-8 border-t border-border/50 flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground">

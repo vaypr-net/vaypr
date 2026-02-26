@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { CURRENCY_CONFIG } from "@/config/currency.config";
 import { ReferralCodeModal } from "@/components/billing/ReferralCodeModal";
+import { useLandingPage } from "@/hooks/useLandingPage";
 
 interface Plan {
   _id: string;
@@ -82,6 +83,7 @@ const staticEnterprisePlan = {
 };
 
 export function PricingSection() {
+  const { data: landingPage } = useLandingPage();
   const [isYearly, setIsYearly] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState(CURRENCY_CONFIG.displayCurrency); // Default to KWD
   const showCurrencySelector = false;
@@ -95,6 +97,13 @@ export function PricingSection() {
   const navigate = useNavigate();
 
   const supportedCurrencies = CURRENCY_CONFIG.supportedCurrencies;
+  const pricingSection = landingPage?.pricingSection;
+  const pricingEnabled = pricingSection?.enabled ?? true;
+  const showYearlyToggle = pricingSection?.showYearlyToggle ?? true;
+  const pricingHeadline = pricingSection?.headline || "Choose your right plan!";
+  const pricingDescription =
+    pricingSection?.description ||
+    "Select from best plans, ensuring a perfect match. Need more or less?";
 
   const getPlanDescription = (plan: Plan): string => {
     const normalizedName = plan.name.toLowerCase();
@@ -323,6 +332,10 @@ export function PricingSection() {
   const displayPlans = plans.filter(p => p.name !== "Enterprise");
   const firstPaidPlanId = displayPlans.find((plan) => plan.price > 0)?._id;
 
+  if (!pricingEnabled) {
+    return null;
+  }
+
   return (
     <section id="pricing" className="py-24 relative overflow-hidden bg-[#f7f7fb]">
       {/* Background */}
@@ -332,42 +345,42 @@ export function PricingSection() {
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-12">
           <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
-            Choose your right plan!
+            {pricingHeadline}
           </h2>
-          <p className="text-[#6b6b76] text-lg">
-            Select from best plans, ensuring a perfect match. Need more or less?
-            <br />
-            Customize your subscription for a seamless fit!
+          <p className="text-[#6b6b76] text-lg whitespace-pre-line">
+            {pricingDescription}
           </p>
         </div>
 
         {/* Billing Toggle */}
-        <div className="flex justify-center mb-12">
-          <div className="inline-flex items-center bg-[#ececf3] rounded-full p-1">
-            <button
-              onClick={() => setIsYearly(false)}
-              className={cn(
-                "px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
-                !isYearly
-                  ? "bg-[#7c4dff] text-white shadow-sm"
-                  : "text-[#6b6b76] hover:text-[#1c1c26]"
-              )}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setIsYearly(true)}
-              className={cn(
-                "px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
-                isYearly
-                  ? "bg-[#7c4dff] text-white shadow-sm"
-                  : "text-[#6b6b76] hover:text-[#1c1c26]"
-              )}
-            >
-              Yearly (save 15%)
-            </button>
+        {showYearlyToggle && (
+          <div className="flex justify-center mb-12">
+            <div className="inline-flex items-center bg-[#ececf3] rounded-full p-1">
+              <button
+                onClick={() => setIsYearly(false)}
+                className={cn(
+                  "px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
+                  !isYearly
+                    ? "bg-[#7c4dff] text-white shadow-sm"
+                    : "text-[#6b6b76] hover:text-[#1c1c26]"
+                )}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setIsYearly(true)}
+                className={cn(
+                  "px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
+                  isYearly
+                    ? "bg-[#7c4dff] text-white shadow-sm"
+                    : "text-[#6b6b76] hover:text-[#1c1c26]"
+                )}
+              >
+                Yearly (save 15%)
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Currency Selector */}
         {showCurrencySelector && (

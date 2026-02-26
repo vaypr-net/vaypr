@@ -274,6 +274,79 @@ const defaultGuideCategories = [
   },
 ];
 
+const defaultB2BEditorContent = {
+  heroEyebrow: "Enterprise Finance Platform",
+  heroTitleLine1: "Built for Enterprise",
+  heroTitleLine2: "Finance Operations",
+  heroDescription:
+    "Centralize invoicing, subscriptions, expenses, and reporting with approvals, integrations, and dedicated support, designed for scale.",
+  heroTrustText: "Trusted by teams in",
+  heroTrustIndustries: ["SaaS", "Agencies", "Retail", "Professional Services"],
+  valuePillars: [
+    { title: "Control & Permissions", description: "Role-based access, approval flows, and audit-friendly operations." },
+    { title: "Automate at Scale", description: "Recurring billing, reminders, and workflow automation for large teams." },
+    { title: "Integrate with Your Stack", description: "Connect VAYPR with ERP, CRM, and accounting tools." },
+  ],
+  capabilitiesTitle: "Enterprise Capabilities",
+  capabilitiesDescription:
+    "A comprehensive suite of tools designed for organizations that demand reliability, scalability, and complete control over their financial operations.",
+  enterpriseCapabilities: {
+    "Billing & Documents": [
+      { title: "Unlimited Invoices", description: "Create and manage invoices at scale with consistent formatting and controls." },
+      { title: "Unlimited Quotes", description: "Generate professional quotes and convert them into invoices seamlessly." },
+      { title: "Unlimited Receipts", description: "Store and organize receipts for clean reconciliation and reporting." },
+    ],
+    "Automation & Subscriptions": [
+      { title: "Recurring Subscriptions", description: "Automate recurring billing schedules, renewals, and reminders." },
+      { title: "Expense Tracking", description: "Capture, categorize, and monitor expenses across teams and projects." },
+      { title: "Advanced Expense Tracking", description: "Add granular rules, approvals, and audit-friendly workflows." },
+    ],
+    "Branding & Customization": [
+      { title: "Custom Templates", description: "Build standardized templates aligned with your corporate identity." },
+      { title: "Graphic Designer for Templates", description: "Get expert help crafting polished, on-brand templates quickly." },
+      { title: "White-label Options", description: "Present a fully branded experience for subsidiaries or client-facing portals." },
+    ],
+    "Integrations & Platform": [
+      { title: "AI Integration System", description: "Automate data extraction, categorization, and workflow suggestions using AI-ready tools." },
+      { title: "API Access", description: "Connect VAYPR to internal systems and external apps with secure endpoints." },
+      { title: "Secure Data Connectors", description: "Sync VAYPR with ERPs, banking feeds, and cloud tools using pre-built connectors, scheduled imports, and validation checks." },
+    ],
+    "Support & Success": [
+      { title: "Priority Email Support", description: "Faster responses and escalations when your team needs help." },
+      { title: "Dedicated Account Manager", description: "A single point of contact for onboarding, rollout, and ongoing success." },
+      { title: "Onboarding & Enablement", description: "Guided setup, tailored best practices, and team training to accelerate rollout and drive adoption across your org." },
+    ],
+    "Insights & Analytics": [
+      { title: "Smart Financial Analytics", description: "High-level visibility into trends, performance, and operational efficiency." },
+      { title: "Real-Time Performance Dashboards", description: "Track key KPIs in one place with customizable dashboards, filters, and shareable views for every stakeholder." },
+      { title: "Forecasting & Anomaly Alerts", description: "Run what-if scenarios, project trends, and get notified when spend, cash flow, or performance metrics deviate from plan." },
+    ],
+  },
+  integrationsTitle: "Integrations & Automation",
+  integrationsDescription: "Connect your existing stack with secure REST APIs, webhooks, and AI-powered automation.",
+  integrations: [
+    { icon: "💬", name: "Slack" },
+    { icon: "⚡", name: "Zapier" },
+    { icon: "📊", name: "QuickBooks" },
+    { icon: "📈", name: "Xero" },
+    { icon: "☁️", name: "Salesforce" },
+    { icon: "🔶", name: "HubSpot" },
+  ],
+  customIntegrationsText: "Plus custom integrations for enterprise needs",
+  industriesTitle: "Trusted Across Industries",
+  industriesDescription: "See how organizations like yours use VAYPR to streamline their financial operations.",
+  trustedLogos: ["TechCorp", "FinanceHub", "CloudScale", "DataFlow", "InnovateCo", "GlobalTech"],
+  industries: [
+    { title: "SaaS & Tech", description: "Automate recurring billing and subscription operations." },
+    { title: "Agencies & Consulting", description: "Manage retainers, milestones, and branded client billing." },
+    { title: "Retail & E-commerce", description: "Handle high-volume invoicing with clear reporting." },
+    { title: "Professional Services", description: "Time tracking integration, expense management, and detailed reporting for law firms and accountants." },
+  ],
+  ctaTitle: "Ready to Scale Finance Operations?",
+  ctaDescription: "Let's map VAYPR to your workflows, integrations, and approval structure.",
+  ctaItems: ["Enterprise onboarding", "Dedicated support", "Custom rollout"],
+};
+
 // -------------------- Reusable Collapsible Section --------------------
 function EditorSection({
   title,
@@ -450,11 +523,40 @@ function CorporatePagesEditor() {
   const startPageEdit = (page: any) => {
     const normalizedContent = { ...(page.content || {}) };
     const isGuidesPage = (page?.slug || "").toString().toLowerCase() === "guides";
+    const isB2BPage = (page?.slug || "").toString().toLowerCase() === "b2b";
     const categories = Array.isArray(normalizedContent.categories)
       ? normalizedContent.categories
       : [];
     if (isGuidesPage && categories.length < 6) {
       normalizedContent.categories = defaultGuideCategories;
+    }
+    if (isB2BPage) {
+      const capabilityKeys = Object.keys(normalizedContent.enterpriseCapabilities || {});
+      Object.assign(normalizedContent, {
+        ...defaultB2BEditorContent,
+        ...normalizedContent,
+        heroTrustIndustries: Array.isArray(normalizedContent.heroTrustIndustries) && normalizedContent.heroTrustIndustries.length
+          ? normalizedContent.heroTrustIndustries
+          : defaultB2BEditorContent.heroTrustIndustries,
+        valuePillars: Array.isArray(normalizedContent.valuePillars) && normalizedContent.valuePillars.length
+          ? normalizedContent.valuePillars
+          : defaultB2BEditorContent.valuePillars,
+        enterpriseCapabilities: capabilityKeys.length
+          ? normalizedContent.enterpriseCapabilities
+          : defaultB2BEditorContent.enterpriseCapabilities,
+        integrations: Array.isArray(normalizedContent.integrations) && normalizedContent.integrations.length
+          ? normalizedContent.integrations
+          : defaultB2BEditorContent.integrations,
+        trustedLogos: Array.isArray(normalizedContent.trustedLogos) && normalizedContent.trustedLogos.length
+          ? normalizedContent.trustedLogos
+          : defaultB2BEditorContent.trustedLogos,
+        industries: Array.isArray(normalizedContent.industries) && normalizedContent.industries.length
+          ? normalizedContent.industries
+          : defaultB2BEditorContent.industries,
+        ctaItems: Array.isArray(normalizedContent.ctaItems) && normalizedContent.ctaItems.length
+          ? normalizedContent.ctaItems
+          : defaultB2BEditorContent.ctaItems,
+      });
     }
 
     setEditingId(page._id);
@@ -1039,6 +1141,45 @@ function CorporatePagesEditor() {
                             value={content.heroDescription || ""}
                             onChange={(e) => updateContentField(page._id, "heroDescription", e.target.value)}
                           />
+                          <Input
+                            placeholder="Hero Trust Text"
+                            value={content.heroTrustText || ""}
+                            onChange={(e) => updateContentField(page._id, "heroTrustText", e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Hero Trust Industries</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "heroTrustIndustries", "")}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add
+                            </Button>
+                          </div>
+                          {(content.heroTrustIndustries || []).map((item: string, idx: number) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Input
+                                value={item || ""}
+                                onChange={(e) => {
+                                  const arr = [...(content.heroTrustIndustries || [])];
+                                  arr[idx] = e.target.value;
+                                  updateContentField(page._id, "heroTrustIndustries", arr);
+                                }}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => removeContentArrayItem(page._id, "heroTrustIndustries", idx)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
 
                         <div className="space-y-2">
@@ -1080,6 +1221,239 @@ function CorporatePagesEditor() {
                           ))}
                         </div>
 
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            placeholder="Capabilities Title"
+                            value={content.capabilitiesTitle || ""}
+                            onChange={(e) => updateContentField(page._id, "capabilitiesTitle", e.target.value)}
+                          />
+                          <Textarea
+                            placeholder="Capabilities Description"
+                            value={content.capabilitiesDescription || ""}
+                            onChange={(e) => updateContentField(page._id, "capabilitiesDescription", e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Enterprise Capability Categories</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => {
+                                const caps = { ...(content.enterpriseCapabilities || {}) };
+                                let counter = 1;
+                                let key = `New Category ${counter}`;
+                                while (caps[key]) {
+                                  counter += 1;
+                                  key = `New Category ${counter}`;
+                                }
+                                caps[key] = [];
+                                updateContentField(page._id, "enterpriseCapabilities", caps);
+                              }}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Category
+                            </Button>
+                          </div>
+                          {Object.entries(content.enterpriseCapabilities || {}).map(([categoryName, features]: [string, any[]]) => (
+                            <div key={categoryName} className="rounded border p-3 bg-background space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={categoryName}
+                                  onChange={(e) => {
+                                    const caps = { ...(content.enterpriseCapabilities || {}) };
+                                    const value = caps[categoryName];
+                                    delete caps[categoryName];
+                                    caps[e.target.value || `Category ${Date.now()}`] = value;
+                                    updateContentField(page._id, "enterpriseCapabilities", caps);
+                                  }}
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive"
+                                  onClick={() => {
+                                    const caps = { ...(content.enterpriseCapabilities || {}) };
+                                    delete caps[categoryName];
+                                    updateContentField(page._id, "enterpriseCapabilities", caps);
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-xs">Features</Label>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-6 text-xs"
+                                    onClick={() => {
+                                      const caps = { ...(content.enterpriseCapabilities || {}) };
+                                      const arr = [...(caps[categoryName] || [])];
+                                      arr.push({ title: "", description: "" });
+                                      caps[categoryName] = arr;
+                                      updateContentField(page._id, "enterpriseCapabilities", caps);
+                                    }}
+                                  >
+                                    <Plus className="w-3 h-3 mr-1" /> Add Feature
+                                  </Button>
+                                </div>
+                                {(features || []).map((feature: any, idx: number) => (
+                                  <div key={idx} className="rounded border p-2 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                      <Label className="text-xs">Feature {idx + 1}</Label>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 text-destructive"
+                                        onClick={() => {
+                                          const caps = { ...(content.enterpriseCapabilities || {}) };
+                                          const arr = [...(caps[categoryName] || [])];
+                                          arr.splice(idx, 1);
+                                          caps[categoryName] = arr;
+                                          updateContentField(page._id, "enterpriseCapabilities", caps);
+                                        }}
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                    <Input
+                                      placeholder="Feature Title"
+                                      value={feature?.title || ""}
+                                      onChange={(e) => {
+                                        const caps = { ...(content.enterpriseCapabilities || {}) };
+                                        const arr = [...(caps[categoryName] || [])];
+                                        arr[idx] = { ...(arr[idx] || {}), title: e.target.value };
+                                        caps[categoryName] = arr;
+                                        updateContentField(page._id, "enterpriseCapabilities", caps);
+                                      }}
+                                    />
+                                    <Textarea
+                                      placeholder="Feature Description"
+                                      value={feature?.description || ""}
+                                      onChange={(e) => {
+                                        const caps = { ...(content.enterpriseCapabilities || {}) };
+                                        const arr = [...(caps[categoryName] || [])];
+                                        arr[idx] = { ...(arr[idx] || {}), description: e.target.value };
+                                        caps[categoryName] = arr;
+                                        updateContentField(page._id, "enterpriseCapabilities", caps);
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            placeholder="Integrations Title"
+                            value={content.integrationsTitle || ""}
+                            onChange={(e) => updateContentField(page._id, "integrationsTitle", e.target.value)}
+                          />
+                          <Textarea
+                            placeholder="Integrations Description"
+                            value={content.integrationsDescription || ""}
+                            onChange={(e) => updateContentField(page._id, "integrationsDescription", e.target.value)}
+                          />
+                          <Input
+                            placeholder="Custom Integrations Text"
+                            value={content.customIntegrationsText || ""}
+                            onChange={(e) => updateContentField(page._id, "customIntegrationsText", e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Integration Cards</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "integrations", { icon: "💬", name: "" })}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Integration
+                            </Button>
+                          </div>
+                          {(content.integrations || []).map((item: any, idx: number) => (
+                            <div key={idx} className="rounded border p-2 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <Label className="text-xs">Integration {idx + 1}</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive"
+                                  onClick={() => removeContentArrayItem(page._id, "integrations", idx)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  placeholder="Icon (emoji)"
+                                  value={item.icon || ""}
+                                  onChange={(e) => updateContentArrayItem(page._id, "integrations", idx, "icon", e.target.value)}
+                                />
+                                <Input
+                                  placeholder="Name"
+                                  value={item.name || ""}
+                                  onChange={(e) => updateContentArrayItem(page._id, "integrations", idx, "name", e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            placeholder="Industries Section Title"
+                            value={content.industriesTitle || ""}
+                            onChange={(e) => updateContentField(page._id, "industriesTitle", e.target.value)}
+                          />
+                          <Textarea
+                            placeholder="Industries Section Description"
+                            value={content.industriesDescription || ""}
+                            onChange={(e) => updateContentField(page._id, "industriesDescription", e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Trusted Logos</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "trustedLogos", "")}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Logo
+                            </Button>
+                          </div>
+                          {(content.trustedLogos || []).map((item: string, idx: number) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Input
+                                value={item || ""}
+                                onChange={(e) => {
+                                  const arr = [...(content.trustedLogos || [])];
+                                  arr[idx] = e.target.value;
+                                  updateContentField(page._id, "trustedLogos", arr);
+                                }}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => removeContentArrayItem(page._id, "trustedLogos", idx)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label className="text-xs font-semibold">Industries Cards</Label>
@@ -1115,6 +1489,53 @@ function CorporatePagesEditor() {
                                 value={item.description || ""}
                                 onChange={(e) => updateContentArrayItem(page._id, "industries", idx, "description", e.target.value)}
                               />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            placeholder="CTA Title"
+                            value={content.ctaTitle || ""}
+                            onChange={(e) => updateContentField(page._id, "ctaTitle", e.target.value)}
+                          />
+                          <Textarea
+                            placeholder="CTA Description"
+                            value={content.ctaDescription || ""}
+                            onChange={(e) => updateContentField(page._id, "ctaDescription", e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">CTA Bullet Items</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "ctaItems", "")}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Item
+                            </Button>
+                          </div>
+                          {(content.ctaItems || []).map((item: string, idx: number) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Input
+                                value={item || ""}
+                                onChange={(e) => {
+                                  const arr = [...(content.ctaItems || [])];
+                                  arr[idx] = e.target.value;
+                                  updateContentField(page._id, "ctaItems", arr);
+                                }}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => removeContentArrayItem(page._id, "ctaItems", idx)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           ))}
                         </div>
@@ -1694,6 +2115,7 @@ function LandingPageEditor() {
     badge: "",
     headline: "",
     description: "",
+    features: [] as Array<{ icon: string; title: string; description: string; order: number }>,
   });
   const [statsForm, setStatsForm] = useState({
     stats: [] as Array<{ icon: string; value: string; label: string }>,
@@ -1702,6 +2124,7 @@ function LandingPageEditor() {
     badge: "",
     headline: "",
     description: "",
+    steps: [] as Array<{ number: string; title: string; description: string; features: string[]; order: number }>,
   });
   const [pricingForm, setPricingForm] = useState({
     headline: "",
@@ -1748,6 +2171,10 @@ function LandingPageEditor() {
         badge: landingPage.featuresSection.badge || "",
         headline: landingPage.featuresSection.headline || "",
         description: landingPage.featuresSection.description || "",
+        features:
+          landingPage.featuresSection.features && landingPage.featuresSection.features.length > 0
+            ? landingPage.featuresSection.features
+            : defaultFeatureItems,
       });
       setStatsForm({
         stats: (landingPage.statsSection?.stats || []).map((stat) => ({
@@ -1760,6 +2187,10 @@ function LandingPageEditor() {
         badge: landingPage.howItWorksSection.badge || "",
         headline: landingPage.howItWorksSection.headline || "",
         description: landingPage.howItWorksSection.description || "",
+        steps:
+          landingPage.howItWorksSection.steps && landingPage.howItWorksSection.steps.length > 0
+            ? landingPage.howItWorksSection.steps
+            : defaultHowItWorksSteps,
       });
       setPricingForm({
         headline: landingPage.pricingSection.headline || "",
@@ -1992,10 +2423,85 @@ function LandingPageEditor() {
             <Separator />
 
             <div className="space-y-3">
-              <Label>Feature Items ({landingPage.featuresSection?.features?.length || 0})</Label>
-              <p className="text-xs text-muted-foreground">
-                Feature management coming soon. Currently displaying {landingPage.featuresSection?.features?.length || 0} features.
-              </p>
+              <div className="flex items-center justify-between">
+                <Label>Feature Items ({featuresForm.features.length})</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setFeaturesForm((prev) => ({
+                      ...prev,
+                      features: [
+                        ...prev.features,
+                        {
+                          icon: "FileText",
+                          title: "",
+                          description: "",
+                          order: prev.features.length + 1,
+                        },
+                      ],
+                    }))
+                  }
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Feature
+                </Button>
+              </div>
+
+              {featuresForm.features.map((feature, index) => (
+                <div key={`${feature.order}-${index}`} className="p-4 border rounded-lg bg-muted/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Feature {index + 1}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setFeaturesForm((prev) => ({
+                          ...prev,
+                          features: prev.features
+                            .filter((_, i) => i !== index)
+                            .map((item, i) => ({ ...item, order: i + 1 })),
+                        }))
+                      }
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Title</Label>
+                    <Input
+                      value={feature.title}
+                      onChange={(e) =>
+                        setFeaturesForm((prev) => {
+                          const updated = [...prev.features];
+                          updated[index] = { ...updated[index], title: e.target.value };
+                          return { ...prev, features: updated };
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Description</Label>
+                    <Textarea
+                      value={feature.description}
+                      onChange={(e) =>
+                        setFeaturesForm((prev) => {
+                          const updated = [...prev.features];
+                          updated[index] = { ...updated[index], description: e.target.value };
+                          return { ...prev, features: updated };
+                        })
+                      }
+                      className="mt-1"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="pt-4">
               <Button onClick={handleUpdateFeatures} disabled={updateSection.isPending}>
@@ -2132,10 +2638,126 @@ function LandingPageEditor() {
             <Separator />
 
             <div className="space-y-3">
-              <Label>Steps ({landingPage.howItWorksSection?.steps?.length || 0})</Label>
-              <p className="text-xs text-muted-foreground">
-                Step management coming soon. Currently displaying {landingPage.howItWorksSection?.steps?.length || 0} steps.
-              </p>
+              <div className="flex items-center justify-between">
+                <Label>Steps ({howItWorksForm.steps.length})</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setHowItWorksForm((prev) => ({
+                      ...prev,
+                      steps: [
+                        ...prev.steps,
+                        {
+                          number: String(prev.steps.length + 1).padStart(2, "0"),
+                          title: "",
+                          description: "",
+                          features: ["", "", ""],
+                          order: prev.steps.length + 1,
+                        },
+                      ],
+                    }))
+                  }
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Step
+                </Button>
+              </div>
+
+              {howItWorksForm.steps.map((step, index) => (
+                <div key={`${step.order}-${index}`} className="p-4 border rounded-lg bg-muted/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Step {index + 1}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setHowItWorksForm((prev) => ({
+                          ...prev,
+                          steps: prev.steps
+                            .filter((_, i) => i !== index)
+                            .map((item, i) => ({
+                              ...item,
+                              order: i + 1,
+                              number: String(i + 1).padStart(2, "0"),
+                            })),
+                        }))
+                      }
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Step Number</Label>
+                      <Input
+                        value={step.number}
+                        onChange={(e) =>
+                          setHowItWorksForm((prev) => {
+                            const updated = [...prev.steps];
+                            updated[index] = { ...updated[index], number: e.target.value };
+                            return { ...prev, steps: updated };
+                          })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Title</Label>
+                      <Input
+                        value={step.title}
+                        onChange={(e) =>
+                          setHowItWorksForm((prev) => {
+                            const updated = [...prev.steps];
+                            updated[index] = { ...updated[index], title: e.target.value };
+                            return { ...prev, steps: updated };
+                          })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Description</Label>
+                    <Textarea
+                      value={step.description}
+                      onChange={(e) =>
+                        setHowItWorksForm((prev) => {
+                          const updated = [...prev.steps];
+                          updated[index] = { ...updated[index], description: e.target.value };
+                          return { ...prev, steps: updated };
+                        })
+                      }
+                      className="mt-1"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Highlights</Label>
+                    {[0, 1, 2].map((itemIndex) => (
+                      <Input
+                        key={itemIndex}
+                        value={step.features[itemIndex] || ""}
+                        onChange={(e) =>
+                          setHowItWorksForm((prev) => {
+                            const updated = [...prev.steps];
+                            const nextFeatures = [...(updated[index].features || [])];
+                            nextFeatures[itemIndex] = e.target.value;
+                            updated[index] = { ...updated[index], features: nextFeatures };
+                            return { ...prev, steps: updated };
+                          })
+                        }
+                        placeholder={`Highlight ${itemIndex + 1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="pt-4">
@@ -2640,3 +3262,74 @@ export default function PageEditor() {
     </div>
   );
 }
+  const defaultFeatureItems = [
+    {
+      icon: "FileText",
+      title: "Professional Invoices",
+      description:
+        "Create and send beautiful invoices in seconds. Customize templates and track payment status.",
+      order: 1,
+    },
+    {
+      icon: "Users",
+      title: "Client Management",
+      description:
+        "Keep all your client information organized. View history, track interactions, and build relationships.",
+      order: 2,
+    },
+    {
+      icon: "Receipt",
+      title: "Expense Tracking",
+      description: "Capture receipts, categorize expenses, and stay on top of your business spending.",
+      order: 3,
+    },
+    {
+      icon: "TrendingUp",
+      title: "Revenue Insights",
+      description: "Visualize your income trends and make data-driven decisions for growth.",
+      order: 4,
+    },
+    {
+      icon: "Clock",
+      title: "Recurring Billing",
+      description: "Set up automatic recurring invoices for retainer clients and subscription services.",
+      order: 5,
+    },
+    {
+      icon: "Send",
+      title: "Quote Management",
+      description: "Create quotes, share with clients, and convert approved quotes to invoices instantly.",
+      order: 6,
+    },
+  ];
+
+  const defaultHowItWorksSteps = [
+    {
+      number: "01",
+      title: "Sign up in seconds",
+      description: "Create your free account and set up your business profile. No credit card required.",
+      features: ["Free to start", "No setup fees", "Instant access"],
+      order: 1,
+    },
+    {
+      number: "02",
+      title: "Add your clients",
+      description: "Import existing clients or add them manually. Keep all contact info organized in one place.",
+      features: ["Bulk import", "Smart organization", "Contact history"],
+      order: 2,
+    },
+    {
+      number: "03",
+      title: "Create & send invoices",
+      description: "Generate professional invoices, share via link or email, and get paid faster than ever.",
+      features: ["Custom templates", "One-click sending", "Payment tracking"],
+      order: 3,
+    },
+    {
+      number: "04",
+      title: "Track & grow",
+      description: "Monitor your revenue, manage expenses, and use insights to grow your business.",
+      features: ["Real-time analytics", "Expense tracking", "Growth insights"],
+      order: 4,
+    },
+  ];
