@@ -83,6 +83,15 @@ export class LandingPageService {
           'VAYPR keeps your invoicing, quotes, receipts, and clients organized, built for your first job and ready when you scale.',
         primaryButtonText: 'Start Free',
         secondaryButtonText: 'Sign In',
+        heroFeatures: [
+          { icon: 'FileText', label: 'Invoices', order: 1 },
+          { icon: 'FileCheck', label: 'Quotes', order: 2 },
+          { icon: 'Receipt', label: 'Receipts', order: 3 },
+          { icon: 'Users', label: 'Clients', order: 4 },
+          { icon: 'CalendarCheck', label: 'Subscriptions', order: 5 },
+          { icon: 'TrendingUp', label: 'Expense\nTracking', order: 6 },
+          { icon: 'Palette', label: 'Custom\nTemplates', order: 7 },
+        ],
       },
       featuresSection: {
         badge: 'Powerful Features',
@@ -324,4 +333,3 @@ export class LandingPageService {
     return defaultSettings.save();
   }
 }
-

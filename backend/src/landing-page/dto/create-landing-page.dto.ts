@@ -11,6 +11,18 @@ import {
 import { Type } from 'class-transformer';
 
 // Hero Section DTO
+export class HeroFeatureItemDto {
+  @IsString()
+  icon: string;
+
+  @IsString()
+  label: string;
+
+  @IsNumber()
+  @IsOptional()
+  order?: number;
+}
+
 export class HeroSectionDto {
   @IsString()
   @IsOptional()
@@ -31,6 +43,12 @@ export class HeroSectionDto {
   @IsString()
   @IsOptional()
   secondaryButtonText?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => HeroFeatureItemDto)
+  @IsOptional()
+  heroFeatures?: HeroFeatureItemDto[];
 }
 
 // Feature Item DTO
@@ -352,4 +370,3 @@ export class CreateLandingPageDto {
   @IsOptional()
   footerSection?: FooterSectionDto;
 }
-

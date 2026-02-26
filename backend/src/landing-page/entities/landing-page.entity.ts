@@ -4,6 +4,17 @@ import { Document } from 'mongoose';
 export type LandingPageDocument = LandingPage & Document;
 
 // Hero Section Schema
+class HeroFeatureItem {
+  @Prop({ required: true })
+  icon: string;
+
+  @Prop({ required: true })
+  label: string;
+
+  @Prop({ default: 0 })
+  order: number;
+}
+
 class HeroSection {
   @Prop({ required: true, default: 'Billing & Financial Software' })
   badge: string;
@@ -19,6 +30,9 @@ class HeroSection {
 
   @Prop({ required: true, default: 'Sign In' })
   secondaryButtonText: string;
+
+  @Prop({ type: [HeroFeatureItem], default: [] })
+  heroFeatures: HeroFeatureItem[];
 }
 
 // Feature Item Schema
@@ -274,5 +288,4 @@ export class LandingPage {
 }
 
 export const LandingPageSchema = SchemaFactory.createForClass(LandingPage);
-
 
