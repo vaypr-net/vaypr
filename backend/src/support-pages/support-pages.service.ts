@@ -143,6 +143,13 @@ export class SupportPagesService {
           subjectOptions: ['General Inquiry', 'Technical Support', 'Billing Question', 'Partnership'],
           responseMessage: 'Thank you for contacting us! We typically respond within 24 hours.',
         },
+        content: {
+          title: 'Get in Touch',
+          description: 'Have questions? We are here to help and will respond as soon as possible.',
+          emails: ['support@vaypr.com'],
+          phone: '(+965) 2246-4030',
+          responseTime: 'Usually within 24 hours',
+        },
         enabled: true,
         showInFooter: true,
         order: 1,
@@ -185,6 +192,17 @@ export class SupportPagesService {
             order: 6,
           },
         ],
+        content: {
+          title: 'Privacy Policy',
+          description: 'Learn how VAYPR collects, uses, and protects your information.',
+          sections: [
+            {
+              title: 'Introduction',
+              content:
+                'At VAYPR, we are committed to protecting your privacy and securing your data.',
+            },
+          ],
+        },
         enabled: true,
         showInFooter: true,
         order: 2,
@@ -227,6 +245,22 @@ export class SupportPagesService {
             order: 6,
           },
         ],
+        content: {
+          title: 'Refund Policy',
+          description: 'Understand refund eligibility, process, and timeline.',
+          eligibleItems: [
+            {
+              title: 'Subscription cancellations within policy window',
+              description: 'Refunds may apply according to your active plan terms.',
+            },
+          ],
+          requestSteps: [
+            {
+              title: 'Contact Support',
+              description: 'Email billing@vaypr.com with account details and reason.',
+            },
+          ],
+        },
         enabled: true,
         showInFooter: true,
         order: 3,
@@ -299,6 +333,16 @@ export class SupportPagesService {
             order: 12,
           },
         ],
+        content: {
+          title: 'Terms of Service',
+          description: 'By using VAYPR, you agree to these terms.',
+          acceptanceOfTerms:
+            'By accessing and using VAYPR, you accept and agree to be bound by these terms.',
+          useOfServiceItems: [
+            'Use the service only for lawful purposes',
+            'Maintain the security of your account credentials',
+          ],
+        },
         enabled: true,
         showInFooter: true,
         order: 4,
@@ -310,6 +354,17 @@ export class SupportPagesService {
       if (!existingPage) {
         const page = new this.supportPageModel(pageData);
         await page.save();
+        continue;
+      }
+
+      const hasContent =
+        existingPage.content &&
+        typeof existingPage.content === 'object' &&
+        Object.keys(existingPage.content).length > 0;
+
+      if (!hasContent && pageData.content) {
+        existingPage.content = pageData.content as any;
+        await existingPage.save();
       }
     }
   }

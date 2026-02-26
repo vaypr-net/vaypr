@@ -1,21 +1,25 @@
 import { Shield } from "lucide-react";
-import { useManagedSupportPage } from "@/hooks/useManagedSupportPage";
+import { useSupportPageBySlug } from "@/hooks/useSupportPages";
 import { RichTextContent } from "@/components/landing/RichTextContent";
 
-const sections = [
-  {
-    title: "Information We Collect",
-    content: `We collect information you provide directly to us, such as when you create an account, use our services, or contact us for support. This includes:
+const defaultContent = {
+  title: "Privacy Policy",
+  description: "Your privacy is important to us. This policy explains how we collect, use, and protect your information.",
+  lastUpdated: "January 15, 2026",
+  sections: [
+    {
+      title: "Information We Collect",
+      content: `We collect information you provide directly to us, such as when you create an account, use our services, or contact us for support. This includes:
 
 • **Account Information**: Name, email address, company name, and password when you register.
 • **Billing Information**: Payment card details and billing address when you make purchases.
 • **Business Data**: Invoices, quotes, client information, and other documents you create using our platform.
 • **Communications**: Messages, feedback, and correspondence you send to us.
 • **Usage Data**: Information about how you interact with our services, including features used, pages visited, and actions taken.`
-  },
-  {
-    title: "How We Use Your Information",
-    content: `We use the information we collect to:
+    },
+    {
+      title: "How We Use Your Information",
+      content: `We use the information we collect to:
 
 • Provide, maintain, and improve our services
 • Process transactions and send related information
@@ -25,20 +29,20 @@ const sections = [
 • Detect, investigate, and prevent fraudulent transactions and abuse
 • Personalize and improve your experience
 • Send promotional communications (with your consent)`
-  },
-  {
-    title: "Information Sharing",
-    content: `We do not sell your personal information. We may share your information in the following circumstances:
+    },
+    {
+      title: "Information Sharing",
+      content: `We do not sell your personal information. We may share your information in the following circumstances:
 
 • **Service Providers**: With third-party vendors who perform services on our behalf (payment processing, hosting, analytics)
 • **Legal Requirements**: When required by law or to respond to legal process
 • **Protection**: To protect the rights, property, and safety of VAYPR, our users, and the public
 • **Business Transfers**: In connection with a merger, acquisition, or sale of assets
 • **Consent**: With your consent or at your direction`
-  },
-  {
-    title: "Data Security",
-    content: `We implement industry-standard security measures to protect your information:
+    },
+    {
+      title: "Data Security",
+      content: `We implement industry-standard security measures to protect your information:
 
 • **Encryption**: All data is encrypted in transit (TLS 1.3) and at rest (AES-256)
 • **Access Controls**: Strict access controls and authentication requirements
@@ -47,10 +51,10 @@ const sections = [
 • **Monitoring**: 24/7 security monitoring and incident response
 
 While we strive to protect your information, no method of transmission over the internet is 100% secure.`
-  },
-  {
-    title: "Data Retention",
-    content: `We retain your information for as long as your account is active or as needed to provide services. We will also retain information as necessary to:
+    },
+    {
+      title: "Data Retention",
+      content: `We retain your information for as long as your account is active or as needed to provide services. We will also retain information as necessary to:
 
 • Comply with legal obligations
 • Resolve disputes
@@ -58,10 +62,10 @@ While we strive to protect your information, no method of transmission over the 
 • Support business operations
 
 You can request deletion of your data at any time through your account settings or by contacting us.`
-  },
-  {
-    title: "Your Rights",
-    content: `Depending on your location, you may have the following rights:
+    },
+    {
+      title: "Your Rights",
+      content: `Depending on your location, you may have the following rights:
 
 • **Access**: Request access to your personal information
 • **Correction**: Request correction of inaccurate information
@@ -71,10 +75,10 @@ You can request deletion of your data at any time through your account settings 
 • **Restriction**: Request restriction of processing
 
 To exercise these rights, please contact us at privacy@vaypr.com.`
-  },
-  {
-    title: "Cookies and Tracking",
-    content: `We use cookies and similar technologies to:
+    },
+    {
+      title: "Cookies and Tracking",
+      content: `We use cookies and similar technologies to:
 
 • Keep you logged in
 • Remember your preferences
@@ -82,28 +86,30 @@ To exercise these rights, please contact us at privacy@vaypr.com.`
 • Provide personalized content
 
 You can control cookies through your browser settings. Note that disabling certain cookies may affect the functionality of our services.`
-  },
-  {
-    title: "Children's Privacy",
-    content: `Our services are not directed to children under 16. We do not knowingly collect personal information from children. If you believe we have collected information from a child, please contact us immediately.`
-  },
-  {
-    title: "Changes to This Policy",
-    content: `We may update this privacy policy from time to time. We will notify you of any material changes by posting the new policy on this page and updating the "Last Updated" date. We encourage you to review this policy periodically.`
-  },
-  {
-    title: "Contact Us",
-    content: `If you have questions about this privacy policy or our privacy practices, please contact us at:
+    },
+    {
+      title: "Children's Privacy",
+      content: `Our services are not directed to children under 16. We do not knowingly collect personal information from children. If you believe we have collected information from a child, please contact us immediately.`
+    },
+    {
+      title: "Changes to This Policy",
+      content: `We may update this privacy policy from time to time. We will notify you of any material changes by posting the new policy on this page and updating the "Last Updated" date. We encourage you to review this policy periodically.`
+    },
+    {
+      title: "Contact Us",
+      content: `If you have questions about this privacy policy or our privacy practices, please contact us at:
 
 **Email**: team@vaypr.net
 **Address**: Salhiya, Mohammad Thunayan Alghanim Street, Kuwait City
 **Phone**: (+965) 2246-4030`
-  }
-];
+    }
+  ]
+};
 
 export default function PrivacyPolicy() {
-  const managedPage = useManagedSupportPage("privacy");
-  const displaySections = managedPage?.sections?.length ? managedPage.sections : sections;
+  const { data: apiContent } = useSupportPageBySlug("privacy");
+  const content = (apiContent as any)?.content ?? defaultContent;
+  const displaySections = content?.sections?.length ? content.sections : defaultContent.sections;
 
   return (
     <div>
@@ -114,15 +120,15 @@ export default function PrivacyPolicy() {
             <Shield className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-4xl sm:text-5xl font-display font-bold text-foreground mb-4">
-            {managedPage?.title || "Privacy Policy"}
+            {content?.title || defaultContent.title}
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            {managedPage?.metaDescription || "Your privacy is important to us. This policy explains how we collect, use, and protect your information."}
+            {content?.description || defaultContent.description}
           </p>
           <p className="text-sm text-muted-foreground mt-4">
-            Last Updated: {managedPage?.updatedAt
-              ? new Date(managedPage.updatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-              : "January 15, 2026"}
+            Last Updated: {apiContent?.updatedAt
+              ? new Date(apiContent.updatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+              : content?.lastUpdated || defaultContent.lastUpdated}
           </p>
         </div>
       </section>

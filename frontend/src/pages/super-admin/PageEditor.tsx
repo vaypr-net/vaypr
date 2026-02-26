@@ -307,7 +307,7 @@ function SupportPagesEditor() {
 
 // -------------------- Corporate Pages Editor (FIXED) --------------------
 function CorporatePagesEditor() {
-  const { data: pages = [], isLoading: pagesLoading } = useCorporatePages();
+  const { data: pages = [], isLoading: pagesLoading } = useCorporatePages({ enabledOnly: false });
   const { data: guides = [], isLoading: guidesLoading } = useGuides();
   const createPageMutation = useCreateCorporatePage();
   const updatePageMutation = useUpdateCorporatePage();
@@ -382,8 +382,47 @@ function CorporatePagesEditor() {
         title: page.title,
         slug: page.slug,
         metaDescription: page.metaDescription || "",
+        sections: page.sections || [],
+        content: page.content || {},
       },
     }));
+  };
+
+  const updateContentField = (pageId: string, field: string, value: any) => {
+    setPageForm((prev) => ({
+      ...prev,
+      [pageId]: {
+        ...(prev[pageId] || {}),
+        content: {
+          ...((prev[pageId] || {}).content || {}),
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const updateContentArrayItem = (
+    pageId: string,
+    field: string,
+    index: number,
+    key: string,
+    value: any,
+  ) => {
+    const arr = [ ...(((pageForm[pageId] || {}).content || {})[field] || []) ];
+    arr[index] = { ...(arr[index] || {}), [key]: value };
+    updateContentField(pageId, field, arr);
+  };
+
+  const addContentArrayItem = (pageId: string, field: string, item: any) => {
+    const arr = [ ...(((pageForm[pageId] || {}).content || {})[field] || []) ];
+    arr.push(item);
+    updateContentField(pageId, field, arr);
+  };
+
+  const removeContentArrayItem = (pageId: string, field: string, index: number) => {
+    const arr = [ ...(((pageForm[pageId] || {}).content || {})[field] || []) ];
+    arr.splice(index, 1);
+    updateContentField(pageId, field, arr);
   };
 
   const savePage = async (id: string) => {
@@ -507,6 +546,12 @@ function CorporatePagesEditor() {
           </div>
         ) : pages.map((page: any) => (
           <div key={page._id} className="rounded-lg border bg-card overflow-hidden">
+            {(() => {
+              const slugLower = (page.slug || "").toString().toLowerCase();
+              const content = (pageForm[page._id]?.content || page.content || {}) as Record<string, any>;
+
+              return (
+                <>
             <div className="flex items-center gap-4 p-4">
               <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                 <FileText className="w-5 h-5 text-muted-foreground" />
@@ -642,6 +687,469 @@ function CorporatePagesEditor() {
                       </div>
                     </div>
 
+                    {/* Structured About Page Content */}
+                    {slugLower === "about" && (
+                      <div className="border-t pt-4 space-y-4">
+                        <Label className="text-xs font-semibold block">About Page Content</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs">Hero Title</Label>
+                            <Input
+                              className="mt-1"
+                              value={content.heroTitle || ""}
+                              onChange={(e) => updateContentField(page._id, "heroTitle", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Hero Description</Label>
+                            <Textarea
+                              className="mt-1 min-h-[80px]"
+                              value={content.heroDescription || ""}
+                              onChange={(e) => updateContentField(page._id, "heroDescription", e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Stats</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "stats", { value: "", label: "" })}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Stat
+                            </Button>
+                          </div>
+                          {(content.stats || []).map((item: any, idx: number) => (
+                            <div key={idx} className="rounded border p-3 bg-background space-y-2">
+                              <div className="flex justify-between items-center">
+                                <Label className="text-xs">Stat {idx + 1}</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive"
+                                  onClick={() => removeContentArrayItem(page._id, "stats", idx)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <Input
+                                placeholder="Value (e.g. 50K+)"
+                                value={item.value || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "stats", idx, "value", e.target.value)}
+                              />
+                              <Input
+                                placeholder="Label"
+                                value={item.label || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "stats", idx, "label", e.target.value)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            placeholder="Values Section Title"
+                            value={content.valuesTitle || ""}
+                            onChange={(e) => updateContentField(page._id, "valuesTitle", e.target.value)}
+                          />
+                          <Textarea
+                            placeholder="Values Section Description"
+                            value={content.valuesDescription || ""}
+                            onChange={(e) => updateContentField(page._id, "valuesDescription", e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Values Cards</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "values", { title: "", description: "" })}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Card
+                            </Button>
+                          </div>
+                          {(content.values || []).map((item: any, idx: number) => (
+                            <div key={idx} className="rounded border p-3 bg-background space-y-2">
+                              <div className="flex justify-between items-center">
+                                <Label className="text-xs">Card {idx + 1}</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive"
+                                  onClick={() => removeContentArrayItem(page._id, "values", idx)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <Input
+                                placeholder="Title"
+                                value={item.title || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "values", idx, "title", e.target.value)}
+                              />
+                              <Textarea
+                                placeholder="Description"
+                                value={item.description || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "values", idx, "description", e.target.value)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            placeholder="Team Section Title"
+                            value={content.teamTitle || ""}
+                            onChange={(e) => updateContentField(page._id, "teamTitle", e.target.value)}
+                          />
+                          <Textarea
+                            placeholder="Team Section Description"
+                            value={content.teamDescription || ""}
+                            onChange={(e) => updateContentField(page._id, "teamDescription", e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Team Cards</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "team", { name: "", role: "", bio: "" })}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Card
+                            </Button>
+                          </div>
+                          {(content.team || []).map((item: any, idx: number) => (
+                            <div key={idx} className="rounded border p-3 bg-background space-y-2">
+                              <div className="flex justify-between items-center">
+                                <Label className="text-xs">Card {idx + 1}</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive"
+                                  onClick={() => removeContentArrayItem(page._id, "team", idx)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <Input
+                                placeholder="Name"
+                                value={item.name || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "team", idx, "name", e.target.value)}
+                              />
+                              <Input
+                                placeholder="Role"
+                                value={item.role || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "team", idx, "role", e.target.value)}
+                              />
+                              <Textarea
+                                placeholder="Bio"
+                                value={item.bio || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "team", idx, "bio", e.target.value)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            placeholder="Recognition Section Title"
+                            value={content.recognitionTitle || ""}
+                            onChange={(e) => updateContentField(page._id, "recognitionTitle", e.target.value)}
+                          />
+                          <Textarea
+                            placeholder="Recognition Section Description"
+                            value={content.recognitionDescription || ""}
+                            onChange={(e) => updateContentField(page._id, "recognitionDescription", e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Recognition Cards</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "recognitionItems", { name: "", category: "" })}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Card
+                            </Button>
+                          </div>
+                          {(content.recognitionItems || []).map((item: any, idx: number) => (
+                            <div key={idx} className="rounded border p-3 bg-background space-y-2">
+                              <div className="flex justify-between items-center">
+                                <Label className="text-xs">Card {idx + 1}</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive"
+                                  onClick={() => removeContentArrayItem(page._id, "recognitionItems", idx)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <Input
+                                placeholder="Name"
+                                value={item.name || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "recognitionItems", idx, "name", e.target.value)}
+                              />
+                              <Input
+                                placeholder="Category"
+                                value={item.category || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "recognitionItems", idx, "category", e.target.value)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            placeholder="CTA Title"
+                            value={content.ctaTitle || ""}
+                            onChange={(e) => updateContentField(page._id, "ctaTitle", e.target.value)}
+                          />
+                          <Textarea
+                            placeholder="CTA Description"
+                            value={content.ctaDescription || ""}
+                            onChange={(e) => updateContentField(page._id, "ctaDescription", e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Structured B2B Page Content */}
+                    {slugLower === "b2b" && (
+                      <div className="border-t pt-4 space-y-4">
+                        <Label className="text-xs font-semibold block">B2B Page Content</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            placeholder="Hero Eyebrow"
+                            value={content.heroEyebrow || ""}
+                            onChange={(e) => updateContentField(page._id, "heroEyebrow", e.target.value)}
+                          />
+                          <Input
+                            placeholder="Hero Title Line 1"
+                            value={content.heroTitleLine1 || ""}
+                            onChange={(e) => updateContentField(page._id, "heroTitleLine1", e.target.value)}
+                          />
+                          <Input
+                            placeholder="Hero Title Line 2"
+                            value={content.heroTitleLine2 || ""}
+                            onChange={(e) => updateContentField(page._id, "heroTitleLine2", e.target.value)}
+                          />
+                          <Textarea
+                            placeholder="Hero Description"
+                            value={content.heroDescription || ""}
+                            onChange={(e) => updateContentField(page._id, "heroDescription", e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Value Pillar Cards</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "valuePillars", { title: "", description: "" })}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Card
+                            </Button>
+                          </div>
+                          {(content.valuePillars || []).map((item: any, idx: number) => (
+                            <div key={idx} className="rounded border p-3 bg-background space-y-2">
+                              <div className="flex justify-between items-center">
+                                <Label className="text-xs">Card {idx + 1}</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive"
+                                  onClick={() => removeContentArrayItem(page._id, "valuePillars", idx)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <Input
+                                placeholder="Title"
+                                value={item.title || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "valuePillars", idx, "title", e.target.value)}
+                              />
+                              <Textarea
+                                placeholder="Description"
+                                value={item.description || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "valuePillars", idx, "description", e.target.value)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Industries Cards</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "industries", { title: "", description: "" })}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Card
+                            </Button>
+                          </div>
+                          {(content.industries || []).map((item: any, idx: number) => (
+                            <div key={idx} className="rounded border p-3 bg-background space-y-2">
+                              <div className="flex justify-between items-center">
+                                <Label className="text-xs">Card {idx + 1}</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive"
+                                  onClick={() => removeContentArrayItem(page._id, "industries", idx)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <Input
+                                placeholder="Title"
+                                value={item.title || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "industries", idx, "title", e.target.value)}
+                              />
+                              <Textarea
+                                placeholder="Description"
+                                value={item.description || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "industries", idx, "description", e.target.value)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Structured Guides Landing Page Content */}
+                    {slugLower === "guides" && (
+                      <div className="border-t pt-4 space-y-4">
+                        <Label className="text-xs font-semibold block">Guides Landing Content</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            placeholder="Page Title"
+                            value={content.title || ""}
+                            onChange={(e) => updateContentField(page._id, "title", e.target.value)}
+                          />
+                          <Textarea
+                            placeholder="Page Description"
+                            value={content.description || ""}
+                            onChange={(e) => updateContentField(page._id, "description", e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold">Guide Category Cards</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => addContentArrayItem(page._id, "categories", { category: "", items: [] })}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Add Category
+                            </Button>
+                          </div>
+                          {(content.categories || []).map((category: any, cIdx: number) => (
+                            <div key={cIdx} className="rounded border p-3 bg-background space-y-2">
+                              <div className="flex justify-between items-center">
+                                <Label className="text-xs">Category {cIdx + 1}</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive"
+                                  onClick={() => removeContentArrayItem(page._id, "categories", cIdx)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <Input
+                                placeholder="Category Name"
+                                value={category.category || ""}
+                                onChange={(e) => {
+                                  const arr = [...(content.categories || [])];
+                                  arr[cIdx] = { ...(arr[cIdx] || {}), category: e.target.value };
+                                  updateContentField(page._id, "categories", arr);
+                                }}
+                              />
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-xs">Items</Label>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-6 text-xs"
+                                    onClick={() => {
+                                      const arr = [...(content.categories || [])];
+                                      const items = [...((arr[cIdx]?.items) || [])];
+                                      items.push({ title: "", description: "", duration: "", difficulty: "Beginner", slug: "#" });
+                                      arr[cIdx] = { ...(arr[cIdx] || {}), items };
+                                      updateContentField(page._id, "categories", arr);
+                                    }}
+                                  >
+                                    <Plus className="w-3 h-3 mr-1" /> Add Item
+                                  </Button>
+                                </div>
+                                {(category.items || []).map((item: any, iIdx: number) => (
+                                  <div key={iIdx} className="rounded border p-2 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                      <Label className="text-xs">Item {iIdx + 1}</Label>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 text-destructive"
+                                        onClick={() => {
+                                          const arr = [...(content.categories || [])];
+                                          const items = [...((arr[cIdx]?.items) || [])];
+                                          items.splice(iIdx, 1);
+                                          arr[cIdx] = { ...(arr[cIdx] || {}), items };
+                                          updateContentField(page._id, "categories", arr);
+                                        }}
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                    <Input
+                                      placeholder="Title"
+                                      value={item.title || ""}
+                                      onChange={(e) => {
+                                        const arr = [...(content.categories || [])];
+                                        const items = [...((arr[cIdx]?.items) || [])];
+                                        items[iIdx] = { ...(items[iIdx] || {}), title: e.target.value };
+                                        arr[cIdx] = { ...(arr[cIdx] || {}), items };
+                                        updateContentField(page._id, "categories", arr);
+                                      }}
+                                    />
+                                    <Textarea
+                                      placeholder="Description"
+                                      value={item.description || ""}
+                                      onChange={(e) => {
+                                        const arr = [...(content.categories || [])];
+                                        const items = [...((arr[cIdx]?.items) || [])];
+                                        items[iIdx] = { ...(items[iIdx] || {}), description: e.target.value };
+                                        arr[cIdx] = { ...(arr[cIdx] || {}), items };
+                                        updateContentField(page._id, "categories", arr);
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
                         Cancel
@@ -658,6 +1166,9 @@ function CorporatePagesEditor() {
                 </motion.div>
               )}
             </AnimatePresence>
+                </>
+              );
+            })()}
           </div>
         ))}
       </TabsContent>

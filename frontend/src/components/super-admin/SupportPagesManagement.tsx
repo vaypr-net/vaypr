@@ -35,13 +35,217 @@ const PAGE_ICONS = {
   CUSTOM: Mail,
 };
 
+type SupportKind = "contact" | "privacy" | "refund" | "terms" | "custom";
+
+const getPageKind = (page: SupportPage): SupportKind => {
+  const slug = (page.slug || "").toLowerCase().replace(/^\/+/, "");
+  if (slug === "contact" || page.type === PageType.CONTACT) return "contact";
+  if (slug === "privacy" || page.type === PageType.PRIVACY) return "privacy";
+  if (slug === "refund" || page.type === PageType.REFUND) return "refund";
+  if (slug === "terms" || page.type === PageType.TERMS) return "terms";
+  return "custom";
+};
+
+const defaultContentByKind: Record<SupportKind, Record<string, any>> = {
+  contact: {
+    title: "Get in Touch",
+    description: "Have questions? We're here to help and will respond as soon as possible.",
+    contactInfoTitle: "Contact Information",
+    contactInfoDescription: "Reach out through any of these channels and we'll get back to you promptly.",
+    emails: ["support@vaypr.net", "sales@vaypr.net"],
+    phone: "(+965) 2246-4030",
+    phoneHours: "Sun-Thr 9am-6pm GMT +3",
+    officeLine1: "Salhiya, Mohammad Thunayan",
+    officeLine2: "Alghanim Street, Kuwait City",
+    responseTime: "Usually within 3 hours",
+    formTitle: "Send us a Message",
+    subjectOptions: [
+      { value: "general", label: "General Inquiry" },
+      { value: "support", label: "Technical Support" },
+      { value: "billing", label: "Billing Question" },
+      { value: "enterprise", label: "Enterprise Sales" },
+      { value: "partnership", label: "Partnership Opportunity" },
+      { value: "feedback", label: "Feedback" },
+    ],
+  },
+  privacy: {
+    title: "Privacy Policy",
+    description: "Your privacy is important to us. This policy explains how we collect, use, and protect your information.",
+    lastUpdated: "January 15, 2026",
+    sections: [
+      {
+        title: "Information We Collect",
+        content:
+          "We collect information you provide directly to us, such as when you create an account, use our services, or contact us for support. This includes account information, billing information, business data, communications, and usage data.",
+      },
+      {
+        title: "How We Use Your Information",
+        content:
+          "We use this information to provide and improve services, process transactions, send updates, respond to support requests, analyze usage, prevent fraud, and personalize your experience.",
+      },
+      {
+        title: "Information Sharing",
+        content:
+          "We do not sell your personal information. We may share data with trusted service providers, for legal requirements, protection and security purposes, business transfers, or with your consent.",
+      },
+      {
+        title: "Data Security",
+        content:
+          "We use industry-standard controls including encryption in transit and at rest, strict access controls, and ongoing monitoring to safeguard your information.",
+      },
+      {
+        title: "Data Retention",
+        content:
+          "We retain your information while your account is active and as needed for legal, operational, and security purposes. You can request deletion subject to applicable requirements.",
+      },
+      {
+        title: "Your Rights",
+        content:
+          "Depending on your location, you may request access, correction, deletion, portability, and processing restrictions for your personal information.",
+      },
+      {
+        title: "Cookies and Tracking",
+        content:
+          "We use cookies and similar technologies for authentication, preferences, analytics, and product improvements. You can manage cookies in your browser settings.",
+      },
+      {
+        title: "Children's Privacy",
+        content:
+          "Our services are not directed to children under 16. If we become aware of such data collection, we will take steps to delete it.",
+      },
+      {
+        title: "Changes to This Policy",
+        content:
+          "We may update this policy from time to time. Material changes will be reflected on this page with an updated effective date.",
+      },
+      {
+        title: "Contact Us",
+        content:
+          "If you have questions about this Privacy Policy, contact us at privacy@vaypr.com.",
+      },
+    ],
+  },
+  refund: {
+    title: "Refund Policy",
+    description: "We want you to be completely satisfied with VAYPR. Here's everything you need to know about our refund process.",
+    lastUpdated: "January 15, 2026",
+    guaranteeTitle: "30-Day Money-Back Guarantee",
+    guaranteeDescription: "Try VAYPR risk-free. If you're not satisfied within the first 30 days, we'll refund your payment in full.",
+    eligibleTitle: "Eligible for Refund",
+    eligibleItems: [
+      {
+        title: "First-time subscribers within 30 days",
+        description: "New customers who haven't used a refund before and request within 30 days of initial purchase.",
+      },
+      {
+        title: "Service unavailability",
+        description: "Extended downtime or service issues that prevented you from using VAYPR for 48+ consecutive hours.",
+      },
+      {
+        title: "Accidental duplicate charges",
+        description: "If you were charged twice for the same billing period, we'll refund the duplicate charge immediately.",
+      },
+      {
+        title: "Annual plan downgrades",
+        description: "Prorated refund available when downgrading from an annual plan within 30 days.",
+      },
+    ],
+    notEligibleTitle: "Not Eligible for Refund",
+    notEligibleItems: [
+      {
+        title: "Requests after 30 days",
+        description: "Refund requests submitted more than 30 days after the initial purchase.",
+      },
+      {
+        title: "Violation of Terms of Service",
+        description: "Accounts terminated due to abuse, fraud, or violation of our terms.",
+      },
+      {
+        title: "Previous refund recipients",
+        description: "Customers who have already received a refund for a previous subscription.",
+      },
+      {
+        title: "Partial month usage",
+        description: "We don't offer prorated refunds for partial months on monthly plans.",
+      },
+    ],
+    requestTitle: "How to Request a Refund",
+    requestSteps: [
+      {
+        title: "Contact Support",
+        description: "Email billing@vaypr.net with your account email and reason for refund.",
+      },
+      {
+        title: "Review Process",
+        description: "Our team will review your request within 1-2 business days.",
+      },
+      {
+        title: "Receive Refund",
+        description: "Approved refunds are processed within 5-10 business days to your original payment method.",
+      },
+    ],
+    contactTitle: "Questions About Refunds?",
+    contactDescription: "Our billing team is happy to help with any questions about refunds or your subscription.",
+    contactEmail: "billing@vaypr.net",
+  },
+  terms: {
+    title: "Terms of Service",
+    description: "By using VAYPR, you agree to these terms. Please read them carefully.",
+    lastUpdated: "February 14, 2026",
+    acceptanceOfTerms: "",
+    useOfServiceIntro: "",
+    useOfServiceItems: [],
+    accountResponsibilitiesIntro: "",
+    accountResponsibilitiesItems: [],
+    subscriptionAndBilling: "",
+    intellectualProperty: "",
+    dataAndPrivacy: "",
+    serviceAvailability: "",
+    termination: "",
+    limitationOfLiability: "",
+    changesToTerms: "",
+    governingLaw: "",
+    contactIntro: "",
+    contactEmail: "",
+    contactAddress: "",
+    contactPhone: "",
+  },
+  custom: {},
+};
+
+const isLikelyEmail = (value: string): boolean => {
+  if (!value) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+};
+
+const normalizeTitledItems = (
+  rawItems: any[],
+  fallbackItems: Array<{ title: string; description: string }>,
+): Array<{ title: string; description: string }> => {
+  const normalizedBase = fallbackItems.map((fallback, index) => {
+    const raw = rawItems[index] || {};
+    return {
+      title: (raw?.title || "").toString().trim() || fallback.title,
+      description: (raw?.description || "").toString().trim() || fallback.description,
+    };
+  });
+
+  if (rawItems.length <= fallbackItems.length) return normalizedBase;
+
+  const extraItems = rawItems.slice(fallbackItems.length).map((item: any) => ({
+    title: (item?.title || "").toString().trim(),
+    description: (item?.description || "").toString().trim(),
+  })).filter((item: { title: string; description: string }) => item.title || item.description);
+
+  return [...normalizedBase, ...extraItems];
+};
+
 export function SupportPagesManagement() {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [showInitDialog, setShowInitDialog] = useState(false);
 
   // React Query hooks
-  const { data: pages = [], isLoading } = useSupportPages();
+  const { data: pages = [], isLoading } = useSupportPages({ enabledOnly: false });
   const updatePageMutation = useUpdateSupportPage();
   const toggleEnabledMutation = useToggleSupportPageEnabled();
   const initializeMutation = useInitializeSupportPages();
@@ -50,6 +254,79 @@ export function SupportPagesManagement() {
   const [formData, setFormData] = useState<Partial<SupportPage>>({});
 
   const handleEdit = (page: SupportPage) => {
+    const pageKind = getPageKind(page);
+    const rawContent = (page.content || {}) as Record<string, any>;
+    const rawEmails = Array.isArray(rawContent.emails)
+      ? rawContent.emails.filter((item: any) => typeof item === "string" && item.trim().length > 0)
+      : [];
+    const validEmails = rawEmails.filter((item: string) => isLikelyEmail(item));
+    const misplacedContactValues = rawEmails.filter((item: string) => !isLikelyEmail(item));
+    const subjectOptions = Array.isArray(rawContent.subjectOptions)
+      ? rawContent.subjectOptions
+      : [];
+    const fallbackSectionsFromPage =
+      Array.isArray(page.sections) && page.sections.length
+        ? page.sections.map((section) => ({
+            title: section.title || "",
+            content: section.content || "",
+          }))
+        : [];
+    const privacySectionsFromContent = Array.isArray(rawContent.sections)
+      ? rawContent.sections
+      : [];
+    const privacySections =
+      privacySectionsFromContent.length >= 3
+        ? privacySectionsFromContent
+        : fallbackSectionsFromPage.length >= 3
+          ? fallbackSectionsFromPage
+          : defaultContentByKind.privacy.sections;
+    const refundEligibleItems = Array.isArray(rawContent.eligibleItems)
+      ? rawContent.eligibleItems
+      : [];
+    const refundNotEligibleItems = Array.isArray(rawContent.notEligibleItems)
+      ? rawContent.notEligibleItems
+      : [];
+    const refundRequestSteps = Array.isArray(rawContent.requestSteps)
+      ? rawContent.requestSteps
+      : [];
+    const normalizedRefundContent =
+      pageKind === "refund"
+        ? {
+            title: rawContent.title || defaultContentByKind.refund.title,
+            description: rawContent.description || defaultContentByKind.refund.description,
+            lastUpdated: rawContent.lastUpdated || defaultContentByKind.refund.lastUpdated,
+            guaranteeTitle: rawContent.guaranteeTitle || defaultContentByKind.refund.guaranteeTitle,
+            guaranteeDescription: rawContent.guaranteeDescription || defaultContentByKind.refund.guaranteeDescription,
+            eligibleTitle: rawContent.eligibleTitle || defaultContentByKind.refund.eligibleTitle,
+            eligibleItems: normalizeTitledItems(
+              refundEligibleItems,
+              defaultContentByKind.refund.eligibleItems,
+            ),
+            notEligibleTitle: rawContent.notEligibleTitle || defaultContentByKind.refund.notEligibleTitle,
+            notEligibleItems: normalizeTitledItems(
+              refundNotEligibleItems,
+              defaultContentByKind.refund.notEligibleItems,
+            ),
+            requestTitle: rawContent.requestTitle || defaultContentByKind.refund.requestTitle,
+            requestSteps: normalizeTitledItems(
+              refundRequestSteps,
+              defaultContentByKind.refund.requestSteps,
+            ),
+            contactTitle: rawContent.contactTitle || defaultContentByKind.refund.contactTitle,
+            contactDescription: rawContent.contactDescription || defaultContentByKind.refund.contactDescription,
+            contactEmail: rawContent.contactEmail || defaultContentByKind.refund.contactEmail,
+          }
+        : {};
+    const normalizedSubjectOptions = subjectOptions.map((item: any) => {
+      if (typeof item === "string") {
+        return { value: item.toLowerCase().replace(/\s+/g, "-"), label: item };
+      }
+      return {
+        value: item?.value || item?.label || "",
+        label: item?.label || item?.value || "",
+      };
+    });
+
     setEditingId(page._id);
     setFormData({
       title: page.title,
@@ -57,6 +334,46 @@ export function SupportPagesManagement() {
       metaDescription: page.metaDescription,
       sections: page.sections,
       contactFormSettings: page.contactFormSettings,
+      content: {
+        ...defaultContentByKind[pageKind],
+        ...rawContent,
+        ...(pageKind === "contact"
+          ? {
+              emails: validEmails.length ? validEmails : defaultContentByKind.contact.emails,
+              phone:
+                rawContent.phone ||
+                misplacedContactValues[0] ||
+                defaultContentByKind.contact.phone,
+              phoneHours:
+                rawContent.phoneHours ||
+                misplacedContactValues[1] ||
+                defaultContentByKind.contact.phoneHours,
+              officeLine1:
+                rawContent.officeLine1 ||
+                misplacedContactValues[2] ||
+                defaultContentByKind.contact.officeLine1,
+              officeLine2:
+                rawContent.officeLine2 ||
+                misplacedContactValues[3] ||
+                defaultContentByKind.contact.officeLine2,
+              responseTime:
+                rawContent.responseTime ||
+                misplacedContactValues[4] ||
+                defaultContentByKind.contact.responseTime,
+              formTitle:
+                rawContent.formTitle ||
+                misplacedContactValues[5] ||
+                defaultContentByKind.contact.formTitle,
+              subjectOptions: normalizedSubjectOptions.length
+                ? normalizedSubjectOptions
+                : defaultContentByKind.contact.subjectOptions,
+            }
+          : pageKind === "privacy"
+            ? { sections: privacySections }
+            : pageKind === "refund"
+              ? normalizedRefundContent
+            : {}),
+      },
       enabled: page.enabled,
       showInFooter: page.showInFooter,
     });
@@ -72,7 +389,10 @@ export function SupportPagesManagement() {
 
     await updatePageMutation.mutateAsync({
       id: editingId,
-      data: formData,
+      data: {
+        ...formData,
+        content: formData.content as Record<string, any>,
+      },
     });
 
     setEditingId(null);
@@ -104,13 +424,6 @@ export function SupportPagesManagement() {
     setShowInitDialog(false);
   };
 
-  const toggleSectionExpand = (pageId: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [pageId]: !prev[pageId],
-    }));
-  };
-
   const updateSection = (sectionIndex: number, field: keyof ContentSection, value: string | number) => {
     setFormData(prev => ({
       ...prev,
@@ -135,6 +448,56 @@ export function SupportPagesManagement() {
       ...prev,
       sections: prev.sections?.filter((_, index) => index !== sectionIndex),
     }));
+  };
+
+  const updateContentField = (field: string, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      content: {
+        ...(prev.content || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const updateContentArrayItem = (field: string, index: number, key: string, value: any) => {
+    const current = (((formData.content || {}) as Record<string, any>)[field] || []) as any[];
+    const next = [...current];
+    next[index] = { ...(next[index] || {}), [key]: value };
+    updateContentField(field, next);
+  };
+
+  const addContentArrayItem = (field: string, item: any) => {
+    const current = (((formData.content || {}) as Record<string, any>)[field] || []) as any[];
+    updateContentField(field, [...current, item]);
+  };
+
+  const removeContentArrayItem = (field: string, index: number) => {
+    const current = (((formData.content || {}) as Record<string, any>)[field] || []) as any[];
+    updateContentField(
+      field,
+      current.filter((_, i) => i !== index),
+    );
+  };
+
+  const updateStringArrayItem = (field: string, index: number, value: string) => {
+    const current = (((formData.content || {}) as Record<string, any>)[field] || []) as string[];
+    const next = [...current];
+    next[index] = value;
+    updateContentField(field, next);
+  };
+
+  const addStringArrayItem = (field: string) => {
+    const current = (((formData.content || {}) as Record<string, any>)[field] || []) as string[];
+    updateContentField(field, [...current, ""]);
+  };
+
+  const removeStringArrayItem = (field: string, index: number) => {
+    const current = (((formData.content || {}) as Record<string, any>)[field] || []) as string[];
+    updateContentField(
+      field,
+      current.filter((_, i) => i !== index),
+    );
   };
 
   if (isLoading) {
@@ -181,6 +544,7 @@ export function SupportPagesManagement() {
             .map((page) => {
               const IconComponent = PAGE_ICONS[page.type as keyof typeof PAGE_ICONS] || Mail;
               const isEditing = editingId === page._id;
+              const pageKind = getPageKind(page);
 
               return (
                 <div key={page._id} className="rounded-lg border bg-card overflow-hidden">
@@ -278,53 +642,54 @@ export function SupportPagesManagement() {
                             />
                           </div>
 
-                          {/* Sections */}
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs">Content Sections ({formData.sections?.length || 0})</Label>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={addSection}
-                                className="h-7 text-xs"
-                              >
-                                <Plus className="w-3 h-3 mr-1" />
-                                Add Section
-                              </Button>
-                            </div>
-
-                            {formData.sections?.map((section, index) => (
-                              <div key={index} className="border rounded-lg p-3 bg-background space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <Label className="text-xs font-semibold">Section {index + 1}</Label>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-destructive"
-                                    onClick={() => removeSection(index)}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                                <div>
-                                  <Input
-                                    value={section.title}
-                                    onChange={(e) => updateSection(index, 'title', e.target.value)}
-                                    placeholder="Section title..."
-                                    className="text-sm"
-                                  />
-                                </div>
-                                <div>
-                                  <Textarea
-                                    value={section.content}
-                                    onChange={(e) => updateSection(index, 'content', e.target.value)}
-                                    placeholder="Section content..."
-                                    className="text-sm min-h-[80px]"
-                                  />
-                                </div>
+                          {pageKind === "custom" && (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs">Content Sections ({formData.sections?.length || 0})</Label>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={addSection}
+                                  className="h-7 text-xs"
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  Add Section
+                                </Button>
                               </div>
-                            ))}
-                          </div>
+
+                              {formData.sections?.map((section, index) => (
+                                <div key={index} className="border rounded-lg p-3 bg-background space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-semibold">Section {index + 1}</Label>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive"
+                                      onClick={() => removeSection(index)}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                  <div>
+                                    <Input
+                                      value={section.title}
+                                      onChange={(e) => updateSection(index, 'title', e.target.value)}
+                                      placeholder="Section title..."
+                                      className="text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Textarea
+                                      value={section.content}
+                                      onChange={(e) => updateSection(index, 'content', e.target.value)}
+                                      placeholder="Section content..."
+                                      className="text-sm min-h-[80px]"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
 
                           {/* Contact Form Settings (only for Contact page) */}
                           {page.type === PageType.CONTACT && formData.contactFormSettings && (
@@ -385,6 +750,366 @@ export function SupportPagesManagement() {
                               </div>
                             </div>
                           )}
+
+                          <div className="space-y-3 border-t pt-4">
+                            <Label className="text-sm font-semibold">Structured Page Content</Label>
+                            {pageKind === "contact" && (
+                              <div className="space-y-3">
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Hero Section</Label>
+                                  <Input
+                                    placeholder="Hero title"
+                                    value={((formData.content || {}) as Record<string, any>).title || ""}
+                                    onChange={(e) => updateContentField("title", e.target.value)}
+                                  />
+                                  <Textarea
+                                    placeholder="Hero description"
+                                    value={((formData.content || {}) as Record<string, any>).description || ""}
+                                    onChange={(e) => updateContentField("description", e.target.value)}
+                                  />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Contact Information Block</Label>
+                                  <Input
+                                    placeholder="Contact info heading"
+                                    value={((formData.content || {}) as Record<string, any>).contactInfoTitle || ""}
+                                    onChange={(e) => updateContentField("contactInfoTitle", e.target.value)}
+                                  />
+                                  <Textarea
+                                    placeholder="Contact info description"
+                                    value={((formData.content || {}) as Record<string, any>).contactInfoDescription || ""}
+                                    onChange={(e) => updateContentField("contactInfoDescription", e.target.value)}
+                                  />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-semibold">Email Section</Label>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStringArrayItem("emails")}>
+                                      <Plus className="w-3 h-3 mr-1" /> Add Email
+                                    </Button>
+                                  </div>
+                                  {((((formData.content || {}) as Record<string, any>).emails || []) as string[]).map((item, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <Input
+                                        value={item}
+                                        onChange={(e) => updateStringArrayItem("emails", idx, e.target.value)}
+                                        placeholder="email@company.com"
+                                      />
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeStringArrayItem("emails", idx)}>
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Phone Section</Label>
+                                  <Input
+                                    placeholder="Phone number"
+                                    value={((formData.content || {}) as Record<string, any>).phone || ""}
+                                    onChange={(e) => updateContentField("phone", e.target.value)}
+                                  />
+                                  <Input
+                                    placeholder="Phone hours (e.g. Sun-Thu 9am-6pm)"
+                                    value={((formData.content || {}) as Record<string, any>).phoneHours || ""}
+                                    onChange={(e) => updateContentField("phoneHours", e.target.value)}
+                                  />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Office Section</Label>
+                                  <Input
+                                    placeholder="Office line 1"
+                                    value={((formData.content || {}) as Record<string, any>).officeLine1 || ""}
+                                    onChange={(e) => updateContentField("officeLine1", e.target.value)}
+                                  />
+                                  <Input
+                                    placeholder="Office line 2"
+                                    value={((formData.content || {}) as Record<string, any>).officeLine2 || ""}
+                                    onChange={(e) => updateContentField("officeLine2", e.target.value)}
+                                  />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Response Time Section</Label>
+                                  <Input
+                                    placeholder="Response time text"
+                                    value={((formData.content || {}) as Record<string, any>).responseTime || ""}
+                                    onChange={(e) => updateContentField("responseTime", e.target.value)}
+                                  />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Form Section</Label>
+                                  <Input
+                                    placeholder="Form title"
+                                    value={((formData.content || {}) as Record<string, any>).formTitle || ""}
+                                    onChange={(e) => updateContentField("formTitle", e.target.value)}
+                                  />
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-semibold">Subject Options</Label>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => addContentArrayItem("subjectOptions", { value: "", label: "" })}
+                                    >
+                                      <Plus className="w-3 h-3 mr-1" /> Add Option
+                                    </Button>
+                                  </div>
+                                  {((((formData.content || {}) as Record<string, any>).subjectOptions || []) as Array<{ value: string; label: string }>).map((item, idx) => (
+                                    <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                                      <Input
+                                        placeholder="value"
+                                        value={item?.value || ""}
+                                        onChange={(e) => updateContentArrayItem("subjectOptions", idx, "value", e.target.value)}
+                                      />
+                                      <Input
+                                        placeholder="label"
+                                        value={item?.label || ""}
+                                        onChange={(e) => updateContentArrayItem("subjectOptions", idx, "label", e.target.value)}
+                                      />
+                                      <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => removeContentArrayItem("subjectOptions", idx)}>
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {pageKind === "privacy" && (
+                              <div className="space-y-3">
+                                <Input
+                                  placeholder="Hero title"
+                                  value={((formData.content || {}) as Record<string, any>).title || ""}
+                                  onChange={(e) => updateContentField("title", e.target.value)}
+                                />
+                                <Textarea
+                                  placeholder="Hero description"
+                                  value={((formData.content || {}) as Record<string, any>).description || ""}
+                                  onChange={(e) => updateContentField("description", e.target.value)}
+                                />
+                                <Input
+                                  placeholder="Last updated text"
+                                  value={((formData.content || {}) as Record<string, any>).lastUpdated || ""}
+                                  onChange={(e) => updateContentField("lastUpdated", e.target.value)}
+                                />
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs">Policy Sections</Label>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => addContentArrayItem("sections", { title: "", content: "" })}
+                                    >
+                                      <Plus className="w-3 h-3 mr-1" /> Add Section
+                                    </Button>
+                                  </div>
+                                  {((((formData.content || {}) as Record<string, any>).sections || []) as Array<{ title: string; content: string }>).map((item, idx) => (
+                                    <div key={idx} className="border rounded-lg p-3 bg-background space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label className="text-xs">Section {idx + 1}</Label>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeContentArrayItem("sections", idx)}>
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Section Title</Label>
+                                        <Input
+                                          className="mt-1"
+                                          placeholder="Section title"
+                                          value={item?.title || ""}
+                                          onChange={(e) => updateContentArrayItem("sections", idx, "title", e.target.value)}
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Section Content</Label>
+                                        <Textarea
+                                          className="mt-1"
+                                          placeholder="Section content"
+                                          value={item?.content || ""}
+                                          onChange={(e) => updateContentArrayItem("sections", idx, "content", e.target.value)}
+                                        />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {pageKind === "refund" && (
+                              <div className="space-y-3">
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Hero Section</Label>
+                                  <Input placeholder="Hero title" value={((formData.content || {}) as Record<string, any>).title || ""} onChange={(e) => updateContentField("title", e.target.value)} />
+                                  <Textarea placeholder="Hero description" value={((formData.content || {}) as Record<string, any>).description || ""} onChange={(e) => updateContentField("description", e.target.value)} />
+                                  <Input placeholder="Last updated text" value={((formData.content || {}) as Record<string, any>).lastUpdated || ""} onChange={(e) => updateContentField("lastUpdated", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Guarantee Section</Label>
+                                  <Input placeholder="Guarantee title" value={((formData.content || {}) as Record<string, any>).guaranteeTitle || ""} onChange={(e) => updateContentField("guaranteeTitle", e.target.value)} />
+                                  <Textarea placeholder="Guarantee description" value={((formData.content || {}) as Record<string, any>).guaranteeDescription || ""} onChange={(e) => updateContentField("guaranteeDescription", e.target.value)} />
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-2">
+                                  <Label className="text-xs font-semibold">Eligible for Refund Section</Label>
+                                  <Input placeholder="Eligible section title" value={((formData.content || {}) as Record<string, any>).eligibleTitle || ""} onChange={(e) => updateContentField("eligibleTitle", e.target.value)} />
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs">Eligible Items</Label>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addContentArrayItem("eligibleItems", { title: "", description: "" })}>
+                                      <Plus className="w-3 h-3 mr-1" /> Add
+                                    </Button>
+                                  </div>
+                                  {((((formData.content || {}) as Record<string, any>).eligibleItems || []) as Array<{ title: string; description: string }>).map((item, idx) => (
+                                    <div key={idx} className="rounded border p-3 bg-card/50 space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label className="text-xs">Item {idx + 1}</Label>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeContentArrayItem("eligibleItems", idx)}>
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Title</Label>
+                                        <Input className="mt-1" placeholder="Title" value={item?.title || ""} onChange={(e) => updateContentArrayItem("eligibleItems", idx, "title", e.target.value)} />
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Description</Label>
+                                        <Textarea className="mt-1" placeholder="Description" value={item?.description || ""} onChange={(e) => updateContentArrayItem("eligibleItems", idx, "description", e.target.value)} />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-2">
+                                  <Label className="text-xs font-semibold">Not Eligible for Refund Section</Label>
+                                  <Input placeholder="Not eligible section title" value={((formData.content || {}) as Record<string, any>).notEligibleTitle || ""} onChange={(e) => updateContentField("notEligibleTitle", e.target.value)} />
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs">Not Eligible Items</Label>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addContentArrayItem("notEligibleItems", { title: "", description: "" })}>
+                                      <Plus className="w-3 h-3 mr-1" /> Add
+                                    </Button>
+                                  </div>
+                                  {((((formData.content || {}) as Record<string, any>).notEligibleItems || []) as Array<{ title: string; description: string }>).map((item, idx) => (
+                                    <div key={idx} className="rounded border p-3 bg-card/50 space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label className="text-xs">Item {idx + 1}</Label>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeContentArrayItem("notEligibleItems", idx)}>
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Title</Label>
+                                        <Input className="mt-1" placeholder="Title" value={item?.title || ""} onChange={(e) => updateContentArrayItem("notEligibleItems", idx, "title", e.target.value)} />
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Description</Label>
+                                        <Textarea className="mt-1" placeholder="Description" value={item?.description || ""} onChange={(e) => updateContentArrayItem("notEligibleItems", idx, "description", e.target.value)} />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-2">
+                                  <Label className="text-xs font-semibold">How to Request a Refund Section</Label>
+                                  <Input placeholder="Request section title" value={((formData.content || {}) as Record<string, any>).requestTitle || ""} onChange={(e) => updateContentField("requestTitle", e.target.value)} />
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs">Request Steps</Label>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addContentArrayItem("requestSteps", { title: "", description: "" })}>
+                                      <Plus className="w-3 h-3 mr-1" /> Add
+                                    </Button>
+                                  </div>
+                                  {((((formData.content || {}) as Record<string, any>).requestSteps || []) as Array<{ title: string; description: string }>).map((item, idx) => (
+                                    <div key={idx} className="rounded border p-3 bg-card/50 space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label className="text-xs">Step {idx + 1}</Label>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeContentArrayItem("requestSteps", idx)}>
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Title</Label>
+                                        <Input className="mt-1" placeholder="Title" value={item?.title || ""} onChange={(e) => updateContentArrayItem("requestSteps", idx, "title", e.target.value)} />
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Description</Label>
+                                        <Textarea className="mt-1" placeholder="Description" value={item?.description || ""} onChange={(e) => updateContentArrayItem("requestSteps", idx, "description", e.target.value)} />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="rounded-lg border bg-background p-3 space-y-3">
+                                  <Label className="text-xs font-semibold">Contact Section</Label>
+                                  <Input placeholder="Contact section title" value={((formData.content || {}) as Record<string, any>).contactTitle || ""} onChange={(e) => updateContentField("contactTitle", e.target.value)} />
+                                  <Textarea placeholder="Contact section description" value={((formData.content || {}) as Record<string, any>).contactDescription || ""} onChange={(e) => updateContentField("contactDescription", e.target.value)} />
+                                  <Input placeholder="Contact email" value={((formData.content || {}) as Record<string, any>).contactEmail || ""} onChange={(e) => updateContentField("contactEmail", e.target.value)} />
+                                </div>
+                              </div>
+                            )}
+
+                            {pageKind === "terms" && (
+                              <div className="space-y-3">
+                                <Input placeholder="Hero title" value={((formData.content || {}) as Record<string, any>).title || ""} onChange={(e) => updateContentField("title", e.target.value)} />
+                                <Textarea placeholder="Hero description" value={((formData.content || {}) as Record<string, any>).description || ""} onChange={(e) => updateContentField("description", e.target.value)} />
+                                <Input placeholder="Last updated text" value={((formData.content || {}) as Record<string, any>).lastUpdated || ""} onChange={(e) => updateContentField("lastUpdated", e.target.value)} />
+                                <Textarea placeholder="Acceptance of terms" value={((formData.content || {}) as Record<string, any>).acceptanceOfTerms || ""} onChange={(e) => updateContentField("acceptanceOfTerms", e.target.value)} />
+                                <Textarea placeholder="Use of service intro" value={((formData.content || {}) as Record<string, any>).useOfServiceIntro || ""} onChange={(e) => updateContentField("useOfServiceIntro", e.target.value)} />
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs">Use of Service Items</Label>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStringArrayItem("useOfServiceItems")}>
+                                      <Plus className="w-3 h-3 mr-1" /> Add
+                                    </Button>
+                                  </div>
+                                  {((((formData.content || {}) as Record<string, any>).useOfServiceItems || []) as string[]).map((item, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <Input value={item} onChange={(e) => updateStringArrayItem("useOfServiceItems", idx, e.target.value)} />
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeStringArrayItem("useOfServiceItems", idx)}>
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                                <Textarea placeholder="Account responsibilities intro" value={((formData.content || {}) as Record<string, any>).accountResponsibilitiesIntro || ""} onChange={(e) => updateContentField("accountResponsibilitiesIntro", e.target.value)} />
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs">Account Responsibilities Items</Label>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStringArrayItem("accountResponsibilitiesItems")}>
+                                      <Plus className="w-3 h-3 mr-1" /> Add
+                                    </Button>
+                                  </div>
+                                  {((((formData.content || {}) as Record<string, any>).accountResponsibilitiesItems || []) as string[]).map((item, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <Input value={item} onChange={(e) => updateStringArrayItem("accountResponsibilitiesItems", idx, e.target.value)} />
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeStringArrayItem("accountResponsibilitiesItems", idx)}>
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                                <Textarea placeholder="Subscription and billing" value={((formData.content || {}) as Record<string, any>).subscriptionAndBilling || ""} onChange={(e) => updateContentField("subscriptionAndBilling", e.target.value)} />
+                                <Textarea placeholder="Intellectual property" value={((formData.content || {}) as Record<string, any>).intellectualProperty || ""} onChange={(e) => updateContentField("intellectualProperty", e.target.value)} />
+                                <Textarea placeholder="Data and privacy" value={((formData.content || {}) as Record<string, any>).dataAndPrivacy || ""} onChange={(e) => updateContentField("dataAndPrivacy", e.target.value)} />
+                                <Textarea placeholder="Service availability" value={((formData.content || {}) as Record<string, any>).serviceAvailability || ""} onChange={(e) => updateContentField("serviceAvailability", e.target.value)} />
+                                <Textarea placeholder="Termination" value={((formData.content || {}) as Record<string, any>).termination || ""} onChange={(e) => updateContentField("termination", e.target.value)} />
+                                <Textarea placeholder="Limitation of liability" value={((formData.content || {}) as Record<string, any>).limitationOfLiability || ""} onChange={(e) => updateContentField("limitationOfLiability", e.target.value)} />
+                                <Textarea placeholder="Changes to terms" value={((formData.content || {}) as Record<string, any>).changesToTerms || ""} onChange={(e) => updateContentField("changesToTerms", e.target.value)} />
+                                <Textarea placeholder="Governing law" value={((formData.content || {}) as Record<string, any>).governingLaw || ""} onChange={(e) => updateContentField("governingLaw", e.target.value)} />
+                                <Textarea placeholder="Contact intro" value={((formData.content || {}) as Record<string, any>).contactIntro || ""} onChange={(e) => updateContentField("contactIntro", e.target.value)} />
+                                <Input placeholder="Contact email" value={((formData.content || {}) as Record<string, any>).contactEmail || ""} onChange={(e) => updateContentField("contactEmail", e.target.value)} />
+                                <Input placeholder="Contact address" value={((formData.content || {}) as Record<string, any>).contactAddress || ""} onChange={(e) => updateContentField("contactAddress", e.target.value)} />
+                                <Input placeholder="Contact phone" value={((formData.content || {}) as Record<string, any>).contactPhone || ""} onChange={(e) => updateContentField("contactPhone", e.target.value)} />
+                              </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              Edit text/content only. Public page design is preserved.
+                            </p>
+                          </div>
 
                           {/* Footer Visibility */}
                           <div className="flex items-center gap-2 border-t pt-4">

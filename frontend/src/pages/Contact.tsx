@@ -8,10 +8,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Mail, Phone, MapPin, Send, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
+import { useSupportPageBySlug } from "@/hooks/useSupportPages";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const defaultContent = {
+  title: "Get in Touch",
+  description: "Have questions? We're here to help and will respond as soon as possible.",
+  contactInfoTitle: "Contact Information",
+  contactInfoDescription: "Reach out through any of these channels and we'll get back to you promptly.",
+  emails: ["support@vaypr.net", "sales@vaypr.net"],
+  phone: "(+965) 2246-4030",
+  phoneHours: "Sun-Thr 9am-6pm GMT +3",
+  officeLine1: "Salhiya, Mohammad Thunayan",
+  officeLine2: "Alghanim Street, Kuwait City",
+  responseTime: "Usually within 3 hours",
+  formTitle: "Send us a Message",
+  subjectOptions: [
+    { value: "general", label: "General Inquiry" },
+    { value: "support", label: "Technical Support" },
+    { value: "billing", label: "Billing Question" },
+    { value: "enterprise", label: "Enterprise Sales" },
+    { value: "partnership", label: "Partnership Opportunity" },
+    { value: "feedback", label: "Feedback" }
+  ]
+};
 
 export default function Contact() {
+  const { data: apiContent } = useSupportPageBySlug("contact");
+  const content = (apiContent as any)?.content ?? defaultContent;
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -94,10 +118,10 @@ export default function Contact() {
             <Mail className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-4xl sm:text-5xl font-display font-bold text-foreground mb-4">
-            Get in Touch
+            {content?.title || defaultContent.title}
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Have questions? We're here to help and will respond as soon as possible.
+            {content?.description || defaultContent.description}
           </p>
         </div>
       </section>
@@ -110,10 +134,10 @@ export default function Contact() {
             <div className="space-y-8">
               <div>
                 <h2 className="text-2xl font-display font-semibold text-foreground mb-6">
-                  Contact Information
+                  {content?.contactInfoTitle || defaultContent.contactInfoTitle}
                 </h2>
                 <p className="text-muted-foreground">
-                  Reach out through any of these channels and we'll get back to you promptly.
+                  {content?.contactInfoDescription || defaultContent.contactInfoDescription}
                 </p>
               </div>
 
@@ -124,8 +148,9 @@ export default function Contact() {
                   </div>
                   <div>
                     <h3 className="font-medium text-foreground">Email</h3>
-                    <p className="text-muted-foreground">support@vaypr.net</p>
-                    <p className="text-muted-foreground">sales@vaypr.net</p>
+                    {(content?.emails || defaultContent.emails).map((email: string, index: number) => (
+                      <p key={index} className="text-muted-foreground">{email}</p>
+                    ))}
                   </div>
                 </div>
 
@@ -135,8 +160,8 @@ export default function Contact() {
                   </div>
                   <div>
                     <h3 className="font-medium text-foreground">Phone</h3>
-                    <p className="text-muted-foreground">(+965) 2246-4030</p>
-                    <p className="text-sm text-muted-foreground">Sun-Thr 9am-6pm GMT +3</p>
+                    <p className="text-muted-foreground">{content?.phone || defaultContent.phone}</p>
+                    <p className="text-sm text-muted-foreground">{content?.phoneHours || defaultContent.phoneHours}</p>
                   </div>
                 </div>
 
@@ -146,8 +171,8 @@ export default function Contact() {
                   </div>
                   <div>
                     <h3 className="font-medium text-foreground">Office</h3>
-                    <p className="text-muted-foreground">Salhiya, Mohammad Thunayan</p>
-                    <p className="text-muted-foreground">Alghanim Street, Kuwait City</p>
+                    <p className="text-muted-foreground">{content?.officeLine1 || defaultContent.officeLine1}</p>
+                    <p className="text-muted-foreground">{content?.officeLine2 || defaultContent.officeLine2}</p>
                   </div>
                 </div>
 
@@ -157,7 +182,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <h3 className="font-medium text-foreground">Response Time</h3>
-                    <p className="text-muted-foreground">Usually within 3 hours</p>
+                    <p className="text-muted-foreground">{content?.responseTime || defaultContent.responseTime}</p>
                   </div>
                 </div>
               </div>
@@ -167,7 +192,7 @@ export default function Contact() {
             <div className="lg:col-span-2">
               <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-8">
                 <h2 className="text-2xl font-display font-semibold text-foreground mb-6">
-                  Send us a Message
+                  {content?.formTitle || defaultContent.formTitle}
                 </h2>
 
                 <div className="grid sm:grid-cols-2 gap-6 mb-6">
@@ -193,12 +218,9 @@ export default function Contact() {
                       <SelectValue placeholder="Select a subject" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="general">General Inquiry</SelectItem>
-                      <SelectItem value="support">Technical Support</SelectItem>
-                      <SelectItem value="billing">Billing Question</SelectItem>
-                      <SelectItem value="enterprise">Enterprise Sales</SelectItem>
-                      <SelectItem value="partnership">Partnership Opportunity</SelectItem>
-                      <SelectItem value="feedback">Feedback</SelectItem>
+                      {(content?.subjectOptions || defaultContent.subjectOptions).map((option: { value: string; label: string }) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
