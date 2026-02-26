@@ -49,6 +49,7 @@ import { billingService } from '@/api/services/billing.service';
 import { BillingPlanService, BillingPlan } from '@/api/services/billing-plan.service';
 import { useDashboardStats } from '@/hooks/api/useDashboard';
 import CancelSubscriptionDialog from '@/components/billing/CancelSubscriptionDialog';
+import { ReferralCodeModal } from '@/components/billing/ReferralCodeModal';
 import {
   User,
   Mail,
@@ -217,6 +218,8 @@ export default function Profile() {
   const [twoFASetup, setTwoFASetup] = useState<any | null>(null);
   const [twoFACode, setTwoFACode] = useState('');
   const [isEnabling2FA, setIsEnabling2FA] = useState(false);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [selectedUpgradePlan, setSelectedUpgradePlan] = useState<BillingPlan | null>(null);
 
   // Notification preferences
   const [notifications, setNotifications] = useState({
@@ -638,12 +641,23 @@ export default function Profile() {
   };
 
   const handleUpgradePlan = async (plan: BillingPlan) => {
+    // Show referral modal first
+    setSelectedUpgradePlan(plan);
+    setSelectedPlanId(plan._id);
+    setShowReferralModal(true);
+  };
+
+  const handleProceedWithUpgrade = async (referralCode?: string) => {
+    if (!selectedUpgradePlan) return;
+
     try {
+      setShowReferralModal(false);
       setIsStartingCheckout(true);
       const checkout = await billingService.createCheckoutSession(
-        plan._id,
-        plan.interval,
-        plan.currency || 'USD',
+        selectedUpgradePlan._id,
+        selectedUpgradePlan.interval,
+        selectedUpgradePlan.currency || 'USD',
+        referralCode,
       );
       if (!checkout?.url) {
         throw new Error('Missing checkout URL');
@@ -1828,6 +1842,14 @@ export default function Profile() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Referral Code Modal */}
+      <ReferralCodeModal
+        open={showReferralModal}
+        onOpenChange={setShowReferralModal}
+        onContinue={handleProceedWithUpgrade}
+        isLoading={isStartingCheckout}
+      />
 
     </DashboardLayout>
   );

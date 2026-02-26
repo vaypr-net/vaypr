@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { CURRENCY_CONFIG } from "@/config/currency.config";
+import { ReferralCodeModal } from "@/components/billing/ReferralCodeModal";
 
 interface Plan {
   _id: string;
@@ -88,6 +89,8 @@ export function PricingSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null); // Track which plan is being checked out
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null); // Store plan for referral modal
+  const [showReferralModal, setShowReferralModal] = useState(false); // Control referral modal
   const { user, token } = useAuth();
   const navigate = useNavigate();
 
@@ -162,9 +165,22 @@ export function PricingSection() {
       return;
     }
 
-    // User is logged in → proceed with checkout
-    console.log('Paid plan + logged in → initiating checkout');
-    setCheckoutLoading(plan._id);
+    // User is logged in → show referral code modal first
+    console.log('Paid plan + logged in → showing referral modal');
+    setSelectedPlan(plan);
+    setShowReferralModal(true);
+  };
+
+  // Process checkout with optional referral code
+  const handleProceedWithCheckout = async (referralCode?: string) => {
+    if (!selectedPlan) return;
+    
+    console.log('=== PROCEEDING WITH CHECKOUT ===');
+    console.log('Plan:', selectedPlan.name);
+    console.log('Referral Code:', referralCode || 'None');
+    
+    setShowReferralModal(false);
+    setCheckoutLoading(selectedPlan._id);
 
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
@@ -180,19 +196,26 @@ export function PricingSection() {
         return;
       }
 
-      console.log('Creating checkout session for:', plan.name);
+      console.log('Creating checkout session for:', selectedPlan.name);
       
+      const requestBody: any = {
+        planId: selectedPlan._id,
+        billingCycle: isYearly ? 'yearly' : 'monthly',
+        currency: selectedCurrency,
+      };
+
+      // Add referral code if provided
+      if (referralCode) {
+        requestBody.referralCode = referralCode;
+      }
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          planId: plan._id,
-          billingCycle: isYearly ? 'yearly' : 'monthly',
-          currency: selectedCurrency,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       console.log('Response status:', response.status);
@@ -519,6 +542,14 @@ export function PricingSection() {
           </div>
         </div>
       </div>
+
+      {/* Referral Code Modal */}
+      <ReferralCodeModal
+        open={showReferralModal}
+        onOpenChange={setShowReferralModal}
+        onContinue={handleProceedWithCheckout}
+        isLoading={!!checkoutLoading}
+      />
     </section>
   );
 }

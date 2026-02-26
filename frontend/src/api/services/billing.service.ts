@@ -105,19 +105,27 @@ export const billingService = {
    * @param planId - The billing plan ID
    * @param billingCycle - 'monthly' or 'yearly'
    * @param currency - Optional currency code (USD, AED, QAR, etc.). Defaults to USD
+   * @param referralCode - Optional affiliate referral code
    */
   async createCheckoutSession(
     planId: string,
     billingCycle: 'monthly' | 'yearly',
     currency: string = 'USD',
+    referralCode?: string,
   ): Promise<CheckoutSessionResponse> {
+    const payload: any = {
+      planId,
+      billingCycle,
+      currency,
+    };
+
+    if (referralCode) {
+      payload.referralCode = referralCode;
+    }
+
     const response = await axios.post<CheckoutSessionResponse>(
       `${BASE_URL}/checkout-session`,
-      {
-        planId,
-        billingCycle,
-        currency,
-      },
+      payload,
     );
     return response.data;
   },
