@@ -345,6 +345,9 @@ const defaultB2BEditorContent = {
   ctaTitle: "Ready to Scale Finance Operations?",
   ctaDescription: "Let's map VAYPR to your workflows, integrations, and approval structure.",
   ctaItems: ["Enterprise onboarding", "Dedicated support", "Custom rollout"],
+  ctaEnabled: true,
+  ctaButtonText: "Contact Sales",
+  ctaButtonLink: "/contact",
 };
 
 // -------------------- Reusable Collapsible Section --------------------
@@ -532,17 +535,43 @@ function CorporatePagesEditor() {
     }
     if (isB2BPage) {
       const capabilityKeys = Object.keys(normalizedContent.enterpriseCapabilities || {});
+      const fallbackValuePillars = Array.isArray(page?.sections) && page.sections.length
+        ? [...page.sections]
+            .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+            .slice(0, 4)
+            .map((section: any) => ({
+              title: section?.title || "",
+              description: section?.content || "",
+            }))
+        : [];
+      const fallbackCapabilities = Array.isArray(page?.features) && page.features.length
+        ? {
+            "Enterprise Features": [...page.features]
+              .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+              .map((item: any) => ({
+                title: item?.title || "",
+                description: item?.description || "",
+              })),
+          }
+        : {};
       Object.assign(normalizedContent, {
         ...defaultB2BEditorContent,
         ...normalizedContent,
+        heroTitleLine1: normalizedContent.heroTitleLine1 || page.heroTitle || defaultB2BEditorContent.heroTitleLine1,
+        heroTitleLine2: normalizedContent.heroTitleLine2 || defaultB2BEditorContent.heroTitleLine2,
+        heroDescription: normalizedContent.heroDescription || page.heroSubtitle || defaultB2BEditorContent.heroDescription,
         heroTrustIndustries: Array.isArray(normalizedContent.heroTrustIndustries) && normalizedContent.heroTrustIndustries.length
           ? normalizedContent.heroTrustIndustries
           : defaultB2BEditorContent.heroTrustIndustries,
         valuePillars: Array.isArray(normalizedContent.valuePillars) && normalizedContent.valuePillars.length
           ? normalizedContent.valuePillars
+          : fallbackValuePillars.length
+            ? fallbackValuePillars
           : defaultB2BEditorContent.valuePillars,
         enterpriseCapabilities: capabilityKeys.length
           ? normalizedContent.enterpriseCapabilities
+          : Object.keys(fallbackCapabilities).length
+            ? fallbackCapabilities
           : defaultB2BEditorContent.enterpriseCapabilities,
         integrations: Array.isArray(normalizedContent.integrations) && normalizedContent.integrations.length
           ? normalizedContent.integrations
@@ -556,6 +585,11 @@ function CorporatePagesEditor() {
         ctaItems: Array.isArray(normalizedContent.ctaItems) && normalizedContent.ctaItems.length
           ? normalizedContent.ctaItems
           : defaultB2BEditorContent.ctaItems,
+        ctaEnabled: typeof normalizedContent.ctaEnabled === "boolean"
+          ? normalizedContent.ctaEnabled
+          : page?.ctaSection?.enabled ?? defaultB2BEditorContent.ctaEnabled,
+        ctaButtonText: normalizedContent.ctaButtonText || page?.ctaSection?.buttonText || defaultB2BEditorContent.ctaButtonText,
+        ctaButtonLink: normalizedContent.ctaButtonLink || page?.ctaSection?.buttonLink || defaultB2BEditorContent.ctaButtonLink,
       });
     }
 
@@ -612,6 +646,50 @@ function CorporatePagesEditor() {
   const savePage = async (id: string) => {
     const form = pageForm[id];
     if (!form) return;
+    const slugLower = (form.slug || "").toString().toLowerCase();
+
+    if (slugLower === "b2b") {
+      const normalizedContent = {
+        ...defaultB2BEditorContent,
+        ...(form.content || {}),
+      };
+
+      const b2bSections = (normalizedContent.valuePillars || []).map((item: any, index: number) => ({
+        title: item?.title || "",
+        content: item?.description || "",
+        order: index + 1,
+      }));
+
+      const b2bFeatures = Object.values(normalizedContent.enterpriseCapabilities || {})
+        .flatMap((items: any) => (Array.isArray(items) ? items : []))
+        .map((item: any, index: number) => ({
+          title: item?.title || "",
+          description: item?.description || "",
+          icon: item?.icon || "",
+          order: index + 1,
+        }));
+
+      const payload = {
+        ...form,
+        content: normalizedContent,
+        heroTitle: normalizedContent.heroTitleLine1 || form.title,
+        heroSubtitle: normalizedContent.heroDescription || "",
+        sections: b2bSections,
+        features: b2bFeatures,
+        ctaSection: {
+          enabled: normalizedContent.ctaEnabled !== false,
+          title: normalizedContent.ctaTitle || "",
+          description: normalizedContent.ctaDescription || "",
+          buttonText: normalizedContent.ctaButtonText || "Contact Sales",
+          buttonLink: normalizedContent.ctaButtonLink || "/contact",
+        },
+      };
+
+      await updatePageMutation.mutateAsync({ id, data: payload });
+      setEditingId(null);
+      return;
+    }
+
     await updatePageMutation.mutateAsync({ id, data: form });
     setEditingId(null);
   };
@@ -832,7 +910,7 @@ function CorporatePagesEditor() {
                     </div>
 
                     {/* Section Content Editor */}
-                    <div className="border-t pt-4">
+                    {slugLower !== "b2b" && <div className="border-t pt-4">
                       <Label className="text-xs font-semibold mb-3 block">Page Sections</Label>
                       <div className="space-y-4">
                         {(pageForm[page._id]?.sections || page.sections || []).map((section: any, sIdx: number) => (
@@ -876,7 +954,7 @@ function CorporatePagesEditor() {
                           </div>
                         ))}
                       </div>
-                    </div>
+                    </div>}
 
                     {/* Structured About Page Content */}
                     {slugLower === "about" && (
@@ -1112,6 +1190,23 @@ function CorporatePagesEditor() {
                             value={content.ctaDescription || ""}
                             onChange={(e) => updateContentField(page._id, "ctaDescription", e.target.value)}
                           />
+                          <Input
+                            placeholder="CTA Button Text"
+                            value={content.ctaButtonText || ""}
+                            onChange={(e) => updateContentField(page._id, "ctaButtonText", e.target.value)}
+                          />
+                          <Input
+                            placeholder="CTA Button Link (e.g. /contact)"
+                            value={content.ctaButtonLink || ""}
+                            onChange={(e) => updateContentField(page._id, "ctaButtonLink", e.target.value)}
+                          />
+                          <div className="flex items-center justify-between rounded border p-2 md:col-span-2">
+                            <Label className="text-xs">Enable CTA Section</Label>
+                            <Switch
+                              checked={content.ctaEnabled !== false}
+                              onCheckedChange={(checked) => updateContentField(page._id, "ctaEnabled", checked)}
+                            />
+                          </div>
                         </div>
                       </div>
                     )}

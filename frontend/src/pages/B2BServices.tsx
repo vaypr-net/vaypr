@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Shield, Settings2, Zap, HeadphonesIcon, FileText, Receipt, Users, RefreshCw, PieChart, Palette, Brush, Globe, Brain, Code, Mail, UserCheck, TrendingUp, Layers, Link2, Building2, Briefcase, ShoppingCart, Scale, Database, GraduationCap, LayoutDashboard, AlertTriangle } from "lucide-react";
+import { ArrowRight, Shield, Settings2, Zap, HeadphonesIcon, FileText, Receipt, Users, RefreshCw, PieChart, Palette, Brush, Globe, Brain, Code, Mail, UserCheck, TrendingUp, Layers, Link2, Building2, Briefcase, ShoppingCart, Scale, Database, GraduationCap, LayoutDashboard, AlertTriangle, BarChart3 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useCorporatePageBySlug } from "@/hooks/useCorporatePages";
 
 const defaultContent = {
@@ -166,34 +167,138 @@ const defaultContent = {
 };
 export default function B2BServices() {
   const { data: apiContent } = useCorporatePageBySlug("b2b");
-  const content = (apiContent as any)?.content ?? defaultContent;
+  const page = (apiContent as any) || {};
+  const content = page?.content ?? {};
+  const iconRegistry: Record<string, LucideIcon> = {
+    Shield,
+    Settings2,
+    Zap,
+    HeadphonesIcon,
+    FileText,
+    Receipt,
+    Users,
+    RefreshCw,
+    PieChart,
+    Palette,
+    Brush,
+    Globe,
+    Brain,
+    Code,
+    Mail,
+    UserCheck,
+    TrendingUp,
+    Layers,
+    Link2,
+    Building2,
+    Briefcase,
+    ShoppingCart,
+    Scale,
+    Database,
+    GraduationCap,
+    LayoutDashboard,
+    AlertTriangle,
+    BarChart3,
+    Building: Building2 as unknown as LucideIcon,
+    Headphones: HeadphonesIcon as unknown as LucideIcon,
+    Workflow: Settings2 as unknown as LucideIcon,
+  };
+  const resolveIcon = (iconValue: unknown, fallback: LucideIcon): LucideIcon => {
+    if (typeof iconValue === "function") {
+      return iconValue as LucideIcon;
+    }
+    if (typeof iconValue === "string" && iconRegistry[iconValue]) {
+      return iconRegistry[iconValue];
+    }
+    return fallback;
+  };
   const valuePillarIcons = [Shield, Zap, Layers, HeadphonesIcon];
   const industryIcons = [Layers, Briefcase, ShoppingCart, Scale];
-  const valuePillars = (content?.valuePillars || defaultContent.valuePillars).map((pillar: any, index: number) => {
+  const fallbackValuePillarsFromSections = Array.isArray(page?.sections) && page.sections.length > 0
+    ? page.sections
+        .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+        .slice(0, 4)
+        .map((section: any) => ({
+          title: section?.title || "",
+          description: section?.content || "",
+        }))
+    : [];
+  const valuePillarsSource =
+    Array.isArray(content?.valuePillars) && content.valuePillars.length > 0
+      ? content.valuePillars
+      : fallbackValuePillarsFromSections.length > 0
+        ? fallbackValuePillarsFromSections
+        : defaultContent.valuePillars;
+
+  const valuePillars = valuePillarsSource.map((pillar: any, index: number) => {
     const defaultItem = defaultContent.valuePillars[index] || {};
     return {
       ...defaultItem,
       ...pillar,
-      icon:
-        pillar?.icon ||
-        defaultItem?.icon ||
+      icon: resolveIcon(
+        pillar?.icon || defaultItem?.icon,
         valuePillarIcons[index % valuePillarIcons.length],
+      ),
     };
   });
-  const enterpriseCapabilities = content?.enterpriseCapabilities || defaultContent.enterpriseCapabilities;
+  const fallbackCapabilitiesFromFeatures =
+    Array.isArray(page?.features) && page.features.length > 0
+      ? {
+          "Enterprise Features": page.features
+            .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+            .map((feature: any) => ({
+              title: feature?.title || "",
+              description: feature?.description || "",
+              icon: feature?.icon,
+            })),
+        }
+      : null;
+  const rawEnterpriseCapabilities =
+    content?.enterpriseCapabilities && Object.keys(content.enterpriseCapabilities).length > 0
+      ? content.enterpriseCapabilities
+      : fallbackCapabilitiesFromFeatures || defaultContent.enterpriseCapabilities;
+  const enterpriseCapabilities = Object.fromEntries(
+    Object.entries(rawEnterpriseCapabilities).map(([category, features]) => [
+      category,
+      (features as any[]).map((feature, idx) => ({
+        ...feature,
+        icon: resolveIcon(feature?.icon, FileText),
+      })),
+    ]),
+  );
   const integrations = content?.integrations || defaultContent.integrations;
   const industries = (content?.industries || defaultContent.industries).map((industry: any, index: number) => {
     const defaultItem = defaultContent.industries[index] || {};
     return {
       ...defaultItem,
       ...industry,
-      icon:
-        industry?.icon ||
-        defaultItem?.icon ||
+      icon: resolveIcon(
+        industry?.icon || defaultItem?.icon,
         industryIcons[index % industryIcons.length],
+      ),
     };
   });
   const trustedLogos = content?.trustedLogos || defaultContent.trustedLogos;
+  const heroLine1 =
+    content?.heroTitleLine1 ||
+    page?.heroTitle ||
+    defaultContent.heroTitleLine1;
+  const heroLine2 =
+    content?.heroTitleLine2 ||
+    page?.heroSubtitle ||
+    defaultContent.heroTitleLine2;
+  const heroDescription =
+    content?.heroDescription ||
+    page?.heroSubtitle ||
+    defaultContent.heroDescription;
+  const finalCtaTitle =
+    content?.ctaTitle || page?.ctaSection?.title || defaultContent.ctaTitle;
+  const finalCtaDescription =
+    content?.ctaDescription || page?.ctaSection?.description || defaultContent.ctaDescription;
+  const finalCtaButtonText =
+    page?.ctaSection?.buttonText || "Contact Sales";
+  const finalCtaButtonLink =
+    page?.ctaSection?.buttonLink || "/contact";
+  const showFinalCta = page?.ctaSection?.enabled !== false;
 
   return <div>
       {/* Hero Section */}
@@ -207,12 +312,12 @@ export default function B2BServices() {
               {content?.heroEyebrow || defaultContent.heroEyebrow}
             </p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-display font-bold text-foreground mb-6 leading-[1.1] tracking-tight">
-              {content?.heroTitleLine1 || defaultContent.heroTitleLine1}
+              {heroLine1}
               <br />
-              <span className="text-primary">{content?.heroTitleLine2 || defaultContent.heroTitleLine2}</span>
+              <span className="text-primary">{heroLine2}</span>
             </h1>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              {content?.heroDescription || defaultContent.heroDescription}
+              {heroDescription}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 mb-8 justify-center">
@@ -358,7 +463,7 @@ export default function B2BServices() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-20 sm:py-28">
+      {showFinalCta && <section className="py-20 sm:py-28">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
             <div className="bg-gradient-to-br from-violet-50/80 via-slate-50/60 to-violet-50/40 dark:from-violet-950/20 dark:via-slate-900/40 dark:to-violet-950/10 border border-violet-200/60 dark:border-violet-800/30 rounded-3xl p-10 sm:p-14 lg:p-16 text-center">
@@ -366,15 +471,15 @@ export default function B2BServices() {
                 <Building2 className="h-8 w-8 text-primary" />
               </div>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-foreground mb-6 tracking-tight">
-                {content?.ctaTitle || defaultContent.ctaTitle}
+                {finalCtaTitle}
               </h2>
               <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-                {content?.ctaDescription || defaultContent.ctaDescription}
+                {finalCtaDescription}
               </p>
               
               <Button size="lg" asChild className="h-13 px-10 text-base font-medium shadow-lg shadow-primary/20">
-                <Link to="/contact">
-                  Contact Sales
+                <Link to={finalCtaButtonLink}>
+                  {finalCtaButtonText}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
@@ -398,6 +503,6 @@ export default function B2BServices() {
             </div>
           </div>
         </div>
-      </section>
+      </section>}
     </div>;
 }
