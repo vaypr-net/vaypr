@@ -8,6 +8,12 @@ import { BillingWebhookController } from './billing-webhook.controller';
 import { User, UserSchema } from '../user/entities/user.entity';
 import { BillingPlan, BillingPlanSchema } from '../billing-plan/entities/billing-plan.entity';
 import { Transaction, TransactionSchema } from '../transcations/entities/transcation.entity';
+import { Affiliate, AffiliateSchema } from '../affiliate/entities/affiliate.entity';
+import { Referral, ReferralSchema } from '../affiliate/entities/referral.entity';
+import {
+  CommissionPlan,
+  CommissionPlanSchema,
+} from '../affiliate/entities/commission-plan.entity';
 import { ActivityModule } from '../activity/activity.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CommonModule } from '../common/common.module';
@@ -62,6 +68,9 @@ import { UserprofileModule } from '../userprofile/userprofile.module';
       { name: User.name, schema: UserSchema },
       { name: BillingPlan.name, schema: BillingPlanSchema },
       { name: Transaction.name, schema: TransactionSchema },
+      { name: Affiliate.name, schema: AffiliateSchema },
+      { name: Referral.name, schema: ReferralSchema },
+      { name: CommissionPlan.name, schema: CommissionPlanSchema },
     ]),
     ActivityModule,
   ],

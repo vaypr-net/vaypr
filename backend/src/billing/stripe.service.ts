@@ -6,6 +6,9 @@ import Stripe from 'stripe';
 import { User } from '../user/entities/user.entity';
 import { BillingPlan } from '../billing-plan/entities/billing-plan.entity';
 import { Transaction } from '../transcations/entities/transcation.entity';
+import { Affiliate } from '../affiliate/entities/affiliate.entity';
+import { Referral } from '../affiliate/entities/referral.entity';
+import { CommissionPlan } from '../affiliate/entities/commission-plan.entity';
 import { ActivityService } from '../activity/activity.service';
 import { CurrencyService } from '../common/services/currency.service';
 import { BillingPlanStripeSyncService } from '../billing-plan/services/billing-plan-stripe-sync.service';
@@ -33,11 +36,19 @@ export class StripeService {
   private stripe: Stripe;
   private logger = new Logger(StripeService.name);
 
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   constructor(
     private configService: ConfigService,
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(BillingPlan.name) private billingPlanModel: Model<BillingPlan>,
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
+    @InjectModel(Affiliate.name) private affiliateModel: Model<Affiliate>,
+    @InjectModel(Referral.name) private referralModel: Model<Referral>,
+    @InjectModel(CommissionPlan.name)
+    private commissionPlanModel: Model<CommissionPlan>,
     private activityService: ActivityService,
     private currencyService: CurrencyService,
     private stripeSyncService: BillingPlanStripeSyncService,
@@ -85,6 +96,137 @@ export class StripeService {
       periodStart: typeof startUnix === 'number' ? new Date(startUnix * 1000) : undefined,
       periodEnd: typeof endUnix === 'number' ? new Date(endUnix * 1000) : undefined,
     };
+  }
+
+  private async processReferralAttribution(
+    user: any,
+    planId: string,
+    subscriptionAmount: number,
+    referralCodeRaw?: string,
+    source: 'webhook' | 'verify' = 'webhook',
+  ): Promise<void> {
+    const referralCode = referralCodeRaw?.trim();
+    if (!referralCode) {
+      return;
+    }
+
+    const codePattern = new RegExp(`^${this.escapeRegex(referralCode)}$`, 'i');
+    const affiliate = await this.affiliateModel.findOne({
+      code: codePattern,
+      status: 'active',
+    });
+
+    if (!affiliate) {
+      this.logger.warn(
+        `${source}: Referral code "${referralCode}" not found or inactive`,
+      );
+      return;
+    }
+
+    const existingReferral = await this.referralModel.findOne({
+      affiliateId: affiliate._id,
+      subscriberId: user._id.toString(),
+    });
+
+    // Always sync user referral linkage, even if referral row already exists.
+    await this.userModel.findByIdAndUpdate(user._id, {
+      referredBy: affiliate.code,
+      affiliateId: affiliate._id,
+    });
+
+    if (existingReferral) {
+      this.logger.log(
+        `${source}: Referral already exists for user ${user._id} and affiliate ${affiliate._id}, skipping duplicate creation`,
+      );
+      return;
+    }
+
+    const plan = await this.billingPlanModel.findById(planId);
+    const commission = await this.calculateReferralCommission(
+      plan,
+      subscriptionAmount,
+    );
+
+    const referralRecord = await this.referralModel.create({
+      affiliateId: affiliate._id,
+      affiliateName: affiliate.name,
+      subscriberId: user._id.toString(),
+      subscriberName: user.fullName,
+      plan: plan?.name || 'Unknown',
+      conversionDate: new Date(),
+      amount: subscriptionAmount,
+      commission,
+      status: 'pending',
+    });
+
+    await this.affiliateModel.findByIdAndUpdate(affiliate._id, {
+      $inc: { referrals: 1 },
+    });
+
+    await this.activityService.create({
+      type: 'referral',
+      title: `New referral from ${affiliate.name}`,
+      description: `${user.fullName} (${user.email}) subscribed via referral code ${affiliate.code}`,
+      relatedEntityId: referralRecord._id.toString(),
+    });
+
+    this.logger.log(
+      `${source}: Referral recorded for user ${user._id} via affiliate ${affiliate.code} (${affiliate._id}) with commission ${commission}`,
+    );
+  }
+
+  private async calculateReferralCommission(
+    billingPlan: any,
+    subscriptionAmount: number,
+  ): Promise<number> {
+    if (!billingPlan || !subscriptionAmount || subscriptionAmount <= 0) {
+      return 0;
+    }
+
+    const planId = billingPlan._id?.toString?.();
+    const planName = (billingPlan.name || '').trim();
+
+    const filters: any[] = [];
+    if (planId) {
+      filters.push({ subscriptionPlan: planId });
+    }
+    if (planName) {
+      filters.push({ subscriptionPlan: new RegExp(`^${this.escapeRegex(planName)}$`, 'i') });
+    }
+
+    if (filters.length === 0) {
+      return 0;
+    }
+
+    const commissionPlan = await this.commissionPlanModel
+      .findOne({
+        isActive: true,
+        $or: filters,
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!commissionPlan) {
+      return 0;
+    }
+
+    const value = Number(commissionPlan.commissionValue || 0);
+    if (!Number.isFinite(value) || value <= 0) {
+      return 0;
+    }
+
+    let commission = 0;
+    if (commissionPlan.commissionType === 'percentage') {
+      commission = (subscriptionAmount * value) / 100;
+    } else {
+      commission = value;
+    }
+
+    if (!Number.isFinite(commission) || commission <= 0) {
+      return 0;
+    }
+
+    return Math.round(commission * 100) / 100;
   }
 
   /**
@@ -244,6 +386,7 @@ export class StripeService {
     planId: string,
     billingCycle: 'monthly' | 'yearly',
     currency: string = 'USD',
+    referralCode?: string,
   ): Promise<{ url: string }> {
     // Validate plan exists
     const plan = await this.billingPlanModel.findById(planId);
@@ -356,6 +499,7 @@ export class StripeService {
         planId: planId,
         billingCycle: billingCycle,
         requestedCurrency: currency, // Store the originally requested currency
+        referralCode: referralCode || '', // Store referral code if provided
       },
     });
 
@@ -435,6 +579,18 @@ export class StripeService {
         user.cancellationReason = undefined;
         user.cancellationFeedback = undefined;
         await user.save();
+
+        const subscriptionAmount =
+          subscription?.items?.data?.[0]?.price?.unit_amount
+            ? subscription.items.data[0].price.unit_amount / 100
+            : (session.amount_total || 0) / 100;
+        await this.processReferralAttribution(
+          user,
+          session.metadata?.planId,
+          subscriptionAmount,
+          session.metadata?.referralCode,
+          'verify',
+        );
         
         this.logger.log(`Verified session ${sessionId} for user ${userId}, subscription ${subscription.id}`);
       }
@@ -1107,6 +1263,7 @@ export class StripeService {
     const userId = metadata?.userId;
     const planId = metadata?.planId;
     const billingCycle = metadata?.billingCycle;
+    const referralCode = metadata?.referralCode;
 
     if (!userId || !planId) {
       this.logger.error(
@@ -1188,6 +1345,23 @@ export class StripeService {
     this.logger.log(
       `Webhook: Subscription ${subscription.id} saved for user ${userId}. Status: ${user.subscriptionStatus}, Period End: ${user.currentPeriodEnd}, Amount: ${subscriptionAmount}`,
     );
+
+    // ==================== REFERRAL CODE HANDLING ====================
+    try {
+      await this.processReferralAttribution(
+        user,
+        planId,
+        subscriptionAmount,
+        referralCode,
+        'webhook',
+      );
+    } catch (referralError: any) {
+      this.logger.error(
+        `Webhook: Failed to process referral code ${referralCode}: ${referralError.message}`,
+      );
+      // Don't throw - subscription is already created
+    }
+    // ==================== END REFERRAL CODE HANDLING ====================
 
     // Create transaction record
     const plan = await this.billingPlanModel.findById(planId);

@@ -401,51 +401,39 @@ export default function Receipts() {
         description: 'Please wait while we prepare your receipt...',
       });
 
-      const pdfBase64 = await generatePdfBase64('receipt-preview-email');
+      const pdfBase64 = await generatePdfBase64('receipt-preview-email', {
+        fitToPage: true,
+        fitScale: 0.85,
+      });
 
       // Step 2: Create HTML email body with custom message
       const companyName = getReceiptCompanyName(selectedReceipt);
       
       const emailSubject = customSubject.trim() || `Receipt ${selectedReceipt.receiptNumber} from ${companyName}`;
       
-      // Convert custom message to HTML (preserve line breaks) with optimized text handling
+      // Convert custom message to HTML (preserve line breaks)
       const messageHtml = customMessage
         .split('\n')
-        .filter(line => line.trim()) // Remove empty lines
-        .map(line => `<p style="margin: 2px 0; word-break: break-word; overflow-wrap: break-word; font-size: 10px;">${line.trim()}</p>`)
+        .map(line => `<p>${line || '<br />'}</p>`)
         .join('');
 
       const emailBody = `
-        <!DOCTYPE html>
         <html>
           <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-              * { margin: 0; padding: 0; box-sizing: border-box; }
-              html, body { background: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif; color: #111827; font-size: 13px; }
-              body { line-height: 1.3; }
-              .container { max-width: 600px; margin: 0 auto; padding: 10px; }
-              .card { background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; }
-              .hero { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff; padding: 10px; }
-              .hero h1 { margin: 0 0 2px 0; font-size: 14px; font-weight: 600; }
-              .hero p { margin: 0; font-size: 10px; opacity: 0.95; }
-              .content { padding: 10px; }
-              .message-box { background: #f8fafc; border: 1px solid #e5e7eb; border-left: 4px solid #10b981; border-radius: 6px; padding: 8px; margin: 0 0 6px 0; }
-              .message-box p { margin: 2px 0; font-size: 10px; line-height: 1.3; color: #1f2937; word-break: break-word; overflow-wrap: break-word; white-space: pre-wrap; }
-              .attachment { background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 6px; padding: 6px 8px; margin: 6px 0; font-size: 9px; color: #2e7d32; }
-              .signature { margin-top: 6px; font-size: 9px; color: #374151; line-height: 1.3; }
-              .signature strong { color: #111827; font-weight: 600; }
-              .footer { text-align: center; font-size: 8px; color: #9ca3af; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e7eb; }
-              @media (max-width: 600px) {
-                .container { padding: 8px; }
-                .hero { padding: 8px; }
-                .hero h1 { font-size: 12px; }
-                .hero p { font-size: 9px; }
-                .content { padding: 8px; }
-                .message-box { padding: 6px; }
-                .message-box p { font-size: 9px; }
-              }
+              body { margin: 0; padding: 0; background: #f3f4f6; font-family: 'Segoe UI', Arial, sans-serif; color: #111827; }
+              .container { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+              .card { background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 8px 30px rgba(16, 185, 129, 0.18); }
+              .hero { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff; padding: 28px 24px; }
+              .hero h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.2px; }
+              .hero p { margin: 8px 0 0; font-size: 13px; opacity: 0.92; }
+              .content { padding: 24px; }
+              .message-box { background: #f8fafc; border: 1px solid #e5e7eb; border-left: 4px solid #10b981; border-radius: 12px; padding: 18px; margin: 0 0 18px; }
+              .message-box p { margin: 8px 0; font-size: 14px; line-height: 1.65; color: #1f2937; }
+              .attachment { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; margin-top: 10px; font-size: 12px; color: #4b5563; }
+              .signature { margin-top: 18px; font-size: 13px; color: #374151; }
+              .signature strong { color: #111827; }
+              .footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 14px; }
             </style>
           </head>
           <body>

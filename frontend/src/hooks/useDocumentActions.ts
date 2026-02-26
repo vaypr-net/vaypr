@@ -11,6 +11,7 @@ interface EmailOptions {
 
 interface PdfOptions {
   fitToPage?: boolean;
+  fitScale?: number;
 }
 
 interface ProtectedRange {
@@ -298,7 +299,10 @@ export function useDocumentActions() {
       return pdf;
   }, [avoidProtectedSplit, findNaturalPageBreak, getProtectedRanges, renderElementToCanvas]);
 
-  const buildSinglePagePdf = useCallback(async (element: HTMLElement): Promise<jsPDF> => {
+  const buildSinglePagePdf = useCallback(async (
+    element: HTMLElement,
+    options?: PdfOptions,
+  ): Promise<jsPDF> => {
     const canvas = await renderElementToCanvas(element);
 
     const pdf = new jsPDF({
@@ -322,6 +326,15 @@ export function useDocumentActions() {
       renderHeight = pageHeight;
       renderWidth = pageHeight * canvasRatio;
     }
+
+    const requestedScale = options?.fitScale;
+    const fitScale =
+      typeof requestedScale === 'number' && Number.isFinite(requestedScale)
+        ? Math.min(1, Math.max(0.6, requestedScale))
+        : 1;
+
+    renderWidth *= fitScale;
+    renderHeight *= fitScale;
 
     const x = (pageWidth - renderWidth) / 2;
     const y = (pageHeight - renderHeight) / 2;
@@ -354,7 +367,7 @@ export function useDocumentActions() {
       });
 
       const pdf = options?.fitToPage
-        ? await buildSinglePagePdf(element)
+        ? await buildSinglePagePdf(element, options)
         : await buildPaginatedPdf(element);
 
       pdf.save(`${filename}.pdf`);
@@ -375,7 +388,11 @@ export function useDocumentActions() {
     }
   }, [buildPaginatedPdf, buildSinglePagePdf, toast]);
 
-  const printPDF = useCallback(async (elementId: string, filename = 'document') => {
+  const printPDF = useCallback(async (
+    elementId: string,
+    filename = 'document',
+    options?: PdfOptions,
+  ) => {
     const element = document.getElementById(elementId);
     if (!element) {
       toast({ title: 'Error', description: 'Could not find document to print', variant: 'destructive' });
@@ -385,7 +402,9 @@ export function useDocumentActions() {
     try {
       toast({ title: 'Generating Printable PDF', description: 'Preparing document for print without headers...' });
 
-      const pdf = await buildPaginatedPdf(element);
+      const pdf = options?.fitToPage
+        ? await buildSinglePagePdf(element, options)
+        : await buildPaginatedPdf(element);
 
       // Open PDF in a new tab as a blob URL and trigger print on that PDF (browser will not add page URL header/footer)
       const blob = pdf.output('blob');
@@ -410,16 +429,21 @@ export function useDocumentActions() {
       console.error('Print PDF generation error:', error);
       toast({ title: 'Print Failed', description: 'Could not generate printable PDF', variant: 'destructive' });
     }
-  }, [buildPaginatedPdf, toast]);
+  }, [buildPaginatedPdf, buildSinglePagePdf, toast]);
 
-  const generatePdfBase64 = useCallback(async (elementId: string): Promise<string> => {
+  const generatePdfBase64 = useCallback(async (
+    elementId: string,
+    options?: PdfOptions,
+  ): Promise<string> => {
     const element = document.getElementById(elementId);
     if (!element) {
       throw new Error('Could not find document preview');
     }
-    const pdf = await buildPaginatedPdf(element);
+    const pdf = options?.fitToPage
+      ? await buildSinglePagePdf(element, options)
+      : await buildPaginatedPdf(element);
     return pdf.output('dataurlstring').split(',')[1];
-  }, [buildPaginatedPdf]);
+  }, [buildPaginatedPdf, buildSinglePagePdf]);
 
   const printDocument = useCallback(async (elementId: string) => {
     const element = document.getElementById(elementId);

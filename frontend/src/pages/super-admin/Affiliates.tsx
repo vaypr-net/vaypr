@@ -343,6 +343,10 @@ export default function Affiliates() {
   const totalEarnings = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.earnings, 0) || 0;
   const totalPending = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.pending, 0) || 0;
   const totalReferrals = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.referrals, 0) || 0;
+  const pendingReferralsCount =
+    (referralsData?.items || []).filter((ref: Referral) => ref.status === "pending").length;
+  const approvedReferralsCount =
+    (referralsData?.items || []).filter((ref: Referral) => ref.status === "approved").length;
 
   const handleExportCsv = async () => {
     try {
@@ -503,6 +507,18 @@ export default function Affiliates() {
 
         <TabsContent value="referrals" className="mt-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card-admin">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-sm text-muted-foreground">
+                Pending: {pendingReferralsCount} | Approved: {approvedReferralsCount}
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleProcessPayouts}
+                disabled={approvedReferralsCount === 0 || payoutMutation.isPending}
+              >
+                {payoutMutation.isPending ? "Processing..." : "Process Approved Payouts"}
+              </Button>
+            </div>
             <div className="space-y-3">
               {referralsLoading ? (
                 <div className="text-center py-8">Loading referrals...</div>
@@ -513,9 +529,31 @@ export default function Affiliates() {
                       <p className="font-medium">{ref.subscriberName} → {ref.plan}</p>
                       <p className="text-sm text-muted-foreground">Referred by {ref.affiliateName}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex items-center gap-3">
+                      {ref.status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => approveReferralMutation.mutate(ref._id)}
+                          disabled={approveReferralMutation.isPending}
+                        >
+                          Approve
+                        </Button>
+                      )}
+                      {ref.status === "approved" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleProcessPayouts}
+                          disabled={payoutMutation.isPending}
+                        >
+                          Pay
+                        </Button>
+                      )}
+                      <div>
                       <p className="font-medium">{formatCurrency(ref.commission)}</p>
                       <StatusBadge status={ref.status === "approved" ? "active" : ref.status === "paid" ? "succeeded" : "pending"} />
+                      </div>
                     </div>
                   </div>
                 ))
