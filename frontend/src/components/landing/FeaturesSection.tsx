@@ -1,3 +1,4 @@
+import * as LucideIcons from "lucide-react";
 import { 
   FileText, 
   Users, 
@@ -70,7 +71,42 @@ const iconMap: Record<string, LucideIcon> = {
   Shield,
 };
 
-const getIcon = (name: string, fallback: LucideIcon): LucideIcon => iconMap[name] || fallback;
+const toPascalCase = (value: string) =>
+  value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
+
+const toCamelCase = (value: string) => {
+  const pascal = toPascalCase(value);
+  return pascal.length > 0 ? pascal.charAt(0).toLowerCase() + pascal.slice(1) : pascal;
+};
+
+const getIcon = (name: string, fallback: LucideIcon): LucideIcon => {
+  if (!name) return fallback;
+
+  const normalized = name.trim();
+  const candidates = [
+    normalized,
+    normalized.replace(/[-_\s]+/g, ""),
+    toPascalCase(normalized),
+    toCamelCase(normalized),
+    normalized.charAt(0).toUpperCase() + normalized.slice(1),
+  ];
+
+  for (const candidate of candidates) {
+    const mapped = iconMap[candidate];
+    if (mapped) return mapped;
+
+    const lucideIcon = (LucideIcons as Record<string, unknown>)[candidate];
+    if (lucideIcon && (typeof lucideIcon === "function" || typeof lucideIcon === "object")) {
+      return lucideIcon as LucideIcon;
+    }
+  }
+
+  return fallback;
+};
 
 export function FeaturesSection() {
   const { data: landingPage } = useLandingPage();

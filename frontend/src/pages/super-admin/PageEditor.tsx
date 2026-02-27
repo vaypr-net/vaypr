@@ -2765,6 +2765,25 @@ function LandingPageEditor() {
                   </div>
 
                   <div>
+                    <Label className="text-xs">Icon</Label>
+                    <Input
+                      value={feature.icon}
+                      onChange={(e) =>
+                        setFeaturesForm((prev) => {
+                          const updated = [...prev.features];
+                          updated[index] = { ...updated[index], icon: e.target.value };
+                          return { ...prev, features: updated };
+                        })
+                      }
+                      className="mt-1"
+                      placeholder="Icon name (e.g. FileText, bell-electric)"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Enter any Lucide icon name.
+                    </p>
+                  </div>
+
+                  <div>
                     <Label className="text-xs">Title</Label>
                     <Input
                       value={feature.title}
