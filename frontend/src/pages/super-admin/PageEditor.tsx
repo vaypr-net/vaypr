@@ -1118,7 +1118,7 @@ function CorporatePagesEditor() {
                               variant="outline"
                               size="sm"
                               className="h-7 text-xs"
-                              onClick={() => addContentArrayItem(page._id, "values", { title: "", description: "" })}
+                              onClick={() => addContentArrayItem(page._id, "values", { title: "", description: "", icon: "" })}
                             >
                               <Plus className="w-3 h-3 mr-1" /> Add Card
                             </Button>
@@ -1140,6 +1140,11 @@ function CorporatePagesEditor() {
                                 placeholder="Title"
                                 value={item.title || ""}
                                 onChange={(e) => updateContentArrayItem(page._id, "values", idx, "title", e.target.value)}
+                              />
+                              <Input
+                                placeholder="Icon Name (any Lucide icon, e.g. between-horizontal-end or BetweenHorizontalEnd)"
+                                value={item.icon || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "values", idx, "icon", e.target.value)}
                               />
                               <Textarea
                                 placeholder="Description"

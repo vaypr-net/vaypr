@@ -1,6 +1,15 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Target, Heart, Zap, Users, Globe, Award } from "lucide-react";
+import * as LucideIcons from "lucide-react";
+import {
+  Target,
+  Heart,
+  Zap,
+  Users,
+  Globe,
+  Award,
+  LucideIcon,
+} from "lucide-react";
 import { useCorporatePageBySlug } from "@/hooks/useCorporatePages";
 
 const defaultContent = {
@@ -130,15 +139,54 @@ export default function AboutUs() {
     rawSecondCtaField && !rawSecondCtaField.startsWith("/") && !rawSecondCtaField.startsWith("http")
       ? rawSecondCtaField
       : "Contact Sales";
+  const toPascalCase = (value: string) =>
+    value
+      .split(/[-_\s]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join("");
+  const toCamelCase = (value: string) => {
+    const pascal = toPascalCase(value);
+    return pascal.length > 0 ? pascal.charAt(0).toLowerCase() + pascal.slice(1) : pascal;
+  };
+  const resolveFromLucide = (iconName: string): LucideIcon | null => {
+    const normalized = iconName.trim();
+    const candidates = [
+      normalized,
+      normalized.replace(/[-_\s]+/g, ""),
+      toPascalCase(normalized),
+      toCamelCase(normalized),
+      normalized.charAt(0).toUpperCase() + normalized.slice(1),
+    ];
+    for (const candidate of candidates) {
+      const namedIcon = (LucideIcons as Record<string, unknown>)[candidate];
+      if (namedIcon && (typeof namedIcon === "function" || typeof namedIcon === "object")) {
+        return namedIcon as LucideIcon;
+      }
+    }
+    return null;
+  };
+  const resolveValueIcon = (iconValue: any, fallbackIcon: LucideIcon): LucideIcon => {
+    if (typeof iconValue === "string") {
+      const lucideIcon = resolveFromLucide(iconValue.trim());
+      if (lucideIcon) return lucideIcon;
+      return fallbackIcon;
+    }
+    if (typeof iconValue === "function") {
+      return iconValue as LucideIcon;
+    }
+    return fallbackIcon;
+  };
+
   const values = dedupeByContent(content?.values || defaultContent.values, ["title", "description"]).map((value: any, index: number) => {
     const defaultItem = defaultContent.values[index] || {};
+    const fallbackIcon =
+      defaultItem?.icon ||
+      valueIcons[index % valueIcons.length];
     return {
       ...defaultItem,
       ...value,
-      icon:
-        value?.icon ||
-        defaultItem?.icon ||
-        valueIcons[index % valueIcons.length],
+      icon: resolveValueIcon(value?.icon, fallbackIcon),
     };
   });
 
