@@ -24,8 +24,14 @@ export class Referral extends Document {
   @Prop({ required: true })
   amount: number;
 
+  @Prop({ required: false, default: 'AED' })
+  amountCurrency?: string;
+
   @Prop({ required: true })
   commission: number;
+
+  @Prop({ required: false, default: 'AED' })
+  commissionCurrency?: string;
 
   @Prop({ enum: ['pending', 'approved', 'paid', 'rejected'], default: 'pending' })
   status: string;

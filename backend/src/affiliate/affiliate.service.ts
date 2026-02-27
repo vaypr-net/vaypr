@@ -13,6 +13,7 @@ import { Affiliate } from './entities/affiliate.entity';
 import { CommissionPlan } from './entities/commission-plan.entity';
 import { Coupon } from './entities/coupon.entity';
 import { Referral } from './entities/referral.entity';
+import { CurrencyService } from '../common/services/currency.service';
 
 @Injectable()
 export class AffiliateService {
@@ -21,7 +22,17 @@ export class AffiliateService {
     @InjectModel(CommissionPlan.name) private commissionPlanModel: Model<CommissionPlan>,
     @InjectModel(Coupon.name) private couponModel: Model<Coupon>,
     @InjectModel(Referral.name) private referralModel: Model<Referral>,
+    private currencyService: CurrencyService,
   ) {}
+
+  private toDisplayCurrency(amount: number, sourceCurrency = 'AED'): number {
+    const paymentCurrency = (sourceCurrency || 'AED').toUpperCase();
+    const displayCurrency = this.currencyService.getDisplayCurrency();
+    if (paymentCurrency === displayCurrency) {
+      return Math.round((Number(amount) || 0) * 100) / 100;
+    }
+    return this.currencyService.convert(Number(amount) || 0, paymentCurrency, displayCurrency);
+  }
 
   // ==================== AFFILIATE CRUD ====================
 
@@ -69,8 +80,18 @@ export class AffiliateService {
       .limit(limit)
       .skip(offset);
 
+    const convertedItems = items.map((affiliate: any) => {
+      const doc = affiliate.toObject ? affiliate.toObject() : affiliate;
+      return {
+        ...doc,
+        // Affiliate balances are generated from Stripe referral commission values (AED).
+        earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
+        pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
+      };
+    });
+
     return {
-      items,
+      items: convertedItems as any,
       total,
       hasMore: offset + limit < total,
     };
@@ -108,6 +129,31 @@ export class AffiliateService {
       throw new NotFoundException('Affiliate not found');
     }
     return affiliate;
+  }
+
+  async getAffiliateStats(): Promise<{
+    totalAffiliates: number;
+    totalReferrals: number;
+    totalCommissions: number;
+    pendingPayouts: number;
+  }> {
+    const [totalAffiliates, totalReferrals, commissionAgg, pendingAgg] = await Promise.all([
+      this.affiliateModel.countDocuments(),
+      this.referralModel.countDocuments(),
+      this.referralModel.aggregate([
+        { $group: { _id: null, total: { $sum: '$commission' } } },
+      ]),
+      this.affiliateModel.aggregate([
+        { $group: { _id: null, total: { $sum: '$pending' } } },
+      ]),
+    ]);
+
+    return {
+      totalAffiliates,
+      totalReferrals,
+      totalCommissions: this.toDisplayCurrency(commissionAgg[0]?.total || 0),
+      pendingPayouts: this.toDisplayCurrency(pendingAgg[0]?.total || 0),
+    };
   }
 
   // ==================== COMMISSION PLAN CRUD ====================
@@ -281,11 +327,20 @@ export class AffiliateService {
 
     const totalCommission = commissionData[0]?.totalCommission || 0;
 
+    const convertedItems = items.map((referral: any) => {
+      const doc = referral.toObject ? referral.toObject() : referral;
+      return {
+        ...doc,
+        amount: this.toDisplayCurrency(doc.amount || 0, doc.amountCurrency || 'AED'),
+        commission: this.toDisplayCurrency(doc.commission || 0, doc.commissionCurrency || 'AED'),
+      };
+    });
+
     return {
-      items,
+      items: convertedItems as any,
       total,
       hasMore: offset + limit < total,
-      totalCommission,
+      totalCommission: this.toDisplayCurrency(totalCommission, 'AED'),
     };
   }
 

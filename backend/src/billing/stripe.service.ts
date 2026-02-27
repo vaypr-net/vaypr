@@ -102,6 +102,7 @@ export class StripeService {
     user: any,
     planId: string,
     subscriptionAmount: number,
+    sourceCurrency = 'AED',
     referralCodeRaw?: string,
     source: 'webhook' | 'verify' = 'webhook',
   ): Promise<void> {
@@ -155,7 +156,9 @@ export class StripeService {
       plan: plan?.name || 'Unknown',
       conversionDate: new Date(),
       amount: subscriptionAmount,
+      amountCurrency: sourceCurrency,
       commission,
+      commissionCurrency: sourceCurrency,
       status: 'pending',
     });
 
@@ -193,6 +196,8 @@ export class StripeService {
     if (planName) {
       filters.push({ subscriptionPlan: new RegExp(`^${this.escapeRegex(planName)}$`, 'i') });
     }
+    // Backward compatibility: allow generic commission plans to apply to every plan
+    filters.push({ subscriptionPlan: new RegExp('^(all\\s*plans|all|\\*)$', 'i') });
 
     if (filters.length === 0) {
       return 0;
@@ -588,6 +593,7 @@ export class StripeService {
           user,
           session.metadata?.planId,
           subscriptionAmount,
+          (session.currency || 'AED').toUpperCase(),
           session.metadata?.referralCode,
           'verify',
         );
@@ -1352,6 +1358,7 @@ export class StripeService {
         user,
         planId,
         subscriptionAmount,
+        (session.currency || 'AED').toUpperCase(),
         referralCode,
         'webhook',
       );

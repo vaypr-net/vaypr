@@ -4,12 +4,36 @@ import { Model, Types } from 'mongoose';
 import { CreateTranscationDto } from './dto/create-transcation.dto';
 import { UpdateTranscationDto } from './dto/update-transcation.dto';
 import { Transaction, TransactionDocument } from './entities/transcation.entity';
+import { CurrencyService } from '../common/services/currency.service';
 
 @Injectable()
 export class TranscationsService {
   constructor(
     @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
+    private currencyService: CurrencyService,
   ) {}
+
+  private toDisplayAmount(amount: number, currency?: string): number {
+    const source = (currency || '').toUpperCase();
+    const display = this.currencyService.getDisplayCurrency();
+    if (!source || source === display) {
+      return Math.round((Number(amount) || 0) * 100) / 100;
+    }
+    return this.currencyService.convert(Number(amount) || 0, source, display);
+  }
+
+  private mapTransactionForDisplay(tx: any) {
+    const doc = tx?.toObject ? tx.toObject() : tx;
+    const originalAmount = Number(doc?.amount || 0);
+    const originalCurrency = (doc?.currency || '').toUpperCase();
+    return {
+      ...doc,
+      originalAmount,
+      originalCurrency,
+      amount: this.toDisplayAmount(originalAmount, originalCurrency),
+      currency: this.currencyService.getDisplayCurrency(),
+    };
+  }
 
   async create(createTranscationDto: CreateTranscationDto) {
     const tx = new this.transactionModel({
@@ -50,7 +74,7 @@ export class TranscationsService {
     ]);
 
     return {
-      items,
+      items: items.map((tx) => this.mapTransactionForDisplay(tx)),
       total,
       limit,
       offset,
@@ -61,12 +85,12 @@ export class TranscationsService {
   async findOne(id: string) {
     if (Types.ObjectId.isValid(id)) {
       const doc = await this.transactionModel.findById(id).lean();
-      if (doc) return doc;
+      if (doc) return this.mapTransactionForDisplay(doc);
     }
     // fallback to transactionId
     const doc = await this.transactionModel.findOne({ transactionId: id }).lean();
     if (!doc) throw new BadRequestException('Transaction not found');
-    return doc;
+    return this.mapTransactionForDisplay(doc);
   }
 
   async update(id: string, updateTranscationDto: UpdateTranscationDto) {
@@ -74,7 +98,7 @@ export class TranscationsService {
     if (update.transactionDate) update.transactionDate = new Date(update.transactionDate as any);
     const updated = await this.transactionModel.findByIdAndUpdate(id, update, { new: true }).lean();
     if (!updated) throw new BadRequestException('Transaction not found');
-    return updated;
+    return this.mapTransactionForDisplay(updated);
   }
 
   async remove(id: string) {
@@ -90,12 +114,12 @@ export class TranscationsService {
   }
 
   async getStats() {
-    // Basic stats: totalRevenue (succeeded subscriptions), successfulCount, failedCount, refundsTotal
-    const results = await Promise.all([
-      this.transactionModel.aggregate([
-        { $match: { status: 'succeeded', type: 'subscription' } },
-        { $group: { _id: null, total: { $sum: '$amount' } } },
-      ]),
+    // Stats are converted to display currency for UI consistency.
+    const [successfulSubscriptions, successfulCountAgg, failedCountAgg, refundedTransactions] = await Promise.all([
+      this.transactionModel
+        .find({ status: 'succeeded', type: 'subscription' })
+        .select('amount currency')
+        .lean(),
       this.transactionModel.aggregate([
         { $match: { status: 'succeeded' } },
         { $group: { _id: null, count: { $sum: 1 } } },
@@ -104,17 +128,26 @@ export class TranscationsService {
         { $match: { status: 'failed' } },
         { $group: { _id: null, count: { $sum: 1 } } },
       ]),
-      this.transactionModel.aggregate([
-        { $match: { type: 'refund', status: 'refunded' } },
-        { $group: { _id: null, total: { $sum: '$amount' } } },
-      ]),
+      this.transactionModel
+        .find({ type: 'refund', status: 'refunded' })
+        .select('amount currency')
+        .lean(),
     ]);
 
+    const totalRevenue = successfulSubscriptions.reduce(
+      (sum, tx: any) => sum + this.toDisplayAmount(tx.amount || 0, tx.currency),
+      0,
+    );
+    const refundsTotal = refundedTransactions.reduce(
+      (sum, tx: any) => sum + this.toDisplayAmount(tx.amount || 0, tx.currency),
+      0,
+    );
+
     return {
-      totalRevenue: results[0][0]?.total || 0,
-      successfulCount: results[1][0]?.count || 0,
-      failedCount: results[2][0]?.count || 0,
-      refundsTotal: results[3][0]?.total || 0,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      successfulCount: successfulCountAgg[0]?.count || 0,
+      failedCount: failedCountAgg[0]?.count || 0,
+      refundsTotal: Math.round(refundsTotal * 100) / 100,
     };
   }
 }

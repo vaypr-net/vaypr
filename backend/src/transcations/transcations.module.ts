@@ -2,12 +2,14 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CommonModule } from '../common/common.module';
 import { TranscationsService } from './transcations.service';
 import { TranscationsController } from './transcations.controller';
 import { Transaction, TransactionSchema } from './entities/transcation.entity';
 
 @Module({
   imports: [
+    CommonModule,
     MongooseModule.forFeature([{ name: Transaction.name, schema: TransactionSchema }]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

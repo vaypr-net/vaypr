@@ -56,6 +56,11 @@ export class AffiliateController {
     );
   }
 
+  @Get('stats')
+  getAffiliateStats() {
+    return this.affiliateService.getAffiliateStats();
+  }
+
   // ======================================================
   // COMMISSION PLANS (STATIC ROUTES FIRST)
   // ======================================================

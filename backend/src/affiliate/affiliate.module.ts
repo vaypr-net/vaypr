@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { CommonModule } from '../common/common.module';
 import { AffiliateService } from './affiliate.service';
 import { AffiliateController } from './affiliate.controller';
 import { Affiliate, AffiliateSchema } from './entities/affiliate.entity';
@@ -11,6 +12,7 @@ import { Referral, ReferralSchema } from './entities/referral.entity';
 
 @Module({
   imports: [
+    CommonModule,
     MongooseModule.forFeature([
       { name: Affiliate.name, schema: AffiliateSchema },
       { name: CommissionPlan.name, schema: CommissionPlanSchema },
