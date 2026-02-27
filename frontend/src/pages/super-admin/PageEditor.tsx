@@ -294,43 +294,43 @@ const defaultB2BEditorContent = {
   heroTrustText: "Trusted by teams in",
   heroTrustIndustries: ["SaaS", "Agencies", "Retail", "Professional Services"],
   valuePillars: [
-    { title: "Control & Permissions", description: "Role-based access, approval flows, and audit-friendly operations." },
-    { title: "Automate at Scale", description: "Recurring billing, reminders, and workflow automation for large teams." },
-    { title: "Integrate with Your Stack", description: "Connect VAYPR with ERP, CRM, and accounting tools." },
+    { icon: "Shield", title: "Control & Permissions", description: "Role-based access, approval flows, and audit-friendly operations." },
+    { icon: "Zap", title: "Automate at Scale", description: "Recurring billing, reminders, and workflow automation for large teams." },
+    { icon: "Layers", title: "Integrate with Your Stack", description: "Connect VAYPR with ERP, CRM, and accounting tools." },
   ],
   capabilitiesTitle: "Enterprise Capabilities",
   capabilitiesDescription:
     "A comprehensive suite of tools designed for organizations that demand reliability, scalability, and complete control over their financial operations.",
   enterpriseCapabilities: {
     "Billing & Documents": [
-      { title: "Unlimited Invoices", description: "Create and manage invoices at scale with consistent formatting and controls." },
-      { title: "Unlimited Quotes", description: "Generate professional quotes and convert them into invoices seamlessly." },
-      { title: "Unlimited Receipts", description: "Store and organize receipts for clean reconciliation and reporting." },
+      { icon: "FileText", title: "Unlimited Invoices", description: "Create and manage invoices at scale with consistent formatting and controls." },
+      { icon: "FileText", title: "Unlimited Quotes", description: "Generate professional quotes and convert them into invoices seamlessly." },
+      { icon: "Receipt", title: "Unlimited Receipts", description: "Store and organize receipts for clean reconciliation and reporting." },
     ],
     "Automation & Subscriptions": [
-      { title: "Recurring Subscriptions", description: "Automate recurring billing schedules, renewals, and reminders." },
-      { title: "Expense Tracking", description: "Capture, categorize, and monitor expenses across teams and projects." },
-      { title: "Advanced Expense Tracking", description: "Add granular rules, approvals, and audit-friendly workflows." },
+      { icon: "RefreshCw", title: "Recurring Subscriptions", description: "Automate recurring billing schedules, renewals, and reminders." },
+      { icon: "PieChart", title: "Expense Tracking", description: "Capture, categorize, and monitor expenses across teams and projects." },
+      { icon: "Settings2", title: "Advanced Expense Tracking", description: "Add granular rules, approvals, and audit-friendly workflows." },
     ],
     "Branding & Customization": [
-      { title: "Custom Templates", description: "Build standardized templates aligned with your corporate identity." },
-      { title: "Graphic Designer for Templates", description: "Get expert help crafting polished, on-brand templates quickly." },
-      { title: "White-label Options", description: "Present a fully branded experience for subsidiaries or client-facing portals." },
+      { icon: "Palette", title: "Custom Templates", description: "Build standardized templates aligned with your corporate identity." },
+      { icon: "Brush", title: "Graphic Designer for Templates", description: "Get expert help crafting polished, on-brand templates quickly." },
+      { icon: "Globe", title: "White-label Options", description: "Present a fully branded experience for subsidiaries or client-facing portals." },
     ],
     "Integrations & Platform": [
-      { title: "AI Integration System", description: "Automate data extraction, categorization, and workflow suggestions using AI-ready tools." },
-      { title: "API Access", description: "Connect VAYPR to internal systems and external apps with secure endpoints." },
-      { title: "Secure Data Connectors", description: "Sync VAYPR with ERPs, banking feeds, and cloud tools using pre-built connectors, scheduled imports, and validation checks." },
+      { icon: "Brain", title: "AI Integration System", description: "Automate data extraction, categorization, and workflow suggestions using AI-ready tools." },
+      { icon: "Code", title: "API Access", description: "Connect VAYPR to internal systems and external apps with secure endpoints." },
+      { icon: "Database", title: "Secure Data Connectors", description: "Sync VAYPR with ERPs, banking feeds, and cloud tools using pre-built connectors, scheduled imports, and validation checks." },
     ],
     "Support & Success": [
-      { title: "Priority Email Support", description: "Faster responses and escalations when your team needs help." },
-      { title: "Dedicated Account Manager", description: "A single point of contact for onboarding, rollout, and ongoing success." },
-      { title: "Onboarding & Enablement", description: "Guided setup, tailored best practices, and team training to accelerate rollout and drive adoption across your org." },
+      { icon: "Mail", title: "Priority Email Support", description: "Faster responses and escalations when your team needs help." },
+      { icon: "UserCheck", title: "Dedicated Account Manager", description: "A single point of contact for onboarding, rollout, and ongoing success." },
+      { icon: "GraduationCap", title: "Onboarding & Enablement", description: "Guided setup, tailored best practices, and team training to accelerate rollout and drive adoption across your org." },
     ],
     "Insights & Analytics": [
-      { title: "Smart Financial Analytics", description: "High-level visibility into trends, performance, and operational efficiency." },
-      { title: "Real-Time Performance Dashboards", description: "Track key KPIs in one place with customizable dashboards, filters, and shareable views for every stakeholder." },
-      { title: "Forecasting & Anomaly Alerts", description: "Run what-if scenarios, project trends, and get notified when spend, cash flow, or performance metrics deviate from plan." },
+      { icon: "TrendingUp", title: "Smart Financial Analytics", description: "High-level visibility into trends, performance, and operational efficiency." },
+      { icon: "LayoutDashboard", title: "Real-Time Performance Dashboards", description: "Track key KPIs in one place with customizable dashboards, filters, and shareable views for every stakeholder." },
+      { icon: "AlertTriangle", title: "Forecasting & Anomaly Alerts", description: "Run what-if scenarios, project trends, and get notified when spend, cash flow, or performance metrics deviate from plan." },
     ],
   },
   integrationsTitle: "Integrations & Automation",
@@ -348,10 +348,10 @@ const defaultB2BEditorContent = {
   industriesDescription: "See how organizations like yours use VAYPR to streamline their financial operations.",
   trustedLogos: ["TechCorp", "FinanceHub", "CloudScale", "DataFlow", "InnovateCo", "GlobalTech"],
   industries: [
-    { title: "SaaS & Tech", description: "Automate recurring billing and subscription operations." },
-    { title: "Agencies & Consulting", description: "Manage retainers, milestones, and branded client billing." },
-    { title: "Retail & E-commerce", description: "Handle high-volume invoicing with clear reporting." },
-    { title: "Professional Services", description: "Time tracking integration, expense management, and detailed reporting for law firms and accountants." },
+    { icon: "Layers", title: "SaaS & Tech", description: "Automate recurring billing and subscription operations." },
+    { icon: "Briefcase", title: "Agencies & Consulting", description: "Manage retainers, milestones, and branded client billing." },
+    { icon: "ShoppingCart", title: "Retail & E-commerce", description: "Handle high-volume invoicing with clear reporting." },
+    { icon: "Scale", title: "Professional Services", description: "Time tracking integration, expense management, and detailed reporting for law firms and accountants." },
   ],
   ctaTitle: "Ready to Scale Finance Operations?",
   ctaDescription: "Let's map VAYPR to your workflows, integrations, and approval structure.",
@@ -553,6 +553,7 @@ function CorporatePagesEditor() {
             .map((section: any) => ({
               title: section?.title || "",
               description: section?.content || "",
+              icon: section?.icon || "",
             }))
         : [];
       const fallbackCapabilities = Array.isArray(page?.features) && page.features.length
@@ -562,6 +563,7 @@ function CorporatePagesEditor() {
               .map((item: any) => ({
                 title: item?.title || "",
                 description: item?.description || "",
+                icon: item?.icon || "",
               })),
           }
         : {};
@@ -1369,7 +1371,7 @@ function CorporatePagesEditor() {
                               variant="outline"
                               size="sm"
                               className="h-7 text-xs"
-                              onClick={() => addContentArrayItem(page._id, "valuePillars", { title: "", description: "" })}
+                              onClick={() => addContentArrayItem(page._id, "valuePillars", { icon: "", title: "", description: "" })}
                             >
                               <Plus className="w-3 h-3 mr-1" /> Add Card
                             </Button>
@@ -1391,6 +1393,11 @@ function CorporatePagesEditor() {
                                 placeholder="Title"
                                 value={item.title || ""}
                                 onChange={(e) => updateContentArrayItem(page._id, "valuePillars", idx, "title", e.target.value)}
+                              />
+                              <Input
+                                placeholder="Icon Name (e.g. Shield, bell-electric)"
+                                value={item.icon || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "valuePillars", idx, "icon", e.target.value)}
                               />
                               <Textarea
                                 placeholder="Description"
@@ -1472,7 +1479,7 @@ function CorporatePagesEditor() {
                                     onClick={() => {
                                       const caps = { ...(content.enterpriseCapabilities || {}) };
                                       const arr = [...(caps[categoryName] || [])];
-                                      arr.push({ title: "", description: "" });
+                                      arr.push({ icon: "", title: "", description: "" });
                                       caps[categoryName] = arr;
                                       updateContentField(page._id, "enterpriseCapabilities", caps);
                                     }}
@@ -1506,6 +1513,17 @@ function CorporatePagesEditor() {
                                         const caps = { ...(content.enterpriseCapabilities || {}) };
                                         const arr = [...(caps[categoryName] || [])];
                                         arr[idx] = { ...(arr[idx] || {}), title: e.target.value };
+                                        caps[categoryName] = arr;
+                                        updateContentField(page._id, "enterpriseCapabilities", caps);
+                                      }}
+                                    />
+                                    <Input
+                                      placeholder="Icon Name (e.g. FileText, between-horizontal-end)"
+                                      value={feature?.icon || ""}
+                                      onChange={(e) => {
+                                        const caps = { ...(content.enterpriseCapabilities || {}) };
+                                        const arr = [...(caps[categoryName] || [])];
+                                        arr[idx] = { ...(arr[idx] || {}), icon: e.target.value };
                                         caps[categoryName] = arr;
                                         updateContentField(page._id, "enterpriseCapabilities", caps);
                                       }}
@@ -1641,7 +1659,7 @@ function CorporatePagesEditor() {
                               variant="outline"
                               size="sm"
                               className="h-7 text-xs"
-                              onClick={() => addContentArrayItem(page._id, "industries", { title: "", description: "" })}
+                              onClick={() => addContentArrayItem(page._id, "industries", { icon: "", title: "", description: "" })}
                             >
                               <Plus className="w-3 h-3 mr-1" /> Add Card
                             </Button>
@@ -1663,6 +1681,11 @@ function CorporatePagesEditor() {
                                 placeholder="Title"
                                 value={item.title || ""}
                                 onChange={(e) => updateContentArrayItem(page._id, "industries", idx, "title", e.target.value)}
+                              />
+                              <Input
+                                placeholder="Icon Name (e.g. Briefcase, user-round-check)"
+                                value={item.icon || ""}
+                                onChange={(e) => updateContentArrayItem(page._id, "industries", idx, "icon", e.target.value)}
                               />
                               <Textarea
                                 placeholder="Description"

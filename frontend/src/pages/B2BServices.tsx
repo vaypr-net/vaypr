@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import * as LucideIcons from "lucide-react";
 import { ArrowRight, Shield, Settings2, Zap, HeadphonesIcon, FileText, Receipt, Users, RefreshCw, PieChart, Palette, Brush, Globe, Brain, Code, Mail, UserCheck, TrendingUp, Layers, Link2, Building2, Briefcase, ShoppingCart, Scale, Database, GraduationCap, LayoutDashboard, AlertTriangle, BarChart3 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCorporatePageBySlug } from "@/hooks/useCorporatePages";
@@ -202,12 +203,42 @@ export default function B2BServices() {
     Headphones: HeadphonesIcon as unknown as LucideIcon,
     Workflow: Settings2 as unknown as LucideIcon,
   };
-  const resolveIcon = (iconValue: unknown, fallback: LucideIcon): LucideIcon => {
-    if (typeof iconValue === "function") {
-      return iconValue as LucideIcon;
+  const toPascalCase = (value: string) =>
+    value
+      .split(/[-_\s]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join("");
+  const toCamelCase = (value: string) => {
+    const pascal = toPascalCase(value);
+    return pascal.length > 0 ? pascal.charAt(0).toLowerCase() + pascal.slice(1) : pascal;
+  };
+  const resolveFromLucide = (iconName: string): LucideIcon | null => {
+    const normalized = iconName.trim();
+    const candidates = [
+      normalized,
+      normalized.replace(/[-_\s]+/g, ""),
+      toPascalCase(normalized),
+      toCamelCase(normalized),
+      normalized.charAt(0).toUpperCase() + normalized.slice(1),
+    ];
+    for (const candidate of candidates) {
+      const namedIcon = (LucideIcons as Record<string, unknown>)[candidate];
+      if (namedIcon && (typeof namedIcon === "function" || typeof namedIcon === "object")) {
+        return namedIcon as LucideIcon;
+      }
     }
-    if (typeof iconValue === "string" && iconRegistry[iconValue]) {
-      return iconRegistry[iconValue];
+    return null;
+  };
+  const resolveIcon = (iconValue: unknown, fallback: LucideIcon): LucideIcon => {
+    if (typeof iconValue === "string") {
+      const lucideIcon = resolveFromLucide(iconValue);
+      if (lucideIcon) return lucideIcon;
+      if (iconRegistry[iconValue]) return iconRegistry[iconValue];
+      return fallback;
+    }
+    if (typeof iconValue === "function" || typeof iconValue === "object") {
+      return iconValue as LucideIcon;
     }
     return fallback;
   };
