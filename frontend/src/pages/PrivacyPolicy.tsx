@@ -107,7 +107,10 @@ You can control cookies through your browser settings. Note that disabling certa
 };
 
 export default function PrivacyPolicy() {
-  const { data: apiContent } = useSupportPageBySlug("privacy");
+  const { data: apiContent, isLoading } = useSupportPageBySlug("privacy");
+  if (isLoading) {
+    return <div className="min-h-screen bg-background" />;
+  }
   const content = (apiContent as any)?.content ?? defaultContent;
   const displaySections = content?.sections?.length ? content.sections : defaultContent.sections;
 

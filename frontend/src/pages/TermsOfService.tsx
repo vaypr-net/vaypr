@@ -58,7 +58,10 @@ const defaultContent = {
 };
 
 export default function TermsOfService() {
-  const { data: apiContent } = useSupportPageBySlug("terms");
+  const { data: apiContent, isLoading } = useSupportPageBySlug("terms");
+  if (isLoading) {
+    return <div className="min-h-screen bg-background" />;
+  }
   const content = (apiContent as any)?.content ?? defaultContent;
   const additionalSections = Array.isArray(content?.additionalSections)
     ? content.additionalSections

@@ -38,7 +38,10 @@ const defaultContent = {
 };
 
 export default function Contact() {
-  const { data: apiContent } = useSupportPageBySlug("contact");
+  const { data: apiContent, isLoading } = useSupportPageBySlug("contact");
+  if (isLoading) {
+    return <div className="min-h-screen bg-background" />;
+  }
   const content = (apiContent as any)?.content ?? defaultContent;
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -95,7 +95,10 @@ const defaultContent = {
 };
 
 export default function AboutUs() {
-  const { data: apiContent } = useCorporatePageBySlug("about");
+  const { data: apiContent, isLoading } = useCorporatePageBySlug("about");
+  if (isLoading) {
+    return <div className="min-h-screen bg-background" />;
+  }
   const content = (apiContent as any)?.content ?? defaultContent;
   const cmsSections = ((apiContent as any)?.sections || [])
     .slice()

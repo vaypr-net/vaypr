@@ -190,8 +190,11 @@ const getDifficultyColor = (difficulty: string) => {
 };
 
 export default function Guides() {
-  const { data: apiContent } = useCorporatePageBySlug("guides");
-  const { data: uploadedGuides = [] } = useGuides();
+  const { data: apiContent, isLoading: isGuidesPageLoading } = useCorporatePageBySlug("guides");
+  const { data: uploadedGuides = [], isLoading: isUploadedGuidesLoading } = useGuides();
+  if (isGuidesPageLoading || isUploadedGuidesLoading) {
+    return <div className="min-h-screen bg-background" />;
+  }
   const content = (apiContent as any)?.content;
   const visibleUploadedGuides = uploadedGuides.some((guide: any) => guide?.published)
     ? uploadedGuides.filter((guide: any) => guide?.published)

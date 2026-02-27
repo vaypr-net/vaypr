@@ -167,7 +167,10 @@ const defaultContent = {
   ctaItems: ["Enterprise onboarding", "Dedicated support", "Custom rollout"]
 };
 export default function B2BServices() {
-  const { data: apiContent } = useCorporatePageBySlug("b2b");
+  const { data: apiContent, isLoading } = useCorporatePageBySlug("b2b");
+  if (isLoading) {
+    return <div className="min-h-screen bg-background" />;
+  }
   const page = (apiContent as any) || {};
   const content = page?.content ?? {};
   const iconRegistry: Record<string, LucideIcon> = {

@@ -69,7 +69,10 @@ const defaultContent = {
 };
 
 export default function RefundPolicy() {
-  const { data: apiContent } = useSupportPageBySlug("refund");
+  const { data: apiContent, isLoading } = useSupportPageBySlug("refund");
+  if (isLoading) {
+    return <div className="min-h-screen bg-background" />;
+  }
   const content = (apiContent as any)?.content ?? defaultContent;
 
   return <div>
