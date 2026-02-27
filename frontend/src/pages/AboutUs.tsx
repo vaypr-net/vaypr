@@ -207,9 +207,9 @@ export default function AboutUs() {
       {/* Stats */}
       <section className="py-12 border-y border-border bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12">
             {stats.map((stat, idx) => (
-              <div key={idx} className="text-center">
+              <div key={idx} className="text-center min-w-[140px]">
                 <div className="text-3xl sm:text-4xl font-display font-bold text-primary mb-1">
                   {stat.value}
                 </div>
