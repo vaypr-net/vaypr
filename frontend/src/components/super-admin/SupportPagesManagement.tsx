@@ -1241,7 +1241,11 @@ export function SupportPagesManagement() {
 
                                 <div className="rounded-lg border bg-background p-3 space-y-2">
                                   <div className="flex items-center justify-between">
-                                    <Label className="text-xs font-semibold">Additional Sections</Label>
+                                    <Label className="text-xs font-semibold">
+                                      Additional Sections (
+                                      {((((formData.content || {}) as Record<string, any>).additionalSections || []) as Array<{ title: string; content: string }>).length}
+                                      )
+                                    </Label>
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -1252,9 +1256,9 @@ export function SupportPagesManagement() {
                                     </Button>
                                   </div>
                                   {((((formData.content || {}) as Record<string, any>).additionalSections || []) as Array<{ title: string; content: string }>).map((item, idx) => (
-                                    <div key={idx} className="rounded border p-3 bg-card/50 space-y-2">
+                                    <div key={idx} className="rounded-lg border bg-background p-3 space-y-3">
                                       <div className="flex items-center justify-between">
-                                        <Label className="text-xs">Extra Section {idx + 1}</Label>
+                                        <Label className="text-xs font-semibold">Section {13 + idx}</Label>
                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeContentArrayItem("additionalSections", idx)}>
                                           <Trash2 className="w-4 h-4" />
                                         </Button>

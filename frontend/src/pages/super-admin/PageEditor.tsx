@@ -921,10 +921,17 @@ function CorporatePagesEditor() {
                     </div>
 
                     {/* Section Content Editor */}
-                    {slugLower !== "b2b" && <div className="border-t pt-4">
+                    {slugLower !== "b2b" && slugLower !== "about" && <div className="border-t pt-4">
                       <Label className="text-xs font-semibold mb-3 block">Page Sections</Label>
                       <div className="space-y-4">
-                        {(pageForm[page._id]?.sections || page.sections || []).map((section: any, sIdx: number) => (
+                        {(pageForm[page._id]?.sections || page.sections || [])
+                          .map((section: any, sIdx: number) => ({ section, sIdx }))
+                          .filter(({ section }) => {
+                            if (slugLower !== "about") return true;
+                            const sectionTitle = (section?.title || "").toString().toLowerCase().trim();
+                            return !sectionTitle.includes("value");
+                          })
+                          .map(({ section, sIdx }: { section: any; sIdx: number }) => (
                           <div key={sIdx} className="p-3 bg-secondary/30 rounded space-y-3">
                             <div>
                               <Label className="text-xs">Section Title</Label>
@@ -1027,6 +1034,68 @@ function CorporatePagesEditor() {
                               />
                             </div>
                           ))}
+                        </div>
+
+                        <div className="border-t pt-4">
+                          <Label className="text-xs font-semibold mb-3 block">Page Sections</Label>
+                          <div className="space-y-4">
+                            {(pageForm[page._id]?.sections || page.sections || [])
+                              .map((section: any, sIdx: number) => ({ section, sIdx }))
+                              .filter(({ section }) => {
+                                const sectionTitle = (section?.title || "").toString().toLowerCase().trim();
+                                return !sectionTitle.includes("value");
+                              })
+                              .sort((a, b) => {
+                                const getOrder = (title: string) => {
+                                  const normalized = (title || "").toLowerCase();
+                                  if (normalized.includes("mission")) return 1;
+                                  if (normalized.includes("story")) return 2;
+                                  if (normalized.includes("why choose")) return 3;
+                                  return 100;
+                                };
+                                return getOrder(a.section?.title || "") - getOrder(b.section?.title || "");
+                              })
+                              .map(({ section, sIdx }: { section: any; sIdx: number }) => (
+                                <div key={sIdx} className="p-3 bg-secondary/30 rounded space-y-3">
+                                  <div>
+                                    <Label className="text-xs">Section Title</Label>
+                                    <Input
+                                      value={section.title || ""}
+                                      onChange={(e) =>
+                                        setPageForm((prev) => {
+                                          const sections = [...(prev[page._id]?.sections || page.sections || [])];
+                                          sections[sIdx] = { ...sections[sIdx], title: e.target.value };
+                                          return {
+                                            ...prev,
+                                            [page._id]: { ...(prev[page._id] || {}), sections },
+                                          };
+                                        })
+                                      }
+                                      placeholder="Section title..."
+                                      className="mt-1 text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Section Content</Label>
+                                    <Textarea
+                                      value={section.content || ""}
+                                      onChange={(e) =>
+                                        setPageForm((prev) => {
+                                          const sections = [...(prev[page._id]?.sections || page.sections || [])];
+                                          sections[sIdx] = { ...sections[sIdx], content: e.target.value };
+                                          return {
+                                            ...prev,
+                                            [page._id]: { ...(prev[page._id] || {}), sections },
+                                          };
+                                        })
+                                      }
+                                      placeholder="Enter section content here..."
+                                      className="mt-1 min-h-[120px] text-sm"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1207,7 +1276,7 @@ function CorporatePagesEditor() {
                             onChange={(e) => updateContentField(page._id, "ctaButtonText", e.target.value)}
                           />
                           <Input
-                            placeholder="CTA Button Link (e.g. /contact)"
+                            placeholder="Secondary CTA Button Text"
                             value={content.ctaButtonLink || ""}
                             onChange={(e) => updateContentField(page._id, "ctaButtonLink", e.target.value)}
                           />

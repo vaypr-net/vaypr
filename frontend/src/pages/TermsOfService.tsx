@@ -230,16 +230,24 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            {additionalSections.map((section: { title: string; content: string }, index: number) => (
-              <section key={`${section.title}-${index}`} className="mb-12">
-                <h2 className="text-2xl font-display font-bold text-foreground mb-4">
-                  {section.title || `Additional Section ${index + 1}`}
-                </h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  {section.content}
-                </p>
-              </section>
-            ))}
+            {additionalSections.map((section: { title: string; content: string }, index: number) => {
+              const sectionNumber = 13 + index;
+              const headingText = section.title?.trim() || `Additional Section ${sectionNumber}`;
+              const prefixedHeading = /^\d+\./.test(headingText)
+                ? headingText
+                : `${sectionNumber}. ${headingText}`;
+
+              return (
+                <section key={`${section.title}-${index}`} className="mb-12">
+                  <h2 className="text-2xl font-display font-bold text-foreground mb-4">
+                    {prefixedHeading}
+                  </h2>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {section.content}
+                  </p>
+                </section>
+              );
+            })}
             </div>
         </div>
       </section>

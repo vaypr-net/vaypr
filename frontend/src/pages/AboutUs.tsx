@@ -79,7 +79,10 @@ const defaultContent = {
     { name: "Capterra", category: "Best Value 2025" }
   ],
   ctaTitle: "Join 50,000+ Businesses",
-  ctaDescription: "Ready to simplify your financial management? Start your free trial today."
+  ctaDescription: "Ready to simplify your financial management? Start your free trial today.",
+  ctaButtonText: "Start Free Trial",
+  ctaButtonLink: "Contact Sales",
+  ctaEnabled: true,
 };
 
 export default function AboutUs() {
@@ -88,10 +91,20 @@ export default function AboutUs() {
   const cmsSections = ((apiContent as any)?.sections || [])
     .slice()
     .sort((a: any, b: any) => (a?.order ?? 0) - (b?.order ?? 0));
+  const isValuesLikeSection = (section: any) => {
+    const title = (section?.title || "").toString().toLowerCase().trim();
+    const content = (section?.content || "").toString().toLowerCase();
+    return (
+      title.includes("value") ||
+      content.includes("we are committed to") ||
+      content.includes("customer success") ||
+      content.includes("simplicity: making complex tasks simple")
+    );
+  };
   const filteredCmsSections = cmsSections.filter((section: any) => {
     const title = (section?.title || "").toString().toLowerCase();
     return !(
-      title.includes("value") ||
+      isValuesLikeSection(section) ||
       title.includes("team") ||
       title.includes("recognition")
     );
@@ -112,6 +125,11 @@ export default function AboutUs() {
     content?.recognitionItems || defaultContent.recognitionItems,
     ["name", "category"],
   );
+  const rawSecondCtaField = (content?.ctaButtonLink || "").toString().trim();
+  const secondCtaText =
+    rawSecondCtaField && !rawSecondCtaField.startsWith("/") && !rawSecondCtaField.startsWith("http")
+      ? rawSecondCtaField
+      : "Contact Sales";
   const values = dedupeByContent(content?.values || defaultContent.values, ["title", "description"]).map((value: any, index: number) => {
     const defaultItem = defaultContent.values[index] || {};
     return {
@@ -275,27 +293,31 @@ export default function AboutUs() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 sm:py-24">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-6">
-            <Globe className="h-8 w-8 text-primary" />
+      {(content?.ctaEnabled ?? defaultContent.ctaEnabled) && (
+        <section className="py-16 sm:py-24">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-6">
+              <Globe className="h-8 w-8 text-primary" />
+            </div>
+            <h2 className="text-3xl font-display font-bold text-foreground mb-4">
+              {content?.ctaTitle || defaultContent.ctaTitle}
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
+              {content?.ctaDescription || defaultContent.ctaDescription}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" asChild>
+                <Link to="/signup">
+                  {content?.ctaButtonText || defaultContent.ctaButtonText}
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" asChild>
+                <Link to="/contact">{secondCtaText}</Link>
+              </Button>
+            </div>
           </div>
-          <h2 className="text-3xl font-display font-bold text-foreground mb-4">
-            {content?.ctaTitle || defaultContent.ctaTitle}
-          </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
-            {content?.ctaDescription || defaultContent.ctaDescription}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" asChild>
-              <Link to="/signup">Start Free Trial</Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link to="/contact">Contact Sales</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }
