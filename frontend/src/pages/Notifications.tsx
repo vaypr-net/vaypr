@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useReminders, useInvoices, useQuotes } from '@/hooks/useData';
+import { notificationService } from '@/api/services/notification.service';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -135,6 +136,12 @@ export default function Notifications() {
       setDismissedNotifications((prev) => [...prev, id]);
       return;
     }
+
+    // Persist read state for server-backed notifications
+    notificationService.markAsRead(id).catch(() => {
+      // Ignore local-only reminders that don't exist on the server
+    });
+
     markAsRead(id);
   };
 
@@ -149,6 +156,15 @@ export default function Notifications() {
   };
 
   const markAll = () => {
+    const unreadReminderIds = reminders.filter((r) => !r.isRead).map((r) => r.id);
+
+    // Persist read state for server-backed notifications in background
+    unreadReminderIds.forEach((id) => {
+      notificationService.markAsRead(id).catch(() => {
+        // Ignore local-only reminders
+      });
+    });
+
     // Mark all reminders as read via hook
     markAllAsRead();
     

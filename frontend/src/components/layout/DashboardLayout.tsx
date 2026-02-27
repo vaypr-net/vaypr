@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useMemo } from 'react';
+import { ReactNode, useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -62,6 +62,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const unreadReminders = reminders.filter(r => !r.isRead);
 
+  const handleMarkReminderAsRead = useCallback(async (id: string) => {
+    // Optimistic local update for instant UI feedback
+    markAsRead(id);
+
+    // Persist read state for server-backed notifications
+    try {
+      await notificationService.markAsRead(id);
+    } catch {
+      // Ignore non-server/local-only reminders
+    }
+  }, [markAsRead]);
+
   useEffect(() => {
     if (!user) return;
     let mounted = true;
@@ -95,7 +107,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex items-center gap-2">
           <NotificationDropdown 
             reminders={unreadReminders} 
-            onMarkAsRead={markAsRead}
+            onMarkAsRead={handleMarkReminderAsRead}
           />
         </div>
       </header>
@@ -194,7 +206,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="flex items-center gap-4">
             <NotificationDropdown 
               reminders={unreadReminders} 
-              onMarkAsRead={markAsRead}
+              onMarkAsRead={handleMarkReminderAsRead}
             />
             <Link 
               to="/generator" 
