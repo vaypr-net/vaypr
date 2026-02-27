@@ -24,4 +24,8 @@ export class CreateMyTicketDto {
   @IsOptional()
   @IsString()
   assignedTo?: string;
+
+  @IsOptional()
+  @IsEnum(['open', 'pending', 'in_progress', 'resolved', 'closed'])
+  status?: string;
 }

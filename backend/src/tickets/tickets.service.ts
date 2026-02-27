@@ -209,7 +209,16 @@ export class TicketsService {
     updateMyTicketDto: UpdateMyTicketDto,
   ): Promise<Ticket> {
     await this.findOneForCustomer(id, customerId);
-    const updateData: UpdateMyTicketDto = {};
+    const updateData: any = {};
+
+    if (updateMyTicketDto.status !== undefined) {
+      updateData.status = updateMyTicketDto.status;
+      if (updateMyTicketDto.status === 'resolved') {
+        updateData.resolvedAt = new Date();
+      } else if (updateMyTicketDto.status === 'closed') {
+        updateData.closedAt = new Date();
+      }
+    }
 
     if (updateMyTicketDto.priority !== undefined) {
       updateData.priority = updateMyTicketDto.priority;
