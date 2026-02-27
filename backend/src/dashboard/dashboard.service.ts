@@ -24,7 +24,8 @@ export class DashboardService {
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     const startOfMonth = new Date(currentYear, currentMonth, 1);
-    const endOfMonth = new Date(currentYear, currentMonth + 1, 0);
+    const startOfNextMonth = new Date(currentYear, currentMonth + 1, 1);
+    const endOfMonth = new Date(startOfNextMonth.getTime() - 1);
 
     const userObjectId = new Types.ObjectId(userId);
 
@@ -71,7 +72,8 @@ export class DashboardService {
     // Calculate quote stats
     const draftQuotes = quotes.filter(q => q.status === 'draft').length;
     const sentQuotes = quotes.filter(q => q.status === 'sent').length;
-    const viewedQuotes = quotes.filter(q => q.status === 'viewed').length;
+    // Count as viewed if quote is currently "viewed" OR it has a viewed timestamp.
+    const viewedQuotes = quotes.filter(q => q.status === 'viewed' || !!q.viewedAt).length;
     const acceptedQuotes = quotes.filter(q => q.status === 'accepted').length;
     const rejectedQuotes = quotes.filter(q => q.status === 'rejected').length;
     const expiredQuotes = quotes.filter(q => q.status === 'expired').length;
@@ -81,9 +83,10 @@ export class DashboardService {
     const activeRecurring = recurringBillings.filter(r => r.isActive).length;
     const recurringThisMonth = recurringBillings.filter(r => {
       if (!r.isActive) return false;
+      if (!r.nextBillingDate) return false;
       const nextBilling = new Date(r.nextBillingDate);
-      return nextBilling.getMonth() === currentMonth && 
-             nextBilling.getFullYear() === currentYear;
+      if (Number.isNaN(nextBilling.getTime())) return false;
+      return nextBilling >= startOfMonth && nextBilling < startOfNextMonth;
     }).length;
 
     // Calculate expense stats
