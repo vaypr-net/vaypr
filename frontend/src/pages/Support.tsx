@@ -132,6 +132,7 @@ export default function Support() {
     priority: string;
     description: string;
     assignedTo: string;
+    status: string;
   }) => {
     await createTicketMutation.mutateAsync({
       subject: ticketData.subject,
@@ -141,6 +142,7 @@ export default function Support() {
       priority: ticketData.priority,
       description: ticketData.description,
       assignedTo: ticketData.assignedTo,
+      status: ticketData.status,
     });
     setCreateDialogOpen(false);
   };
@@ -262,15 +264,32 @@ export default function Support() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Status</p>
-                      <div className="mt-2">
-                        <StatusBadge status={selectedTicket.status} />
-                      </div>
+                      <Select
+                        value={selectedTicket.status}
+                        onValueChange={async (value) => {
+                          const updated = await updateTicketMutation.mutateAsync({
+                            id: selectedTicket._id,
+                            data: { status: value },
+                          });
+                          setSelectedTicket(updated);
+                        }}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">Open</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="resolved">Resolved</SelectItem>
+                          <SelectItem value="closed">Closed</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Priority</p>
                       <Select
-                        key={`my-priority-${selectedTicket._id}`}
-                        defaultValue={selectedTicket.priority}
+                        value={selectedTicket.priority}
                         onValueChange={async (value) => {
                           const updated = await updateTicketMutation.mutateAsync({
                             id: selectedTicket._id,
@@ -293,8 +312,7 @@ export default function Support() {
                     <div className="col-span-2">
                       <p className="text-sm text-muted-foreground">Assigned To</p>
                       <Select
-                        key={`my-assigned-${selectedTicket._id}`}
-                        defaultValue={selectedTicket.assignedTo || 'Support Team'}
+                        value={selectedTicket.assignedTo || 'Support Team'}
                         onValueChange={async (value) => {
                           const updated = await updateTicketMutation.mutateAsync({
                             id: selectedTicket._id,

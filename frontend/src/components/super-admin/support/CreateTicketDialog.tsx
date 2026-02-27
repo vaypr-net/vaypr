@@ -48,6 +48,7 @@ interface TicketFormData {
   priority: string;
   description: string;
   assignedTo: string;
+  status: string;
 }
 
 const categories = [
@@ -63,6 +64,14 @@ const priorities = [
   { value: "medium", label: "Medium", color: "bg-blue-100 text-blue-600", description: "Within 24 hours" },
   { value: "high", label: "High", color: "bg-orange-100 text-orange-600", description: "Within a few hours" },
   { value: "urgent", label: "Urgent", color: "bg-red-100 text-red-600", description: "Immediate attention" },
+];
+
+const statuses = [
+  { value: "open", label: "Open", color: "bg-blue-100 text-blue-600", description: "Newly created" },
+  { value: "pending", label: "Pending", color: "bg-yellow-100 text-yellow-600", description: "Waiting for response" },
+  { value: "in_progress", label: "In Progress", color: "bg-purple-100 text-purple-600", description: "Being worked on" },
+  { value: "resolved", label: "Resolved", color: "bg-green-100 text-green-600", description: "Issue resolved" },
+  { value: "closed", label: "Closed", color: "bg-gray-100 text-gray-600", description: "Ticket closed" },
 ];
 
 const teams = [
@@ -105,6 +114,7 @@ export function CreateTicketDialog({ open, onOpenChange, onSubmit }: CreateTicke
     priority: "medium",
     description: "",
     assignedTo: "Support Team",
+    status: "open",
   });
 
   const [errors, setErrors] = useState<{ email?: string; phone?: string }>({});
@@ -157,6 +167,7 @@ export function CreateTicketDialog({ open, onOpenChange, onSubmit }: CreateTicke
       priority: "medium",
       description: "",
       assignedTo: "Support Team",
+      status: "open",
     });
     setCurrentStep(1);
     setErrors({});
@@ -361,18 +372,36 @@ export function CreateTicketDialog({ open, onOpenChange, onSubmit }: CreateTicke
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Assign To</Label>
-                    <Select value={formData.assignedTo} onValueChange={(v) => updateFormData("assignedTo", v)}>
+                    <Label>Status</Label>
+                    <Select value={formData.status} onValueChange={(v) => updateFormData("status", v)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {teams.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        {statuses.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>
+                            <div className="flex items-center gap-2">
+                              <Badge className={cn("text-xs", s.color)}>{s.label}</Badge>
+                            </div>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Assign To</Label>
+                  <Select value={formData.assignedTo} onValueChange={(v) => updateFormData("assignedTo", v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </motion.div>
             )}
@@ -402,6 +431,12 @@ export function CreateTicketDialog({ open, onOpenChange, onSubmit }: CreateTicke
                       <span className="text-muted-foreground">Priority:</span>
                       <Badge className={cn("ml-2 text-xs", priorities.find(p => p.value === formData.priority)?.color)}>
                         {formData.priority}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge className={cn("ml-2 text-xs", statuses.find(s => s.value === formData.status)?.color)}>
+                        {statuses.find(s => s.value === formData.status)?.label}
                       </Badge>
                     </div>
                     <div>

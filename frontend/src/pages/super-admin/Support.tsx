@@ -13,6 +13,14 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { 
   useGetTickets, 
 } from "@/hooks/api/useTickets";
@@ -112,6 +120,7 @@ export default function Support() {
   const [internalNote, setInternalNote] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [isAddingNote, setIsAddingNote] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // API Hooks
   const { data: ticketsData, isLoading: ticketsLoading } = useGetTickets(
@@ -179,6 +188,26 @@ export default function Support() {
     }
   };
 
+  const handleUpdateStatus = async (newStatus: string) => {
+    if (!selectedTicket) return;
+
+    try {
+      setIsUpdatingStatus(true);
+      const response = await axiosInstance.patch(
+        `/super-admin/tickets/${selectedTicket._id}`,
+        { status: newStatus }
+      );
+
+      setSelectedTicket(response.data);
+      toast.success("Ticket status updated successfully");
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast.error("Failed to update ticket status");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   const columns = [
     { 
       header: "Ticket ID", 
@@ -194,6 +223,23 @@ export default function Support() {
           </div>
         </div>
       ),
+    },
+    {
+      header: "Status",
+      accessor: (row: Ticket) => {
+        const statusColors: Record<string, string> = {
+          open: "bg-blue-100 text-blue-600",
+          pending: "bg-yellow-100 text-yellow-600",
+          in_progress: "bg-purple-100 text-purple-600",
+          resolved: "bg-green-100 text-green-600",
+          closed: "bg-gray-100 text-gray-600",
+        };
+        return (
+          <Badge className={`text-xs capitalize ${statusColors[row.status] || statusColors.open}`}>
+            {row.status?.replace('_', ' ') || 'open'}
+          </Badge>
+        );
+      },
     },
     {
       header: "Customer",
@@ -265,11 +311,46 @@ export default function Support() {
               </SheetHeader>
 
               <div className="mt-6 space-y-6">
-                {/* Customer Info */}
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Customer</p>
-                  <p className="font-medium">{selectedTicket.customerName}</p>
-                  <p className="text-sm text-muted-foreground">{selectedTicket.customerEmail}</p>
+                {/* Customer Info & Status */}
+                <div className="space-y-4">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Customer</p>
+                    <p className="font-medium">{selectedTicket.customerName}</p>
+                    <p className="text-sm text-muted-foreground">{selectedTicket.customerEmail}</p>
+                  </div>
+
+                  <div className="p-4 bg-muted rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Current Status</p>
+                        <Badge className={`text-xs capitalize ${{
+                          'open': 'bg-blue-100 text-blue-600',
+                          'pending': 'bg-yellow-100 text-yellow-600',
+                          'in_progress': 'bg-purple-100 text-purple-600',
+                          'resolved': 'bg-green-100 text-green-600',
+                          'closed': 'bg-gray-100 text-gray-600',
+                        }[selectedTicket.status] || 'bg-blue-100 text-blue-600'}`}>
+                          {selectedTicket.status?.replace('_', ' ') || 'open'}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm">Change Status</Label>
+                      <Select value={selectedTicket.status} onValueChange={handleUpdateStatus} disabled={isUpdatingStatus}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">Open</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="resolved">Resolved</SelectItem>
+                          <SelectItem value="closed">Closed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Conversation */}

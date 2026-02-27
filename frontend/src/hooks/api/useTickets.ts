@@ -244,7 +244,17 @@ export function useUpdateMyTicket() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { priority?: string; assignedTo?: string } }) =>
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: {
+        status?: 'open' | 'pending' | 'in_progress' | 'resolved' | 'closed';
+        priority?: string;
+        assignedTo?: string;
+      };
+    }) =>
       TicketService.updateMyTicket(id, data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.myList() });

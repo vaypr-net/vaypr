@@ -159,7 +159,11 @@ export const TicketService = {
 
   async updateMyTicket(
     id: string,
-    data: { priority?: string; assignedTo?: string },
+    data: {
+      status?: 'open' | 'pending' | 'in_progress' | 'resolved' | 'closed';
+      priority?: string;
+      assignedTo?: string;
+    },
   ): Promise<Ticket> {
     const response = await axios.patch<Ticket>(`${USER_BASE_URL}/${id}`, data);
     return response.data;
