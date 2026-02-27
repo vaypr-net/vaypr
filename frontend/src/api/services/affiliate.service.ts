@@ -91,6 +91,13 @@ export interface PaginatedResponse<T> {
   hasMore: boolean;
 }
 
+export interface AffiliateStats {
+  totalAffiliates: number;
+  totalReferrals: number;
+  totalCommissions: number;
+  pendingPayouts: number;
+}
+
 // ==================== DTOs ====================
 
 export interface CreateAffiliateDto {
@@ -146,6 +153,13 @@ export const AffiliateService = {
     const params = { search, status, tier, limit, offset };
     log('GET', BASE_URL, params);
     const response = await axios.get<PaginatedResponse<Affiliate>>(BASE_URL, { params });
+    console.log('✅ API Response:', response.data);
+    return response.data;
+  },
+
+  async getStats(): Promise<AffiliateStats> {
+    log('GET', `${BASE_URL}/stats`);
+    const response = await axios.get<AffiliateStats>(`${BASE_URL}/stats`);
     console.log('✅ API Response:', response.data);
     return response.data;
   },

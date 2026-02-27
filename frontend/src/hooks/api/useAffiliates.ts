@@ -17,6 +17,7 @@ const AFFILIATE_QUERY_KEYS = {
   list: () => [...AFFILIATE_QUERY_KEYS.all, 'list'] as const,
   filters: (filters: any) => [...AFFILIATE_QUERY_KEYS.list(), filters] as const,
   detail: (id: string) => [...AFFILIATE_QUERY_KEYS.all, 'detail', id] as const,
+  stats: () => [...AFFILIATE_QUERY_KEYS.all, 'stats'] as const,
 };
 
 const COMMISSION_PLAN_QUERY_KEYS = {
@@ -55,6 +56,13 @@ export function useGetAffiliates(
   });
 }
 
+export function useGetAffiliateStats() {
+  return useQuery({
+    queryKey: AFFILIATE_QUERY_KEYS.stats(),
+    queryFn: () => AffiliateService.getStats(),
+  });
+}
+
 export function useGetAffiliateById(id: string) {
   return useQuery({
     queryKey: AFFILIATE_QUERY_KEYS.detail(id),
@@ -71,6 +79,7 @@ export function useCreateAffiliate() {
     mutationFn: (data: CreateAffiliateDto) => AffiliateService.createAffiliate(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.list() });
+      queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.stats() });
       toast({
         title: 'Success',
         description: 'Affiliate created successfully.',
@@ -96,6 +105,7 @@ export function useUpdateAffiliate() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.list() });
       queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.detail(data._id) });
+      queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.stats() });
       toast({
         title: 'Success',
         description: 'Affiliate updated successfully.',
@@ -121,6 +131,7 @@ export function useUpdateAffiliateStatus() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.list() });
       queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.detail(data._id) });
+      queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.stats() });
       toast({
         title: 'Success',
         description: `Affiliate ${data.status}.`,
@@ -144,6 +155,7 @@ export function useDeleteAffiliate() {
     mutationFn: (id: string) => AffiliateService.deleteAffiliate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.list() });
+      queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.stats() });
       toast({
         title: 'Success',
         description: 'Affiliate deleted successfully.',
@@ -384,6 +396,7 @@ export function useApproveReferral() {
       queryClient.invalidateQueries({ queryKey: REFERRAL_QUERY_KEYS.list() });
       queryClient.invalidateQueries({ queryKey: REFERRAL_QUERY_KEYS.detail(data._id) });
       queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.list() });
+      queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.stats() });
       toast({
         title: 'Success',
         description: 'Referral approved successfully.',
@@ -409,6 +422,7 @@ export function useProcessPayouts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: REFERRAL_QUERY_KEYS.list() });
       queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.list() });
+      queryClient.invalidateQueries({ queryKey: AFFILIATE_QUERY_KEYS.stats() });
       toast({
         title: 'Success',
         description: 'Payouts processed successfully.',

@@ -288,11 +288,15 @@ function NotificationDropdown({
           previewReminders.map((reminder) => (
             <DropdownMenuItem 
               key={reminder.id} 
-              className="flex flex-col items-start px-3 py-2 cursor-pointer text-foreground data-[highlighted]:text-foreground"
+              className="group flex flex-col items-start px-3 py-2 cursor-pointer text-foreground data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground"
               onClick={() => onMarkAsRead(reminder.id)}
             >
-              <span className="font-medium text-sm">{reminder.title}</span>
-              <span className="text-xs text-muted-foreground">{reminder.message}</span>
+              <span className="font-medium text-sm text-foreground group-data-[highlighted]:text-primary-foreground">
+                {reminder.title}
+              </span>
+              <span className="text-xs text-muted-foreground group-data-[highlighted]:text-primary-foreground/90">
+                {reminder.message}
+              </span>
             </DropdownMenuItem>
           ))
         )}
@@ -303,7 +307,10 @@ function NotificationDropdown({
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link to="/dashboard/notifications" className="w-full text-center text-sm text-foreground data-[highlighted]:text-foreground">
+          <Link
+            to="/dashboard/notifications"
+            className="w-full text-center text-sm text-foreground hover:text-foreground"
+          >
             View all notifications
           </Link>
         </DropdownMenuItem>

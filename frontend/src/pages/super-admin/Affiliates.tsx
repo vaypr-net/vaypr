@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { AffiliateService } from "@/api/services/affiliate.service";
 import {
   useGetAffiliates,
+  useGetAffiliateStats,
   useCreateAffiliate,
   useUpdateAffiliate,
   useDeleteAffiliate,
@@ -55,6 +56,7 @@ export default function Affiliates() {
     pagination.limit,
     pagination.offset,
   );
+  const { data: affiliateStats } = useGetAffiliateStats();
   const createAffiliateMutation = useCreateAffiliate();
   const updateAffiliateMutation = useUpdateAffiliate();
   const deleteAffiliateMutation = useDeleteAffiliate();
@@ -340,9 +342,10 @@ export default function Affiliates() {
     },
   ];
 
-  const totalEarnings = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.earnings, 0) || 0;
-  const totalPending = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.pending, 0) || 0;
-  const totalReferrals = affiliatesData?.items?.reduce((sum: number, a: Affiliate) => sum + a.referrals, 0) || 0;
+  const totalEarnings = affiliateStats?.totalCommissions || 0;
+  const totalPending = affiliateStats?.pendingPayouts || 0;
+  const totalReferrals = affiliateStats?.totalReferrals || 0;
+  const totalAffiliates = affiliateStats?.totalAffiliates || affiliatesData?.total || 0;
   const pendingReferralsCount =
     (referralsData?.items || []).filter((ref: Referral) => ref.status === "pending").length;
   const approvedReferralsCount =
@@ -450,7 +453,7 @@ export default function Affiliates() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Affiliates", value: (affiliatesData?.items?.length || 0).toString(), icon: Users2, color: "bg-purple-100 text-purple-600" },
+          { label: "Total Affiliates", value: totalAffiliates.toString(), icon: Users2, color: "bg-purple-100 text-purple-600" },
           { label: "Total Referrals", value: totalReferrals.toString(), icon: TrendingUp, color: "bg-blue-100 text-blue-600" },
           { label: "Total Commissions", value: formatCurrency(totalEarnings), icon: DollarSign, color: "bg-green-100 text-green-600" },
           { label: "Pending Payouts", value: formatCurrency(totalPending), icon: Gift, color: "bg-orange-100 text-orange-600" },

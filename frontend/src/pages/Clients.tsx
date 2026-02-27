@@ -113,6 +113,7 @@ export default function Clients() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
 
@@ -192,6 +193,7 @@ export default function Clients() {
   const handleOpenDialog = (client?: Client) => {
     if (client) {
       setEditingClient(client);
+      setEditingClientId(client._id || null);
       setFormData({
         clientType: client.clientType || 'individual',
         name: client.name,
@@ -203,6 +205,7 @@ export default function Clients() {
       });
     } else {
       setEditingClient(null);
+      setEditingClientId(null);
       setFormData({
         clientType: 'individual',
         name: '',
@@ -257,9 +260,9 @@ export default function Clients() {
     }
 
     try {
-      if (editingClient) {
+      if (editingClientId) {
         await updateMutation.mutateAsync({
-          id: editingClient._id,
+          id: editingClientId,
           data: formData,
         });
       } else {
@@ -268,6 +271,7 @@ export default function Clients() {
 
       setIsDialogOpen(false);
       setEditingClient(null);
+      setEditingClientId(null);
       setFormData({
         clientType: 'individual',
         name: '',
@@ -710,7 +714,7 @@ export default function Clients() {
             <DialogHeader>
               <DialogTitle>{editingClient ? 'Edit Client' : 'Add Client'}</DialogTitle>
               <DialogDescription>
-                {editingClient ? 'Update client information' : 'Add a new client to your database'}
+                {editingClientId ? 'Update client information' : 'Add a new client to your database'}
               </DialogDescription>
             </DialogHeader>
             
@@ -816,7 +820,7 @@ export default function Clients() {
                 {(createMutation.isPending || updateMutation.isPending) && (
                   <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 )}
-                {editingClient ? 'Update Client' : 'Add Client'}
+                {editingClientId ? 'Update Client' : 'Add Client'}
               </Button>
             </DialogFooter>
           </DialogContent>

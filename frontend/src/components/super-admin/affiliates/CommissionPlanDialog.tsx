@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Sparkles } from "lucide-react";
 import { CommissionPlan as ApiCommissionPlan } from "@/api/services/affiliate.service";
+import { useGetPlans } from "@/hooks/api/useBillingPlans";
 
 // Extend API type with optional id for compatibility with old dialogs
 export interface CommissionPlan extends ApiCommissionPlan {
@@ -41,6 +42,7 @@ const generateCode = () => {
 };
 
 export function CommissionPlanDialog({ open, onOpenChange, plan, onSave }: CommissionPlanDialogProps) {
+  const { data: billingPlansResponse } = useGetPlans(undefined, 100, 0);
   const [formData, setFormData] = useState<CommissionPlanFormData>({
     name: "",
     subscriptionPlan: "Starter",
@@ -92,6 +94,14 @@ export function CommissionPlanDialog({ open, onOpenChange, plan, onSave }: Commi
     setFormData(prev => ({ ...prev, couponCode: generateCode() }));
   };
 
+  const hardcodedPlanOptions = ["Starter", "Professional", "Enterprise", "All Plans"];
+  const dynamicPlanOptions = (billingPlansResponse?.items || [])
+    .map((item) => item?.name?.trim())
+    .filter((name): name is string => Boolean(name));
+  const mergedPlanOptions = Array.from(
+    new Set([...hardcodedPlanOptions, ...dynamicPlanOptions]),
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px]">
@@ -119,10 +129,11 @@ export function CommissionPlanDialog({ open, onOpenChange, plan, onSave }: Commi
                 <SelectValue placeholder="Select plan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Starter">Starter</SelectItem>
-                <SelectItem value="Professional">Professional</SelectItem>
-                <SelectItem value="Enterprise">Enterprise</SelectItem>
-                <SelectItem value="All Plans">All Plans</SelectItem>
+                {mergedPlanOptions.map((planOption) => (
+                  <SelectItem key={planOption} value={planOption}>
+                    {planOption}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
