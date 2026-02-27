@@ -44,7 +44,8 @@ export function PricingDialog({ children }: PricingDialogProps) {
     const isFreePlan = plan.price === 0;
 
     // Get the yearly equivalent price if available
-    const yearlyPrice = yearlyPlan ? yearlyPlan.price : plan.price * 10; // Fallback to 10 months
+    // Formula: (monthlyPrice * 12) * 0.85 = yearly price with 15% savings
+    const yearlyPrice = yearlyPlan ? yearlyPlan.price : Math.round((plan.price * 12 * 0.85) * 100) / 100;
 
     return {
       name: plan.name,
