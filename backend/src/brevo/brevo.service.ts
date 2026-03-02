@@ -602,6 +602,10 @@ export class BrevoService {
     htmlContent: string,
     attachmentData?: string,
     attachmentFilename?: string,
+    options?: {
+      replyTo?: string;
+      senderName?: string;
+    },
   ): Promise<{ success: boolean; messageId?: string; message: string }> {
     try {
       // Extract domain from sender email
@@ -628,7 +632,7 @@ export class BrevoService {
       // Build email payload
       const emailPayload: any = {
         sender: {
-          name: fromEmail.split('@')[0], // Use email prefix as name
+          name: options?.senderName || fromEmail.split('@')[0], // Use email prefix as name
           email: fromEmail,
         },
         to: [
@@ -639,6 +643,12 @@ export class BrevoService {
         subject: subject,
         htmlContent: htmlContent,
       };
+
+      if (options?.replyTo) {
+        emailPayload.replyTo = {
+          email: options.replyTo,
+        };
+      }
 
       // Add attachment if provided
       if (attachmentData && attachmentFilename) {

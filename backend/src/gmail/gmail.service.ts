@@ -145,11 +145,13 @@ export class GmailService {
     htmlBody: string,
     attachmentData?: string,
     attachmentFilename?: string,
+    replyTo?: string,
   ): string {
     // No attachment - simple HTML email
     if (!attachmentData || !attachmentFilename) {
       const email = [
         `To: ${to}`,
+        ...(replyTo ? [`Reply-To: ${replyTo}`] : []),
         'Content-Type: text/html; charset=utf-8',
         'MIME-Version: 1.0',
         `Subject: ${subject}`,
@@ -169,6 +171,7 @@ export class GmailService {
     
     const email = [
       `To: ${to}`,
+      ...(replyTo ? [`Reply-To: ${replyTo}`] : []),
       `Subject: ${subject}`,
       'MIME-Version: 1.0',
       `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -220,6 +223,7 @@ export class GmailService {
     htmlBody: string,
     attachmentData?: string,
     attachmentFilename?: string,
+    replyTo?: string,
   ): Promise<{ success: boolean; message: string; messageId?: string }> {
     // Get user data
     const user = await this.userService.findOne(userId);
@@ -237,6 +241,7 @@ export class GmailService {
           htmlBody,
           attachmentData,
           attachmentFilename,
+          replyTo,
         );
       } catch (error) {
         // If Gmail fails with auth error, fallback to Brevo
@@ -285,6 +290,7 @@ export class GmailService {
     htmlBody: string,
     attachmentData?: string,
     attachmentFilename?: string,
+    replyTo?: string,
   ): Promise<{ success: boolean; message: string; messageId?: string }> {
     try {
       // Get valid access token (automatically refreshes if expired)
@@ -305,6 +311,7 @@ export class GmailService {
         htmlBody,
         attachmentData,
         attachmentFilename,
+        replyTo,
       );
 
       // Send email as the authenticated user

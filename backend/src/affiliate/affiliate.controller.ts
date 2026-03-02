@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AffiliateService } from './affiliate.service';
 import { CreateAffiliateDto } from './dto/create-affiliate.dto';
@@ -17,6 +18,7 @@ import { UpdateCommissionPlanDto } from './dto/update-commission-plan.dto';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
 import { CreateReferralDto } from './dto/create-referral.dto';
+import { SendAffiliateEmailDto } from './dto/send-affiliate-email.dto';
 import { SuperAdminGuard } from '../common/guards/super-admin.guard';
 
 /**
@@ -174,6 +176,11 @@ export class AffiliateController {
   @Post('referrals/payout')
   processPayouts(@Query('affiliateId') affiliateId?: string) {
     return this.affiliateService.processReferralPayouts(affiliateId);
+  }
+
+  @Post('notify-affiliate')
+  sendAffiliateEmail(@Request() req, @Body() dto: SendAffiliateEmailDto) {
+    return this.affiliateService.sendAffiliateEmail(req.user.userId, dto);
   }
 
   // ======================================================

@@ -3,21 +3,29 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { CommonModule } from '../common/common.module';
+import { UserModule } from '../user/user.module';
+import { BrevoModule } from '../brevo/brevo.module';
+import { GmailModule } from '../gmail/gmail.module';
 import { AffiliateService } from './affiliate.service';
 import { AffiliateController } from './affiliate.controller';
 import { Affiliate, AffiliateSchema } from './entities/affiliate.entity';
 import { CommissionPlan, CommissionPlanSchema } from './entities/commission-plan.entity';
 import { Coupon, CouponSchema } from './entities/coupon.entity';
 import { Referral, ReferralSchema } from './entities/referral.entity';
+import { SuperAdminSettings, SuperAdminSettingsSchema } from '../superadmin-settings/entities/superadmin-settings.entity';
 
 @Module({
   imports: [
     CommonModule,
+    UserModule,
+    BrevoModule,
+    GmailModule,
     MongooseModule.forFeature([
       { name: Affiliate.name, schema: AffiliateSchema },
       { name: CommissionPlan.name, schema: CommissionPlanSchema },
       { name: Coupon.name, schema: CouponSchema },
       { name: Referral.name, schema: ReferralSchema },
+      { name: SuperAdminSettings.name, schema: SuperAdminSettingsSchema },
     ]),
     JwtModule.registerAsync({
       inject: [ConfigService],

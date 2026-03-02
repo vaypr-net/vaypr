@@ -9,11 +9,16 @@ import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
 import { CreateReferralDto } from './dto/create-referral.dto';
 import { UpdateReferralDto } from './dto/update-referral.dto';
+import { SendAffiliateEmailDto } from './dto/send-affiliate-email.dto';
 import { Affiliate } from './entities/affiliate.entity';
 import { CommissionPlan } from './entities/commission-plan.entity';
 import { Coupon } from './entities/coupon.entity';
 import { Referral } from './entities/referral.entity';
 import { CurrencyService } from '../common/services/currency.service';
+import { SuperAdminSettings } from '../superadmin-settings/entities/superadmin-settings.entity';
+import { UserService } from '../user/user.service';
+import { BrevoService } from '../brevo/brevo.service';
+import { GmailService } from '../gmail/gmail.service';
 
 @Injectable()
 export class AffiliateService {
@@ -22,7 +27,12 @@ export class AffiliateService {
     @InjectModel(CommissionPlan.name) private commissionPlanModel: Model<CommissionPlan>,
     @InjectModel(Coupon.name) private couponModel: Model<Coupon>,
     @InjectModel(Referral.name) private referralModel: Model<Referral>,
+    @InjectModel(SuperAdminSettings.name)
+    private superAdminSettingsModel: Model<SuperAdminSettings>,
     private currencyService: CurrencyService,
+    private userService: UserService,
+    private brevoService: BrevoService,
+    private gmailService: GmailService,
   ) {}
 
   private toDisplayCurrency(amount: number, sourceCurrency = 'AED'): number {
@@ -422,6 +432,100 @@ export class AffiliateService {
       payoutsProcessed: referrals.length,
       totalAmount,
     };
+  }
+
+  async sendAffiliateEmail(
+    userId: string,
+    dto: SendAffiliateEmailDto,
+  ): Promise<{ success: boolean; sentVia: 'brevo' | 'gmail'; to: string; from: string; message: string }> {
+    const subject = (dto.subject || '').trim();
+    const message = (dto.message || '').trim();
+    if (!subject || !message) {
+      throw new BadRequestException('Subject and message are required');
+    }
+
+    let affiliateId = dto.affiliateId;
+    if (!affiliateId && dto.referralId) {
+      const referral = await this.referralModel.findById(dto.referralId);
+      if (!referral) {
+        throw new NotFoundException('Referral not found');
+      }
+      affiliateId = String(referral.affiliateId);
+    }
+
+    if (!affiliateId) {
+      throw new BadRequestException('affiliateId or referralId is required');
+    }
+
+    const affiliate = await this.affiliateModel.findById(affiliateId);
+    if (!affiliate) {
+      throw new NotFoundException('Affiliate not found');
+    }
+    if (!affiliate.email) {
+      throw new BadRequestException('Affiliate email is missing');
+    }
+
+    const user = await this.userService.findOne(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const settings = await this.superAdminSettingsModel.findOne({ userId: user._id });
+    const supportEmail = (settings?.supportEmail || '').trim();
+    const fromEmail = supportEmail || user.email;
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+        <p>${message.replace(/\n/g, '<br/>')}</p>
+        <p style="margin-top: 20px;">
+          Regards,<br/>
+          ${supportEmail || user.email}
+        </p>
+      </div>
+    `;
+
+    try {
+      await this.brevoService.sendEmail(
+        fromEmail,
+        affiliate.email,
+        subject,
+        htmlBody,
+        undefined,
+        undefined,
+        { replyTo: supportEmail || undefined },
+      );
+      return {
+        success: true,
+        sentVia: 'brevo',
+        to: affiliate.email,
+        from: fromEmail,
+        message: 'Affiliate email sent successfully',
+      };
+    } catch (brevoError) {
+      try {
+        const gmailResult = await this.gmailService.sendEmailFromUser(
+          userId,
+          affiliate.email,
+          subject,
+          htmlBody,
+          undefined,
+          undefined,
+          supportEmail || undefined,
+        );
+
+        return {
+          success: gmailResult.success,
+          sentVia: 'gmail',
+          to: affiliate.email,
+          from: supportEmail || user.email,
+          message: gmailResult.message,
+        };
+      } catch (gmailError: any) {
+        throw new BadRequestException(
+          gmailError?.message || 'Failed to send affiliate email. Please verify support email/domain settings.',
+        );
+      }
+    }
   }
 
   // ==================== HELPER METHODS ====================
