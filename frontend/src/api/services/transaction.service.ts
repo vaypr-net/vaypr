@@ -46,6 +46,56 @@ export interface PaginatedTransactions {
   hasMore: boolean;
 }
 
+export interface TransactionInvoice {
+  _id: string;
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string;
+  total: number;
+  currency: string;
+  currencySymbol?: string;
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+  billTo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    area?: string;
+    block?: string;
+    street?: string;
+    house?: string;
+    other?: string;
+  };
+  items?: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    amount?: number;
+  }>;
+  subtotal?: number;
+  tax?: number;
+  discount?: number;
+  deliveryFee?: number;
+  logo?: string;
+  logoScale?: number;
+  companyFooter?: any;
+  showPaymentMethod?: boolean;
+  paymentMethodType?: string;
+  showBankAccount?: boolean;
+  bankAccount?: any;
+  showPaymentTerms?: boolean;
+  paymentTerms?: string;
+  hideQuantity?: boolean;
+  hideUnitPrice?: boolean;
+  hideTotalCost?: boolean;
+  hideSubTotal?: boolean;
+  useManualGrandTotal?: boolean;
+  manualGrandTotal?: number;
+  tableHeaderColor?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 const BASE_URL = '/super-admin/transactions';
 
 export const TransactionService = {
@@ -69,6 +119,11 @@ export const TransactionService = {
    */
   async getById(id: string): Promise<Transaction> {
     const response = await axios.get<Transaction>(`${BASE_URL}/${id}`);
+    return response.data;
+  },
+
+  async getInvoices(id: string): Promise<TransactionInvoice[]> {
+    const response = await axios.get<TransactionInvoice[]>(`${BASE_URL}/${id}/invoices`);
     return response.data;
   },
 

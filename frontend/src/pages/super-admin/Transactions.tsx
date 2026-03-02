@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Receipt, Eye, FileText, Download, Calendar, CheckCircle, Clock, XCircle, Loader } from "lucide-react";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
 import { DataTable } from "@/components/super-admin/DataTable";
 import { StatusBadge } from "@/components/super-admin/StatusBadge";
-import { TransactionService, Transaction, TransactionStats } from "@/api/services/transaction.service";
+import { TransactionService, Transaction, TransactionStats, TransactionInvoice } from "@/api/services/transaction.service";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -12,11 +12,20 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/currency";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { useDocumentActions } from "@/hooks/useDocumentActions";
+import { InvoicePreview } from "@/components/invoice/InvoicePreview";
+import { InvoiceData } from "@/types/invoice";
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -107,6 +116,12 @@ export default function Transactions() {
   // UI state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showAllInvoices, setShowAllInvoices] = useState(false);
+  const [selectedInvoices, setSelectedInvoices] = useState<TransactionInvoice[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [invoiceForDownload, setInvoiceForDownload] = useState<TransactionInvoice | null>(null);
+  const [previewInvoice, setPreviewInvoice] = useState<TransactionInvoice | null>(null);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const { downloadPDF } = useDocumentActions();
 
   // Fetch transactions
   useEffect(() => {
@@ -149,15 +164,108 @@ export default function Transactions() {
     fetchStats();
   }, []);
 
-  // Mock invoices data for the subscriber (can be replaced with real API later)
-  const getMockInvoices = (subscriberName: string) => [
-    { id: "INV-2025001", date: "2025-01-15", amount: 29, status: "paid" as const },
-    { id: "INV-2024012", date: "2024-12-15", amount: 29, status: "paid" as const },
-    { id: "INV-2024011", date: "2024-11-15", amount: 29, status: "paid" as const },
-    { id: "INV-2024010", date: "2024-10-15", amount: 29, status: "paid" as const },
-    { id: "INV-2024009", date: "2024-09-15", amount: 29, status: "paid" as const },
-    { id: "INV-2024008", date: "2024-08-15", amount: 29, status: "overdue" as const },
-  ];
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      if (!showAllInvoices || !selectedTransaction) return;
+      try {
+        setLoadingInvoices(true);
+        const invoices = await TransactionService.getInvoices(selectedTransaction._id || selectedTransaction.transactionId);
+        setSelectedInvoices(Array.isArray(invoices) ? invoices : []);
+      } catch (err: any) {
+        console.error("Error fetching invoices for transaction:", err);
+        toast.error(err?.response?.data?.message || "Failed to load invoices for this subscriber");
+        setSelectedInvoices([]);
+      } finally {
+        setLoadingInvoices(false);
+      }
+    };
+
+    fetchInvoices();
+  }, [showAllInvoices, selectedTransaction]);
+
+  const mapInvoiceToPreviewData = (invoice: TransactionInvoice): InvoiceData => ({
+    logo: invoice.logo || null,
+    logoScale: invoice.logoScale || 1,
+    currency: invoice.currency || "KWD",
+    currencySymbol: invoice.currencySymbol || invoice.currency || "KWD",
+    billTo: {
+      name: invoice.billTo?.name || "",
+      phone: invoice.billTo?.phone || "",
+      area: invoice.billTo?.area || "",
+      block: invoice.billTo?.block || "",
+      street: invoice.billTo?.street || "",
+      house: invoice.billTo?.house || "",
+      other: invoice.billTo?.other || "",
+    },
+    invoiceNumber: invoice.invoiceNumber,
+    invoiceDate: invoice.issueDate,
+    paymentDate: invoice.dueDate,
+    items: (invoice.items || []).map((item, idx) => ({
+      id: `${invoice._id}-${idx}`,
+      description: item.description || "",
+      quantity: Number(item.quantity) || 0,
+      unitPrice: Number(item.unitPrice) || 0,
+    })),
+    discount: Number(invoice.discount) || 0,
+    deliveryFee: Number(invoice.deliveryFee) || 0,
+    companyFooter: {
+      companyName: invoice.companyFooter?.companyName || invoice.companyFooter?.name || "",
+      officePhone: invoice.companyFooter?.officePhone || invoice.companyFooter?.phone || "",
+      address: invoice.companyFooter?.address || "",
+      websiteEmail: invoice.companyFooter?.websiteEmail || invoice.companyFooter?.email || "",
+    },
+    paymentDetails: invoice.paymentMethodType || "",
+    showPaymentMethod: !!invoice.showPaymentMethod,
+    paymentMethodType: (invoice.paymentMethodType as any) || "cash",
+    showBankAccount: !!invoice.showBankAccount,
+    bankAccount: {
+      bankName: invoice.bankAccount?.bankName || "",
+      accountName: invoice.bankAccount?.accountName || "",
+      iban: invoice.bankAccount?.iban || "",
+    },
+    showPaymentTerms: !!invoice.showPaymentTerms,
+    paymentTerms: invoice.paymentTerms || "",
+    hideQuantity: !!invoice.hideQuantity,
+    hideUnitPrice: !!invoice.hideUnitPrice,
+    hideTotalCost: !!invoice.hideTotalCost,
+    hideSubTotal: !!invoice.hideSubTotal,
+    useManualGrandTotal: !!invoice.useManualGrandTotal,
+    manualGrandTotal: Number(invoice.manualGrandTotal) || 0,
+    tableHeaderColor: invoice.tableHeaderColor || "#000000",
+  });
+
+  const waitForElementAndDownload = async (elementId: string, filename: string, onComplete?: () => void) => {
+    const timeout = 3000;
+    const interval = 100;
+    let waited = 0;
+    while (waited < timeout) {
+      const el = document.getElementById(elementId);
+      if (el && el.offsetWidth > 0 && el.offsetHeight > 0) break;
+      await new Promise((resolve) => setTimeout(resolve, interval));
+      waited += interval;
+    }
+    downloadPDF(elementId, filename, onComplete);
+  };
+
+  const handleViewInvoice = (invoice: TransactionInvoice) => {
+    setPreviewInvoice(invoice);
+    setShowInvoicePreview(true);
+  };
+
+  const handleDownloadInvoice = async (invoice: TransactionInvoice) => {
+    setInvoiceForDownload(invoice);
+    const filename = `Invoice-${invoice.invoiceNumber}`;
+    await waitForElementAndDownload("transaction-invoice-preview-download", filename, () => setInvoiceForDownload(null));
+  };
+
+  const paidInvoices = useMemo(
+    () => selectedInvoices.filter((invoice) => invoice.status === "paid"),
+    [selectedInvoices]
+  );
+  const pendingInvoices = useMemo(
+    () => selectedInvoices.filter((invoice) => invoice.status !== "paid"),
+    [selectedInvoices]
+  );
 
   const columns = [
     { header: "Transaction ID", accessor: (row: Transaction) => row.transactionId },
@@ -422,17 +530,20 @@ export default function Transactions() {
                 </TabsList>
 
                 <TabsContent value="all" className="mt-4">
+                  {loadingInvoices ? (
+                    <div className="text-center py-8 text-muted-foreground">Loading invoices...</div>
+                  ) : (
                   <ScrollArea className="h-[400px]">
                     <div className="space-y-3">
-                      {getMockInvoices(selectedTransaction.subscriberName).map((invoice) => (
+                      {selectedInvoices.map((invoice) => (
                         <div 
-                          key={invoice.id}
+                          key={invoice._id}
                           className="p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                         >
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <FileText className="w-4 h-4 text-muted-foreground" />
-                              <span className="font-medium">{invoice.id}</span>
+                              <span className="font-medium">{invoice.invoiceNumber}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               {invoice.status === "paid" ? (
@@ -459,19 +570,19 @@ export default function Transactions() {
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-1 text-muted-foreground">
                               <Calendar className="w-3 h-3" />
-                              {new Date(invoice.date).toLocaleDateString('en-US', {
+                              {new Date(invoice.dueDate || invoice.issueDate).toLocaleDateString('en-US', {
                                 year: 'numeric',
                                 month: 'short',
                                 day: 'numeric'
                               })}
                             </div>
-                            <span className="font-semibold">{formatCurrency(invoice.amount)}</span>
+                            <span className="font-semibold">{formatCurrency(invoice.total)}</span>
                           </div>
                           <div className="mt-3 flex gap-2">
-                            <Button variant="outline" size="sm" className="flex-1">
+                            <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewInvoice(invoice)}>
                               <Eye className="w-3 h-3 mr-1" /> View
                             </Button>
-                            <Button variant="outline" size="sm" className="flex-1">
+                            <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDownloadInvoice(invoice)}>
                               <Download className="w-3 h-3 mr-1" /> Download
                             </Button>
                           </div>
@@ -479,22 +590,22 @@ export default function Transactions() {
                       ))}
                     </div>
                   </ScrollArea>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="paid" className="mt-4">
                   <ScrollArea className="h-[400px]">
                     <div className="space-y-3">
-                      {getMockInvoices(selectedTransaction.subscriberName)
-                        .filter(inv => inv.status === "paid")
+                      {paidInvoices
                         .map((invoice) => (
                           <div 
-                            key={invoice.id}
+                            key={invoice._id}
                             className="p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                           >
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-muted-foreground" />
-                                <span className="font-medium">{invoice.id}</span>
+                                <span className="font-medium">{invoice.invoiceNumber}</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <CheckCircle className="w-4 h-4 text-green-600" />
@@ -506,19 +617,19 @@ export default function Transactions() {
                             <div className="flex items-center justify-between text-sm">
                               <div className="flex items-center gap-1 text-muted-foreground">
                                 <Calendar className="w-3 h-3" />
-                                {new Date(invoice.date).toLocaleDateString('en-US', {
+                                {new Date(invoice.dueDate || invoice.issueDate).toLocaleDateString('en-US', {
                                   year: 'numeric',
                                   month: 'short',
                                   day: 'numeric'
                                 })}
                               </div>
-                              <span className="font-semibold">{formatCurrency(invoice.amount)}</span>
+                              <span className="font-semibold">{formatCurrency(invoice.total)}</span>
                             </div>
                             <div className="mt-3 flex gap-2">
-                              <Button variant="outline" size="sm" className="flex-1">
+                              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewInvoice(invoice)}>
                                 <Eye className="w-3 h-3 mr-1" /> View
                               </Button>
-                              <Button variant="outline" size="sm" className="flex-1">
+                              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDownloadInvoice(invoice)}>
                                 <Download className="w-3 h-3 mr-1" /> Download
                               </Button>
                             </div>
@@ -531,17 +642,16 @@ export default function Transactions() {
                 <TabsContent value="pending" className="mt-4">
                   <ScrollArea className="h-[400px]">
                     <div className="space-y-3">
-                      {getMockInvoices(selectedTransaction.subscriberName)
-                        .filter(inv => inv.status === "overdue")
+                      {pendingInvoices
                         .map((invoice) => (
                           <div 
-                            key={invoice.id}
+                            key={invoice._id}
                             className="p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                           >
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-muted-foreground" />
-                                <span className="font-medium">{invoice.id}</span>
+                                <span className="font-medium">{invoice.invoiceNumber}</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <XCircle className="w-4 h-4 text-destructive" />
@@ -553,19 +663,19 @@ export default function Transactions() {
                             <div className="flex items-center justify-between text-sm">
                               <div className="flex items-center gap-1 text-muted-foreground">
                                 <Calendar className="w-3 h-3" />
-                                {new Date(invoice.date).toLocaleDateString('en-US', {
+                                {new Date(invoice.dueDate || invoice.issueDate).toLocaleDateString('en-US', {
                                   year: 'numeric',
                                   month: 'short',
                                   day: 'numeric'
                                 })}
                               </div>
-                              <span className="font-semibold">{formatCurrency(invoice.amount)}</span>
+                              <span className="font-semibold">{formatCurrency(invoice.total)}</span>
                             </div>
                             <div className="mt-3 flex gap-2">
-                              <Button variant="outline" size="sm" className="flex-1">
+                              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewInvoice(invoice)}>
                                 <Eye className="w-3 h-3 mr-1" /> View
                               </Button>
-                              <Button variant="outline" size="sm" className="flex-1">
+                              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDownloadInvoice(invoice)}>
                                 <Download className="w-3 h-3 mr-1" /> Download
                               </Button>
                             </div>
@@ -580,15 +690,13 @@ export default function Transactions() {
               <div className="p-4 bg-muted rounded-lg space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total Invoices</span>
-                  <span className="font-medium">{getMockInvoices(selectedTransaction.subscriberName).length}</span>
+                  <span className="font-medium">{selectedInvoices.length}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total Paid</span>
                   <span className="font-medium text-green-600">
                     {formatCurrency(
-                      getMockInvoices(selectedTransaction.subscriberName)
-                        .filter(inv => inv.status === "paid")
-                        .reduce((sum, inv) => sum + inv.amount, 0)
+                      paidInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0)
                     )}
                   </span>
                 </div>
@@ -596,9 +704,7 @@ export default function Transactions() {
                   <span className="text-muted-foreground">Outstanding</span>
                   <span className="font-medium text-destructive">
                     {formatCurrency(
-                      getMockInvoices(selectedTransaction.subscriberName)
-                        .filter(inv => inv.status !== "paid")
-                        .reduce((sum, inv) => sum + inv.amount, 0)
+                      pendingInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0)
                     )}
                   </span>
                 </div>
@@ -615,6 +721,31 @@ export default function Transactions() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Invoice Preview {previewInvoice ? `- ${previewInvoice.invoiceNumber}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {previewInvoice ? (
+            <InvoicePreview
+              previewId="transaction-invoice-preview-view"
+              data={mapInvoiceToPreviewData(previewInvoice)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {invoiceForDownload && (
+        <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }} aria-hidden="true">
+          <InvoicePreview
+            previewId="transaction-invoice-preview-download"
+            data={mapInvoiceToPreviewData(invoiceForDownload)}
+          />
+        </div>
+      )}
     </div>
   );
 }
