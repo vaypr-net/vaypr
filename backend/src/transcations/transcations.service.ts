@@ -5,11 +5,13 @@ import { CreateTranscationDto } from './dto/create-transcation.dto';
 import { UpdateTranscationDto } from './dto/update-transcation.dto';
 import { Transaction, TransactionDocument } from './entities/transcation.entity';
 import { CurrencyService } from '../common/services/currency.service';
+import { Invoice } from '../invoice/entities/invoice.entity';
 
 @Injectable()
 export class TranscationsService {
   constructor(
     @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
+    @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     private currencyService: CurrencyService,
   ) {}
 
@@ -149,5 +151,75 @@ export class TranscationsService {
       failedCount: failedCountAgg[0]?.count || 0,
       refundsTotal: Math.round(refundsTotal * 100) / 100,
     };
+  }
+
+  async getInvoicesForTransaction(id: string) {
+    const tx = await this.findOne(id);
+    const userObjectId = tx?.userId ? new Types.ObjectId(String(tx.userId)) : null;
+
+    const baseProjection = {
+      _id: 1,
+      invoiceNumber: 1,
+      issueDate: 1,
+      dueDate: 1,
+      total: 1,
+      currency: 1,
+      currencySymbol: 1,
+      status: 1,
+      billTo: 1,
+      logo: 1,
+      logoScale: 1,
+      companyFooter: 1,
+      items: 1,
+      subtotal: 1,
+      tax: 1,
+      discount: 1,
+      deliveryFee: 1,
+      notes: 1,
+      showPaymentMethod: 1,
+      paymentMethodType: 1,
+      showBankAccount: 1,
+      bankAccount: 1,
+      showPaymentTerms: 1,
+      paymentTerms: 1,
+      hideQuantity: 1,
+      hideUnitPrice: 1,
+      hideTotalCost: 1,
+      hideSubTotal: 1,
+      useManualGrandTotal: 1,
+      manualGrandTotal: 1,
+      tableHeaderColor: 1,
+      userId: 1,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    let invoices: any[] = [];
+    if (userObjectId) {
+      invoices = await this.invoiceModel
+        .find({
+          userId: userObjectId,
+          isDeleted: false,
+        })
+        .select(baseProjection)
+        .sort({ createdAt: -1 })
+        .lean();
+    } else if (tx?.subscriberEmail) {
+      invoices = await this.invoiceModel
+        .find({
+          'billTo.email': tx.subscriberEmail,
+          isDeleted: false,
+        })
+        .select(baseProjection)
+        .sort({ createdAt: -1 })
+        .lean();
+    }
+
+    return invoices.map((invoice) => ({
+      ...invoice,
+      total: this.toDisplayAmount(invoice.total || 0, invoice.currency),
+      currency: this.currencyService.getDisplayCurrency(),
+      status: invoice.status === 'cancelled' ? 'cancelled' : invoice.status,
+    }));
   }
 }

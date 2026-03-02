@@ -6,11 +6,15 @@ import { CommonModule } from '../common/common.module';
 import { TranscationsService } from './transcations.service';
 import { TranscationsController } from './transcations.controller';
 import { Transaction, TransactionSchema } from './entities/transcation.entity';
+import { Invoice, InvoiceSchema } from '../invoice/entities/invoice.entity';
 
 @Module({
   imports: [
     CommonModule,
-    MongooseModule.forFeature([{ name: Transaction.name, schema: TransactionSchema }]),
+    MongooseModule.forFeature([
+      { name: Transaction.name, schema: TransactionSchema },
+      { name: Invoice.name, schema: InvoiceSchema },
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -47,6 +47,11 @@ export class TranscationsController {
     return this.transcationsService.findOne(id);
   }
 
+  @Get(':id/invoices')
+  getInvoices(@Param('id') id: string) {
+    return this.transcationsService.getInvoicesForTransaction(id);
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateTranscationDto: UpdateTranscationDto) {
     return this.transcationsService.update(id, updateTranscationDto);
