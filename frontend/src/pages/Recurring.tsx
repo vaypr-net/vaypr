@@ -563,6 +563,7 @@ ${companyName}`;
       paymentType: formData.paymentType,
       showBankDetails: formData.showBankDetails,
       bankDetails: formData.bankDetails,
+      autoSendReminder: formData.autoSendReminder,
     };
 
     try {
