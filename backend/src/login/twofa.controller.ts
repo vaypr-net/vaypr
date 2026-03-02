@@ -38,8 +38,9 @@ export class TwoFAController {
     const userId = req.user.sub || req.user._id;
     const verified = this.twoFAService.verifyToken(body.secret, body.token);
     if (!verified) throw new BadRequestException('Invalid token');
-    // Persist secret and enable flag
-    await this.userService.update(userId.toString(), { twoFactorSecret: body.secret, twoFactorEnabled: true } as any);
+    // IMPORTANT: The secret is already verified as valid TOTP, so we just store it as-is
+    // (It's not encrypted in this flow - frontend has already validated it)
+    await this.userService.update(userId.toString(), { twoFactorSecret: body.secret, twoFactorEnabled: true, twoFactorVerifiedAt: new Date() } as any);
     return { success: true };
   }
 
@@ -71,7 +72,7 @@ export class TwoFAController {
       // ignore session creation errors
     }
 
-    return { access_token: accessToken, user: { id: user._id, fullName: user.fullName, email: user.email } };
+    return { access_token: accessToken, user: { id: user._id, fullName: user.fullName, email: user.email, isSuperAdmin: user.isSuperAdmin || false } };
   }
 }
 

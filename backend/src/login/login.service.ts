@@ -53,7 +53,7 @@ export class LoginService {
         type: '2fa_pending',
       };
       const tempToken = this.jwtService.sign(tempPayload, { expiresIn: '5m' });
-      return { requires2fa: true, tempToken: tempToken };
+      return { two_factor_required: true, temp_token: tempToken };
     }
 
     // Generate JWT token with isSuperAdmin flag for performance
