@@ -87,10 +87,14 @@ export const buildBrandedEmailHtml = ({
           body { margin: 0; padding: 0; background: #f3f4f6; font-family: 'Segoe UI', Arial, sans-serif; color: #111827; }
           .container { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
           .card { background: #ffffff; border-radius: ${borderRadius}; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: ${cardShadow}; }
-          .hero { background: ${heroBackground}; color: ${templateStyle === 'minimal' ? '#111827' : '#ffffff'}; padding: 32px 28px; border-bottom: 1px solid #e5e7eb; }
-          .logo { max-height: 56px; max-width: 180px; object-fit: contain; display: block; margin-bottom: 14px; background: #ffffff; border-radius: 8px; padding: 6px; }
-          .hero h1 { margin: 0; font-size: 38px; font-weight: 700; letter-spacing: 0.2px; }
-          .hero p { margin: 10px 0 0; font-size: 14px; opacity: 0.95; }
+          .hero { background: ${heroBackground}; color: ${templateStyle === 'minimal' ? '#111827' : '#ffffff'}; padding: 20px 24px; border-bottom: 1px solid #e5e7eb; }
+          .brand-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+          .brand-logo-cell { width: 82px; vertical-align: middle; padding-right: 18px; }
+          .brand-name-cell { vertical-align: middle; }
+          .logo { width: 58px; height: 58px; object-fit: contain; display: block; background: #ffffff; border-radius: 8px; padding: 6px; }
+          .company-name { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: 0.1px; line-height: 1.15; font-family: 'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+          .doc-title-row { margin-top: 8px; }
+          .doc-title { margin: 0; font-size: 14px; font-weight: 500; opacity: 0.95; font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; display: block; }
           .content { padding: 28px; }
           .message-box { background: #f8fafc; border: 1px solid #e5e7eb; border-left: 6px solid ${safeColor}; border-radius: 14px; padding: 24px; margin: 0 0 18px; min-height: 240px; }
           .message-box p { margin: 10px 0; font-size: 16px; line-height: 1.75; color: #1f2937; }
@@ -104,9 +108,19 @@ export const buildBrandedEmailHtml = ({
         <div class="container">
           <div class="card">
             <div class="hero">
-              ${safeLogoUrl ? `<img src="${safeLogoUrl}" alt="Company logo" class="logo" />` : ''}
-              <h1>${safeTitle}</h1>
-              <p>${safeCompany}</p>
+              <table role="presentation" class="brand-table">
+                <tr>
+                  <td class="brand-logo-cell">
+                    ${safeLogoUrl ? `<img src="${safeLogoUrl}" alt="Company logo" class="logo" />` : ''}
+                  </td>
+                  <td class="brand-name-cell">
+                    <h1 class="company-name">${safeCompany}</h1>
+                  </td>
+                </tr>
+              </table>
+              <div class="doc-title-row">
+                <p class="doc-title">${safeTitle}</p>
+              </div>
             </div>
             <div class="content">
               <div class="message-box">
