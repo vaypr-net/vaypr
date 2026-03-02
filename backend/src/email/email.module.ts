@@ -6,12 +6,14 @@ import { EmailController } from './email.controller';
 import { GmailModule } from '../gmail/gmail.module';
 import { BrevoModule } from '../brevo/brevo.module';
 import { UserModule } from '../user/user.module';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
     GmailModule,
     BrevoModule,
     UserModule,
+    CloudinaryModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

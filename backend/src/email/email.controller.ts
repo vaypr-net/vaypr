@@ -1,7 +1,9 @@
-import { Controller, Post, Body, UseGuards, Request, HttpStatus, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, HttpStatus, HttpCode, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { IsEmail, IsNotEmpty, IsString, IsOptional } from 'class-validator';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { EmailRouterService } from './email-router.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 /**
  * DTO for sending email
@@ -37,7 +39,10 @@ class SendEmailDto {
  */
 @Controller('email')
 export class EmailController {
-  constructor(private readonly emailRouterService: EmailRouterService) {}
+  constructor(
+    private readonly emailRouterService: EmailRouterService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   /**
    * Send email via user's configured email service
@@ -74,5 +79,23 @@ export class EmailController {
     );
 
     return result;
+  }
+
+  @Post('upload-logo')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  @HttpCode(HttpStatus.OK)
+  async uploadLogo(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      return { success: false, message: 'No file uploaded' };
+    }
+
+    const result = await this.cloudinaryService.uploadImage(file, 'email-branding');
+    return {
+      success: true,
+      message: 'Logo uploaded successfully',
+      url: result?.secure_url || result?.url,
+      publicId: result?.public_id,
+    };
   }
 }
