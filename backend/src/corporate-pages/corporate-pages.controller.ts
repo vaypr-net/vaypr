@@ -173,6 +173,22 @@ export class CorporatePagesController {
     };
   }
 
+  @UseGuards(SuperAdminGuard)
+  @Post('admin/team/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadTeamMemberImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      return { message: 'No file uploaded' };
+    }
+    const result = await this.cloudinaryService.uploadImage(file, 'team-members');
+    return {
+      url: result?.secure_url,
+      publicId: result?.public_id,
+      originalName: file.originalname,
+      resourceType: result?.resource_type,
+    };
+  }
+
   /**
    * Protected endpoint - Update guide
    */
