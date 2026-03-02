@@ -32,10 +32,11 @@ export class UserprofileController {
     const profile = await this.userprofileService.findByUserId(userId);
     const user = await this.userService.findOne(userId);
     
-    // Merge user profile with isSuperAdmin flag
+    // Merge user profile with isSuperAdmin flag and 2FA status
     return {
       ...profile.toObject(),
       isSuperAdmin: user.isSuperAdmin || false,
+      twoFactorEnabled: user.twoFactorEnabled || false,
     };
   }
 
