@@ -959,7 +959,7 @@ ${companyName}`;
             setEmailLogoUrl('');
           }
         }}>
-          <DialogContent className="w-[96vw] max-w-3xl p-6 overflow-hidden">
+          <DialogContent className="w-[95vw] max-w-lg p-6 overflow-hidden">
             <DialogHeader>
               <DialogTitle>Send Invoice via Email</DialogTitle>
               <DialogDescription>
