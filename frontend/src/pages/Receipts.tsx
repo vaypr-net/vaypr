@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ChangeEvent } from 'react';
 import { format } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -69,6 +69,7 @@ import { ReceiptPreview } from '@/components/receipt/ReceiptPreview';
 import { ReceiptData } from '@/types/receipt';
 import { useDocumentActions } from '@/hooks/useDocumentActions';
 import { formatDateDMY } from '@/lib/document-date';
+import { buildBrandedEmailHtml, type EmailTemplateStyle } from '@/lib/branded-email-template';
 
 const CURRENCIES = [
   { value: 'USD', symbol: '$', label: 'USD ($)' },
@@ -106,6 +107,10 @@ export default function Receipts() {
   const [customSubject, setCustomSubject] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailTemplateStyle, setEmailTemplateStyle] = useState<EmailTemplateStyle>('modern');
+  const [emailAccentColor, setEmailAccentColor] = useState('#10b981');
+  const [emailLogoUrl, setEmailLogoUrl] = useState('');
+  const [isUploadingEmailLogo, setIsUploadingEmailLogo] = useState(false);
 
   const getReceiptCompanyName = (receipt?: ReceiptVoucher | null) =>
     receipt?.companyName ||
@@ -411,51 +416,15 @@ export default function Receipts() {
       
       const emailSubject = customSubject.trim() || `Receipt ${selectedReceipt.receiptNumber} from ${companyName}`;
       
-      // Convert custom message to HTML (preserve line breaks)
-      const messageHtml = customMessage
-        .split('\n')
-        .map(line => `<p>${line || '<br />'}</p>`)
-        .join('');
-
-      const emailBody = `
-        <html>
-          <head>
-            <style>
-              body { margin: 0; padding: 0; background: #f3f4f6; font-family: 'Segoe UI', Arial, sans-serif; color: #111827; }
-              .container { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
-              .card { background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 8px 30px rgba(16, 185, 129, 0.18); }
-              .hero { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff; padding: 28px 24px; }
-              .hero h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.2px; }
-              .hero p { margin: 8px 0 0; font-size: 13px; opacity: 0.92; }
-              .content { padding: 24px; }
-              .message-box { background: #f8fafc; border: 1px solid #e5e7eb; border-left: 4px solid #10b981; border-radius: 12px; padding: 18px; margin: 0 0 18px; }
-              .message-box p { margin: 8px 0; font-size: 14px; line-height: 1.65; color: #1f2937; }
-              .attachment { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; margin-top: 10px; font-size: 12px; color: #4b5563; }
-              .signature { margin-top: 18px; font-size: 13px; color: #374151; }
-              .signature strong { color: #111827; }
-              .footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 14px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="card">
-                <div class="hero">
-                  <h1>Receipt ${selectedReceipt.receiptNumber}</h1>
-                  <p>${companyName}</p>
-                </div>
-                <div class="content">
-                  <div class="message-box">
-                    ${messageHtml}
-                  </div>
-                  <div class="attachment">📎 Your receipt PDF is attached to this email</div>
-                  <div class="signature">Best regards,<br><strong>${companyName}</strong></div>
-                </div>
-              </div>
-              <p class="footer">Powered by VAYPR © 2026</p>
-            </div>
-          </body>
-        </html>
-      `;
+      const emailBody = buildBrandedEmailHtml({
+        emailTitle: `Receipt ${selectedReceipt.receiptNumber}`,
+        companyName,
+        message: customMessage,
+        accentColor: emailAccentColor,
+        templateStyle: emailTemplateStyle,
+        logoUrl: emailLogoUrl || undefined,
+        attachmentNote: 'Your receipt PDF is attached to this email.',
+      });
 
       // Step 3: Send email via Gmail or Brevo (based on user's branding domain)
       const result = await EmailService.sendEmail({
@@ -494,6 +463,30 @@ export default function Receipts() {
       });
     } finally {
       setIsSendingEmail(false);
+    }
+  };
+
+  const handleEmailLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingEmailLogo(true);
+    try {
+      const result = await EmailService.uploadLogo(file);
+      setEmailLogoUrl((result.url || '').trim());
+      toast({
+        title: 'Logo uploaded',
+        description: 'The logo will be used in this email template.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Logo upload failed',
+        description: error?.message || 'Failed to upload logo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingEmailLogo(false);
+      event.target.value = '';
     }
   };
 
@@ -741,6 +734,17 @@ export default function Receipts() {
                             const clientForReceipt = clientsArray.find((client) => client._id === receipt.clientId);
                             setClientEmail(clientForReceipt?.email || '');
                             setCustomSubject(`Receipt ${receipt.receiptNumber} from ${getReceiptCompanyName(receipt)}`);
+                            setCustomMessage(`Hi ${receipt.receivedFrom || 'there'},
+
+Please find your receipt attached with this email.
+
+If you have any questions, just reply to this message.
+
+Best regards,
+${getReceiptCompanyName(receipt)}`);
+                            setEmailAccentColor(receipt.titleColor || '#10b981');
+                            setEmailLogoUrl((receipt.logo || '').trim());
+                            setEmailTemplateStyle('modern');
                             setIsEmailDialogOpen(true);
                           }}>
                             <Mail className="h-4 w-4 mr-2" />
@@ -1038,9 +1042,12 @@ export default function Receipts() {
           setCustomMessage('');
           setCustomSubject('');
           setIsComposing(false);
+          setEmailTemplateStyle('modern');
+          setEmailAccentColor('#10b981');
+          setEmailLogoUrl('');
         }
       }}>
-        <DialogContent className="w-[95vw] max-w-lg p-6 overflow-hidden">
+        <DialogContent className="w-[96vw] max-w-3xl p-6 overflow-hidden">
           <DialogHeader>
             <DialogTitle>Send Receipt via Email</DialogTitle>
             <DialogDescription>
@@ -1099,9 +1106,58 @@ export default function Receipts() {
                   placeholder={`Receipt from ${getReceiptCompanyName(selectedReceipt)}`}
                   value={customSubject}
                   onChange={(e) => setCustomSubject(e.target.value)}
-                  className="text-sm"
+                  className="text-sm h-12"
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-sm">Template</Label>
+                  <Select value={emailTemplateStyle} onValueChange={(value) => setEmailTemplateStyle(value as EmailTemplateStyle)}>
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder="Select template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="modern">Modern</SelectItem>
+                      <SelectItem value="classic">Classic</SelectItem>
+                      <SelectItem value="minimal">Minimal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Accent Color</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="color"
+                      value={emailAccentColor}
+                      onChange={(e) => setEmailAccentColor(e.target.value)}
+                      className="h-12 w-16 p-1"
+                    />
+                    <Input
+                      value={emailAccentColor}
+                      onChange={(e) => setEmailAccentColor(e.target.value)}
+                      className="h-12"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Company Logo</Label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleEmailLogoUpload}
+                    disabled={isUploadingEmailLogo}
+                    className="h-12"
+                  />
+                </div>
+              </div>
+
+              {emailLogoUrl ? (
+                <div className="rounded-md border p-3 bg-muted/30">
+                  <p className="text-xs text-muted-foreground mb-2">Logo Preview</p>
+                  <img src={emailLogoUrl} alt="Email logo preview" className="h-12 object-contain" />
+                </div>
+              ) : null}
 
               {/* Message Field */}
               <div className="space-y-2">
@@ -1113,8 +1169,8 @@ export default function Receipts() {
                   placeholder="Write your message here..."
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
-                  rows={4}
-                  className="resize-none text-sm"
+                  rows={8}
+                  className="resize-y text-sm min-h-[220px]"
                 />
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <p className="text-xs text-muted-foreground">

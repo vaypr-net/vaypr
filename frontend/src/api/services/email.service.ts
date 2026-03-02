@@ -17,6 +17,13 @@ export interface SendEmailResponse {
   sentVia: 'gmail' | 'brevo'; // Shows which service was used
 }
 
+export interface UploadLogoResponse {
+  success: boolean;
+  message: string;
+  url: string;
+  publicId?: string;
+}
+
 /**
  * Email Service
  * 
@@ -56,6 +63,33 @@ class EmailServiceClass {
       }
       
       throw new Error(error.response?.data?.message || 'Failed to send email');
+    }
+  }
+
+  async uploadLogo(file: File): Promise<UploadLogoResponse> {
+    const token = localStorage.getItem('accessToken');
+
+    if (!token) {
+      throw new Error('Not authenticated. Please log in.');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await axios.post<UploadLogoResponse>(
+        `${API_URL}/email/upload-logo`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to upload logo');
     }
   }
 }

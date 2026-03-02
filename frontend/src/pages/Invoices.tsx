@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useInvoices as useInvoicesAPI, useCreateInvoice, useUpdateInvoice, useDeleteInvoice } from '@/hooks/api/useInvoices';
 import { useClients as useClientsAPI } from '@/hooks/api/useClients';
@@ -52,6 +52,7 @@ import { InvoiceData } from '@/types/invoice';
 import { useDocumentActions } from '@/hooks/useDocumentActions';
 import { formatDateDMY } from '@/lib/document-date';
 import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { buildBrandedEmailHtml, type EmailTemplateStyle } from '@/lib/branded-email-template';
 
 export default function Invoices() {
   const { user } = useAuth();
@@ -82,6 +83,10 @@ export default function Invoices() {
   const [isComposing, setIsComposing] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [invoiceForDownload, setInvoiceForDownload] = useState<Invoice | null>(null);
+  const [emailTemplateStyle, setEmailTemplateStyle] = useState<EmailTemplateStyle>('modern');
+  const [emailAccentColor, setEmailAccentColor] = useState('#6366f1');
+  const [emailLogoUrl, setEmailLogoUrl] = useState('');
+  const [isUploadingEmailLogo, setIsUploadingEmailLogo] = useState(false);
 
   const isRecurringInvoice = (invoice?: Invoice | null) =>
     Boolean((invoice as any)?.recurringId);
@@ -422,51 +427,15 @@ ${companyName}`;
       const companyName = getInvoiceCompanyName(selectedInvoice);
       const emailSubject = customSubject.trim() || getDefaultEmailSubject(selectedInvoice);
       
-      // Convert custom message to HTML (preserve line breaks)
-      const messageHtml = customMessage
-        .split('\n')
-        .map(line => `<p>${line || '<br />'}</p>`)
-        .join('');
-
-      const emailBody = `
-        <html>
-          <head>
-            <style>
-              body { margin: 0; padding: 0; background: #f3f4f6; font-family: 'Segoe UI', Arial, sans-serif; color: #111827; }
-              .container { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
-              .card { background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 8px 30px rgba(79, 70, 229, 0.12); }
-              .hero { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; padding: 28px 24px; }
-              .hero h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.2px; }
-              .hero p { margin: 8px 0 0; font-size: 13px; opacity: 0.92; }
-              .content { padding: 24px; }
-              .message-box { background: #f8fafc; border: 1px solid #e5e7eb; border-left: 4px solid #7c3aed; border-radius: 12px; padding: 18px; margin: 0 0 18px; }
-              .message-box p { margin: 8px 0; font-size: 14px; line-height: 1.65; color: #1f2937; }
-              .attachment { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; margin-top: 10px; font-size: 12px; color: #4b5563; }
-              .signature { margin-top: 18px; font-size: 13px; color: #374151; }
-              .signature strong { color: #111827; }
-              .footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 14px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="card">
-                <div class="hero">
-                  <h1>Invoice ${selectedInvoice.invoiceNumber}</h1>
-                  <p>${companyName}</p>
-                </div>
-                <div class="content">
-                  <div class="message-box">
-                    ${messageHtml}
-                  </div>
-                  <div class="attachment">Your PDF is attached below in this email.</div>
-                  <p class="signature">Best regards,<br/><strong>${companyName}</strong></p>
-                </div>
-              </div>
-              <p class="footer">Powered by VAYPR</p>
-            </div>
-          </body>
-        </html>
-      `;
+      const emailBody = buildBrandedEmailHtml({
+        emailTitle: `Invoice ${selectedInvoice.invoiceNumber}`,
+        companyName,
+        message: customMessage,
+        accentColor: emailAccentColor,
+        templateStyle: emailTemplateStyle,
+        logoUrl: emailLogoUrl || undefined,
+        attachmentNote: 'Your PDF is attached below in this email.',
+      });
 
       // Step 3: Send email via Gmail or Brevo (based on user's branding domain)
       const result = await EmailService.sendEmail({
@@ -499,6 +468,30 @@ ${companyName}`;
       });
     } finally {
       setIsSendingEmail(false);
+    }
+  };
+
+  const handleEmailLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingEmailLogo(true);
+    try {
+      const result = await EmailService.uploadLogo(file);
+      setEmailLogoUrl((result.url || '').trim());
+      toast({
+        title: 'Logo uploaded',
+        description: 'The logo will be used in this email template.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Logo upload failed',
+        description: error?.message || 'Failed to upload logo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingEmailLogo(false);
+      event.target.value = '';
     }
   };
 
@@ -657,6 +650,9 @@ ${companyName}`;
                               setClientEmail(invoice.billTo?.email || '');
                               setCustomSubject(getDefaultEmailSubject(invoice));
                               setCustomMessage(getDefaultEmailMessage(invoice));
+                              setEmailAccentColor(invoice.tableHeaderColor || '#6366f1');
+                              setEmailLogoUrl((invoice.logo || '').trim());
+                              setEmailTemplateStyle('modern');
                               setIsEmailDialogOpen(true);
                             }}>
                               <Mail className="h-4 w-4 mr-2" />
@@ -958,9 +954,12 @@ ${companyName}`;
             setCustomMessage('');
             setCustomSubject('');
             setIsComposing(false);
+            setEmailTemplateStyle('modern');
+            setEmailAccentColor('#6366f1');
+            setEmailLogoUrl('');
           }
         }}>
-          <DialogContent className="w-[95vw] max-w-lg p-6 overflow-hidden">
+          <DialogContent className="w-[96vw] max-w-3xl p-6 overflow-hidden">
             <DialogHeader>
               <DialogTitle>Send Invoice via Email</DialogTitle>
               <DialogDescription>
@@ -1019,9 +1018,58 @@ ${companyName}`;
                     placeholder={getDefaultEmailSubject(selectedInvoice)}
                     value={customSubject}
                     onChange={(e) => setCustomSubject(e.target.value)}
-                    className="text-sm"
+                    className="text-sm h-12"
                   />
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Template</Label>
+                    <Select value={emailTemplateStyle} onValueChange={(value) => setEmailTemplateStyle(value as EmailTemplateStyle)}>
+                      <SelectTrigger className="h-12">
+                        <SelectValue placeholder="Select template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="modern">Modern</SelectItem>
+                        <SelectItem value="classic">Classic</SelectItem>
+                        <SelectItem value="minimal">Minimal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Accent Color</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="color"
+                        value={emailAccentColor}
+                        onChange={(e) => setEmailAccentColor(e.target.value)}
+                        className="h-12 w-16 p-1"
+                      />
+                      <Input
+                        value={emailAccentColor}
+                        onChange={(e) => setEmailAccentColor(e.target.value)}
+                        className="h-12"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Company Logo</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEmailLogoUpload}
+                      disabled={isUploadingEmailLogo}
+                      className="h-12"
+                    />
+                  </div>
+                </div>
+
+                {emailLogoUrl ? (
+                  <div className="rounded-md border p-3 bg-muted/30">
+                    <p className="text-xs text-muted-foreground mb-2">Logo Preview</p>
+                    <img src={emailLogoUrl} alt="Email logo preview" className="h-12 object-contain" />
+                  </div>
+                ) : null}
 
                 {/* Message Field */}
                 <div className="space-y-2">
@@ -1033,8 +1081,8 @@ ${companyName}`;
                     placeholder="Write your message here..."
                     value={customMessage}
                     onChange={(e) => setCustomMessage(e.target.value)}
-                    rows={4}
-                    className="resize-none text-sm"
+                    rows={8}
+                    className="resize-y text-sm min-h-[220px]"
                   />
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <p className="text-xs text-muted-foreground">
