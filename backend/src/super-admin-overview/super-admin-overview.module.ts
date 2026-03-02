@@ -7,6 +7,7 @@ import { SuperAdminOverviewService } from './super-admin-overview.service';
 import { User, UserSchema } from '../user/entities/user.entity';
 import { Ticket, TicketSchema } from '../tickets/entities/ticket.entity';
 import { Transaction, TransactionSchema } from '../transcations/entities/transcation.entity';
+import { CurrencyService } from '../common/services/currency.service';
 
 @Module({
   imports: [
@@ -27,6 +28,6 @@ import { Transaction, TransactionSchema } from '../transcations/entities/transca
     }),
   ],
   controllers: [SuperAdminOverviewController],
-  providers: [SuperAdminOverviewService],
+  providers: [SuperAdminOverviewService, CurrencyService],
 })
 export class SuperAdminOverviewModule {}

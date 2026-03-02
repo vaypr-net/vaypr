@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { User } from '../user/entities/user.entity';
 import { Ticket } from '../tickets/entities/ticket.entity';
 import { Transaction } from '../transcations/entities/transcation.entity';
+import { CurrencyService } from '../common/services/currency.service';
 
 export interface TicketStatusCounts {
   open: number;
@@ -33,6 +34,7 @@ export class SuperAdminOverviewService {
     @InjectModel(User.name) private readonly userModel: Model<User>,
     @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
     @InjectModel(Transaction.name) private readonly transactionModel: Model<Transaction>,
+    private readonly currencyService: CurrencyService,
   ) {}
 
   async getStats(): Promise<SuperAdminOverviewStats> {
@@ -44,8 +46,7 @@ export class SuperAdminOverviewService {
       totalRegistered,
       canceledThisMonth,
       ticketStatus,
-      totalRevenueAgg,
-      revenueByPlanAgg,
+      allSucceededTransactions,
       subscribersByPlanAgg,
     ] = await Promise.all([
       this.userModel.countDocuments({ isSuperAdmin: { $ne: true } }),
@@ -54,20 +55,11 @@ export class SuperAdminOverviewService {
         subscriptionCanceledAt: { $gte: startOfMonth, $lt: startOfNextMonth },
       }),
       this.getTicketStatusCounts(),
-      this.transactionModel.aggregate([
-        { $match: { type: 'subscription', status: 'succeeded' } },
-        { $group: { _id: null, totalRevenue: { $sum: '$amount' } } },
-      ]),
-      this.transactionModel.aggregate([
-        { $match: { type: 'subscription', status: 'succeeded' } },
-        {
-          $group: {
-            _id: '$plan',
-            revenue: { $sum: '$amount' },
-          },
-        },
-        { $sort: { revenue: -1 } },
-      ]),
+      // Fetch ALL succeeded subscription transactions with their currency
+      this.transactionModel
+        .find({ type: 'subscription', status: 'succeeded' })
+        .select('amount currency plan')
+        .lean(),
       this.userModel.aggregate([
         { $match: { isSuperAdmin: { $ne: true } } },
         {
@@ -87,7 +79,25 @@ export class SuperAdminOverviewService {
       ]),
     ]);
 
-    const totalRevenue = totalRevenueAgg[0]?.totalRevenue || 0;
+    // Convert transactions and sum with proper currency conversion
+    const convertedTransactions = allSucceededTransactions.map((tx: any) => ({
+      ...tx,
+      convertedAmount: this.convertToDisplayAmount(tx.amount, tx.currency),
+    }));
+
+    // Calculate total revenue from all succeeded transactions (now in display currency)
+    const totalRevenue = convertedTransactions.reduce(
+      (sum: number, tx: any) => sum + (tx.convertedAmount || 0),
+      0,
+    );
+
+    // Calculate revenue by plan
+    const revenueByPlanMap = new Map<string, number>();
+    convertedTransactions.forEach((tx: any) => {
+      const plan = tx.plan || 'Unknown';
+      revenueByPlanMap.set(plan, (revenueByPlanMap.get(plan) || 0) + (tx.convertedAmount || 0));
+    });
+
     const openTickets = ticketStatus.open + ticketStatus.pending + ticketStatus.inProgress;
 
     const planSubscriberMap = new Map<string, number>(
@@ -97,13 +107,14 @@ export class SuperAdminOverviewService {
       ]),
     );
 
-    const revenueByPlanData = revenueByPlanAgg.map(
-      (item: { _id: string; revenue: number }) => ({
-        plan: item._id || 'Unknown',
-        revenue: item.revenue || 0,
-        subscribers: planSubscriberMap.get(item._id || 'Unknown') || 0,
-      }),
-    );
+    // Build revenue by plan data with converted amounts
+    const revenueByPlanData = Array.from(revenueByPlanMap.entries())
+      .map(([plan, revenue]) => ({
+        plan: plan || 'Unknown',
+        revenue: Math.round(revenue * 100) / 100, // Round to 2 decimals
+        subscribers: planSubscriberMap.get(plan || 'Unknown') || 0,
+      }))
+      .sort((a, b) => b.revenue - a.revenue); // Sort by revenue descending
 
     const planColors = [
       'hsl(217, 91%, 60%)',
@@ -126,7 +137,7 @@ export class SuperAdminOverviewService {
       kpis: {
         totalRegistered,
         canceledThisMonth,
-        totalRevenue,
+        totalRevenue: Math.round(totalRevenue * 100) / 100, // Round to 2 decimals
         openTickets,
       },
       ticketsByStatus: ticketStatus,
@@ -138,6 +149,18 @@ export class SuperAdminOverviewService {
       revenueByPlanData,
       planDistributionData,
     };
+  }
+
+  /**
+   * Convert amount from any currency to display currency (like in TransactionsService)
+   */
+  private convertToDisplayAmount(amount: number, currency?: string): number {
+    const source = (currency || '').toUpperCase();
+    const display = this.currencyService.getDisplayCurrency();
+    if (!source || source === display) {
+      return Math.round((Number(amount) || 0) * 100) / 100;
+    }
+    return this.currencyService.convert(Number(amount) || 0, source, display);
   }
 
   private async getTicketStatusCounts(): Promise<TicketStatusCounts> {
