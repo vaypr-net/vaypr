@@ -47,8 +47,11 @@ export class ContactController {
     private configService: ConfigService,
     @InjectModel(SuperAdminSettings.name) private superAdminSettingsModel: Model<SuperAdminSettings>,
   ) {
-    // Get API key from environment or hardcoded
-    this.brevoApiKey = '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';
+    // Get API key from environment variables
+    this.brevoApiKey = this.configService.get('BREVO_API_KEY') as string;
+    if (!this.brevoApiKey) {
+      throw new Error('BREVO_API_KEY is not defined in environment variables');
+    }
   }
 
   /**

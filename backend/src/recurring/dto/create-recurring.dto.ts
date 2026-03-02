@@ -17,6 +17,7 @@ import { PaymentMethodType } from '../../invoice/enums/payment-method.enum';
 import { RecurringItemDto } from './recurring-item.dto';
 import { CompanyFooterDto } from '../../invoice/dto/company-footer.dto';
 import { BankAccountDto } from '../../invoice/dto/bank-account.dto';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateRecurringDto {
   @IsMongoId()
@@ -123,4 +124,9 @@ export class CreateRecurringDto {
   @Type(() => BankAccountDto)
   @IsOptional()
   bankDetails?: BankAccountDto;
+
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  @IsOptional()
+  autoSendReminder?: boolean;
 }

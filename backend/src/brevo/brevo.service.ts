@@ -28,9 +28,12 @@ export class BrevoService {
     private httpService: HttpService,
     private activityService: ActivityService,
   ) {
-    this.brevoApiUrl = 'https://api.brevo.com/v3';
-    this.brevoApiKey = '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';
+    this.brevoApiUrl = this.configService.get('BREVO_API_URL') || 'https://api.brevo.com/v3';
+    this.brevoApiKey = this.configService.get('BREVO_API_KEY') as string;
     
+    if (!this.brevoApiKey) {
+      throw new Error('BREVO_API_KEY is not defined in environment variables');
+    }
     console.log('[Brevo] API Key configured:', this.brevoApiKey ? 'YES' : 'NO');
   }
 

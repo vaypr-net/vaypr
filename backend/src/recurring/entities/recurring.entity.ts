@@ -69,6 +69,9 @@ export class Recurring extends BaseEntity {
 
   @Prop({ type: BankAccount })
   bankDetails: BankAccount;
+
+  @Prop({ default: false })
+  autoSendReminder: boolean;
 }
 
 export const RecurringSchema = SchemaFactory.createForClass(Recurring);
