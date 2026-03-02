@@ -136,6 +136,13 @@ export interface CreateCouponDto {
 
 export interface UpdateCouponDto extends Partial<CreateCouponDto> {}
 
+export interface SendAffiliateEmailDto {
+  affiliateId?: string;
+  referralId?: string;
+  subject: string;
+  message: string;
+}
+
 // ==================== SERVICE ====================
 
 const BASE_URL = '/super-admin/affiliates';
@@ -336,6 +343,13 @@ export const AffiliateService = {
       affiliateId,
       referralIds,
     });
+    console.log('✅ API Response:', response.data);
+    return response.data;
+  },
+
+  async sendAffiliateEmail(data: SendAffiliateEmailDto): Promise<any> {
+    log('POST', `${BASE_URL}/notify-affiliate`, data);
+    const response = await axios.post(`${BASE_URL}/notify-affiliate`, data);
     console.log('✅ API Response:', response.data);
     return response.data;
   },

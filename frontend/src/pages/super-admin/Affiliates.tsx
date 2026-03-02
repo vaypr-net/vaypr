@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users2, DollarSign, TrendingUp, Gift, Eye, Plus, Pencil, Trash2, MoreHorizontal } from "lucide-react";
+import { Users2, DollarSign, TrendingUp, Gift, Eye, Plus, Pencil, Trash2, MoreHorizontal, Mail } from "lucide-react";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
 import { DataTable } from "@/components/super-admin/DataTable";
 import { StatusBadge } from "@/components/super-admin/StatusBadge";
@@ -12,6 +12,10 @@ import { CommissionPlanDialog } from "@/components/super-admin/affiliates/Commis
 import { CouponDialog } from "@/components/super-admin/affiliates/CouponDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { AffiliateService } from "@/api/services/affiliate.service";
 import {
@@ -32,6 +36,7 @@ import {
   useGetReferrals,
   useApproveReferral,
   useProcessPayouts,
+  useSendAffiliateEmail,
 } from "@/hooks/api/useAffiliates";
 import {
   Affiliate,
@@ -78,6 +83,7 @@ export default function Affiliates() {
   const { data: referralsData, isLoading: referralsLoading } = useGetReferrals(undefined, undefined, 100);
   const approveReferralMutation = useApproveReferral();
   const payoutMutation = useProcessPayouts();
+  const sendAffiliateEmailMutation = useSendAffiliateEmail();
 
   // Dialog states
   const [affiliateDialogOpen, setAffiliateDialogOpen] = useState(false);
@@ -93,6 +99,10 @@ export default function Affiliates() {
   const [deleteAffiliateId, setDeleteAffiliateId] = useState<string | null>(null);
   const [deletePlanId, setDeletePlanId] = useState<string | null>(null);
   const [deleteCouponId, setDeleteCouponId] = useState<string | null>(null);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [selectedReferralForEmail, setSelectedReferralForEmail] = useState<Referral | null>(null);
+  const [affiliateEmailSubject, setAffiliateEmailSubject] = useState("");
+  const [affiliateEmailMessage, setAffiliateEmailMessage] = useState("");
 
   // ==================== AFFILIATE HANDLERS ====================
 
@@ -219,6 +229,46 @@ export default function Affiliates() {
     } catch (error) {
       console.error("Error processing payouts:", error);
     }
+  };
+
+  const handleOpenAffiliateEmailDialog = (ref: Referral) => {
+    const commissionText = formatCurrency(ref.commission || 0);
+    setSelectedReferralForEmail(ref);
+    setAffiliateEmailSubject(`Referral & Commission Update - ${ref.subscriberName}`);
+    setAffiliateEmailMessage(
+      `Hi ${ref.affiliateName},
+
+Referral update for ${ref.subscriberName} (${ref.plan}):
+- Commission: ${commissionText}
+- Current status: ${ref.status}
+
+Please reply to this email with your payout account details so we can process your commission payout.
+
+Regards,
+Support Team`
+    );
+    setEmailDialogOpen(true);
+  };
+
+  const handleSendAffiliateEmail = async () => {
+    if (!selectedReferralForEmail) return;
+    const subject = affiliateEmailSubject.trim();
+    const message = affiliateEmailMessage.trim();
+    if (!subject || !message) {
+      toast.error("Subject and message are required");
+      return;
+    }
+
+    await sendAffiliateEmailMutation.mutateAsync({
+      affiliateId: selectedReferralForEmail.affiliateId,
+      referralId: selectedReferralForEmail._id,
+      subject,
+      message,
+    });
+    setEmailDialogOpen(false);
+    setSelectedReferralForEmail(null);
+    setAffiliateEmailSubject("");
+    setAffiliateEmailMessage("");
   };
 
   // ==================== TABLE COLUMNS ====================
@@ -553,6 +603,14 @@ export default function Affiliates() {
                           Pay
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenAffiliateEmailDialog(ref)}
+                      >
+                        <Mail className="w-4 h-4 mr-1" />
+                        Email
+                      </Button>
                       <div>
                       <p className="font-medium">{formatCurrency(ref.commission)}</p>
                       <StatusBadge status={ref.status === "approved" ? "active" : ref.status === "paid" ? "succeeded" : "pending"} />
@@ -666,6 +724,53 @@ export default function Affiliates() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Send Affiliate Email</DialogTitle>
+            <DialogDescription>
+              Send a referral/commission update email. Replies will go to your configured Support Email.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedReferralForEmail ? (
+              <div className="rounded border p-3 bg-muted/20 text-sm">
+                <p className="font-medium">{selectedReferralForEmail.affiliateName}</p>
+                <p className="text-muted-foreground">
+                  Referral: {selectedReferralForEmail.subscriberName} ({selectedReferralForEmail.plan})
+                </p>
+              </div>
+            ) : null}
+            <div className="space-y-2">
+              <Label>Subject</Label>
+              <Input
+                value={affiliateEmailSubject}
+                onChange={(e) => setAffiliateEmailSubject(e.target.value)}
+                placeholder="Enter email subject"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea
+                rows={8}
+                value={affiliateEmailMessage}
+                onChange={(e) => setAffiliateEmailMessage(e.target.value)}
+                placeholder="Write your message..."
+                className="min-h-[220px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendAffiliateEmail} disabled={sendAffiliateEmailMutation.isPending}>
+              {sendAffiliateEmailMutation.isPending ? "Sending..." : "Send Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

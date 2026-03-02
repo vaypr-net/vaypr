@@ -437,3 +437,25 @@ export function useProcessPayouts() {
     },
   });
 }
+
+export function useSendAffiliateEmail() {
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (data: { affiliateId?: string; referralId?: string; subject: string; message: string }) =>
+      AffiliateService.sendAffiliateEmail(data),
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'Affiliate email sent successfully.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to send affiliate email.',
+        variant: 'destructive',
+      });
+    },
+  });
+}
