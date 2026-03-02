@@ -263,6 +263,23 @@ export const corporatePagesService = {
     return response.data;
   },
 
+  uploadTeamMemberImage: async (file: File): Promise<{ url: string; publicId?: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await axios.post<{ url: string; publicId?: string }>(
+      `${API_BASE_URL}/corporate/admin/team/upload`,
+      formData,
+      {
+        ...getAuthHeaders(),
+        headers: {
+          ...getAuthHeaders().headers,
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
+    return response.data;
+  },
+
   updateGuide: async (id: string, data: UpdateGuideDto): Promise<Guide> => {
     const response = await axios.patch<Guide>(
       `${API_BASE_URL}/corporate/admin/guides/${id}`,

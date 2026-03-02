@@ -472,6 +472,7 @@ function CorporatePagesEditor() {
     fileUrl: "",
   });
   const [isUploadingGuideFile, setIsUploadingGuideFile] = useState(false);
+  const [uploadingTeamImageKey, setUploadingTeamImageKey] = useState<string | null>(null);
 
   const inferFileType = (_file: File): "pdf" | "image" => "pdf";
 
@@ -514,6 +515,36 @@ function CorporatePagesEditor() {
       });
     } finally {
       setIsUploadingGuideFile(false);
+    }
+
+    e.target.value = "";
+  };
+
+  const handleTeamImageUpload = async (pageId: string, index: number, e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const uploadKey = `${pageId}-${index}`;
+    setUploadingTeamImageKey(uploadKey);
+    try {
+      const uploaded = await corporatePagesService.uploadTeamMemberImage(file);
+      const imageUrl = uploaded?.url || "";
+      if (!imageUrl) {
+        throw new Error("No upload URL returned");
+      }
+      updateContentArrayItem(pageId, "team", index, "imageUrl", imageUrl);
+      toast({
+        title: "Image uploaded",
+        description: `${file.name} uploaded successfully.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error?.response?.data?.message || error?.message || "Failed to upload team member image.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingTeamImageKey(null);
     }
 
     e.target.value = "";
@@ -1177,7 +1208,7 @@ function CorporatePagesEditor() {
                               variant="outline"
                               size="sm"
                               className="h-7 text-xs"
-                              onClick={() => addContentArrayItem(page._id, "team", { name: "", role: "", bio: "" })}
+                              onClick={() => addContentArrayItem(page._id, "team", { name: "", role: "", bio: "", imageUrl: "" })}
                             >
                               <Plus className="w-3 h-3 mr-1" /> Add Card
                             </Button>
@@ -1210,6 +1241,25 @@ function CorporatePagesEditor() {
                                 value={item.bio || ""}
                                 onChange={(e) => updateContentArrayItem(page._id, "team", idx, "bio", e.target.value)}
                               />
+                              <div className="space-y-2">
+                                <Label className="text-xs">Team Member Image</Label>
+                                {item.imageUrl ? (
+                                  <img
+                                    src={item.imageUrl}
+                                    alt={item.name || `Team member ${idx + 1}`}
+                                    className="h-16 w-16 rounded-full object-cover border"
+                                  />
+                                ) : null}
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleTeamImageUpload(page._id, idx, e)}
+                                  disabled={uploadingTeamImageKey === `${page._id}-${idx}`}
+                                />
+                                {uploadingTeamImageKey === `${page._id}-${idx}` ? (
+                                  <p className="text-[11px] text-muted-foreground">Uploading image...</p>
+                                ) : null}
+                              </div>
                             </div>
                           ))}
                         </div>

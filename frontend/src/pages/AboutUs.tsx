@@ -132,7 +132,7 @@ export default function AboutUs() {
       return true;
     });
   };
-  const team = dedupeByContent(content?.team || defaultContent.team, ["name", "role", "bio"]);
+  const team = dedupeByContent(content?.team || defaultContent.team, ["name", "role", "bio", "imageUrl"]);
   const recognitionItems = dedupeByContent(
     content?.recognitionItems || defaultContent.recognitionItems,
     ["name", "category"],
@@ -308,11 +308,19 @@ export default function AboutUs() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
             {team.map((member, idx) => (
               <div key={idx} className="bg-card border border-border rounded-xl p-6 text-center">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl font-display font-bold text-primary">
-                    {member.name.split(' ').map(n => n[0]).join('')}
-                  </span>
-                </div>
+                {member.imageUrl ? (
+                  <img
+                    src={member.imageUrl}
+                    alt={member.name}
+                    className="w-20 h-20 rounded-full object-cover mx-auto mb-4 border border-border"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-display font-bold text-primary">
+                      {member.name.split(' ').map(n => n[0]).join('')}
+                    </span>
+                  </div>
+                )}
                 <h3 className="font-semibold text-foreground">{member.name}</h3>
                 <p className="text-sm text-primary mb-2">{member.role}</p>
                 <p className="text-sm text-muted-foreground">{member.bio}</p>
