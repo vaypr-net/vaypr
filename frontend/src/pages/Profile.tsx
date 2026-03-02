@@ -218,6 +218,8 @@ export default function Profile() {
   const [twoFASetup, setTwoFASetup] = useState<any | null>(null);
   const [twoFACode, setTwoFACode] = useState('');
   const [isEnabling2FA, setIsEnabling2FA] = useState(false);
+  const [isTwoFAEnabled, setIsTwoFAEnabled] = useState<boolean>((user as any)?.twoFactorEnabled || false);
+  const [showTwoFASuccess, setShowTwoFASuccess] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState<BillingPlan | null>(null);
 
@@ -415,12 +417,18 @@ export default function Profile() {
         // Set superadmin flag
         setIsSuperAdmin(profile?.isSuperAdmin || false);
 
+        // Sync 2FA status from profile
+        if (profile?.twoFactorEnabled !== undefined) {
+          setIsTwoFAEnabled(profile.twoFactorEnabled);
+        }
+
         updateUser({
           ...user,
           fullName: profile?.fullName || user.fullName,
           name: profile?.fullName || user.name || user.fullName,
           email: profile?.email || user.email,
           avatar: user.avatar || profile?.profileImage,
+          twoFactorEnabled: profile?.twoFactorEnabled || false,
         } as any);
       } catch {
         // No userprofile yet is valid for some manual users; keep current form defaults.
@@ -731,7 +739,11 @@ export default function Profile() {
 
   useEffect(() => {
     fetchSessions();
-  }, []);
+    // Sync 2FA status from user object
+    if (user?.id) {
+      setIsTwoFAEnabled((user as any)?.twoFactorEnabled || false);
+    }
+  }, [user?.id]);
 
   return (
     <DashboardLayout>
@@ -1408,22 +1420,34 @@ export default function Profile() {
                   </Dialog>
                 </div>
 
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <h4 className="font-medium">Two-Factor Authentication</h4>
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-blue-50/50 to-transparent">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium">Two-Factor Authentication</h4>
+                      {isTwoFAEnabled && (
+                        <Badge className="bg-green-100 text-green-800 hover:bg-green-100 flex items-center gap-1">
+                          <Check className="h-3 w-3" />
+                          Enabled
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">
-                      Add an extra layer of security to your account
+                      {isTwoFAEnabled ? '✓ Your account is now protected with 2FA' : 'Add an extra layer of security to your account'}
                     </p>
                   </div>
-                  <Button variant="outline" onClick={async () => {
-                    try {
-                      const res = await axios.get('/auth/2fa/setup');
-                      setTwoFASetup(res.data);
-                      setIs2FASetupOpen(true);
-                    } catch (e) {
-                      toast({ title: 'Failed to initialize 2FA', variant: 'destructive' });
-                    }
-                  }}>Enable 2FA</Button>
+                  <Button 
+                    variant={isTwoFAEnabled ? 'ghost' : 'outline'}
+                    onClick={async () => {
+                      try {
+                        const res = await axios.get('/auth/2fa/setup');
+                        setTwoFASetup(res.data);
+                        setIs2FASetupOpen(true);
+                      } catch (e) {
+                        toast({ title: 'Failed to initialize 2FA', variant: 'destructive' });
+                      }
+                    }}>
+                    {isTwoFAEnabled ? '✓ Enabled' : 'Enable 2FA'}
+                  </Button>
                 </div>
 
                 <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -1814,14 +1838,43 @@ export default function Profile() {
             <DialogDescription>Scan the QR with your authenticator app and enter the 6-digit code.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            {twoFASetup ? (
+            {showTwoFASuccess ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center animate-pulse">
+                  <Check className="w-8 h-8 text-green-600" />
+                </div>
+                <div className="text-center">
+                  <h3 className="font-semibold text-green-700 mb-1">2FA Successfully Enabled! 🎉</h3>
+                  <p className="text-sm text-muted-foreground">Your account is now protected with two-factor authentication.</p>
+                </div>
+              </div>
+            ) : twoFASetup ? (
               <div className="flex flex-col items-center gap-3">
-                <img src={twoFASetup.qr} alt="2FA QR" className="w-40 h-40" />
-                <p className="text-xs text-muted-foreground">Secret: <span className="font-mono">{twoFASetup.secret}</span></p>
-                <Input value={twoFACode} onChange={(e) => setTwoFACode(e.target.value)} placeholder="Enter 6-digit code" />
+                <div className="text-center mb-2">
+                  <h3 className="text-sm font-semibold mb-1">Scan QR Code</h3>
+                  <p className="text-xs text-muted-foreground">Use Google Authenticator, Authy, or Microsoft Authenticator</p>
+                </div>
+                <img src={twoFASetup.qr} alt="2FA QR" className="w-40 h-40 border border-gray-200 rounded-lg p-2" />
+                <div className="w-full text-center">
+                  <p className="text-xs text-muted-foreground mb-2">Can't scan? Enter manually:</p>
+                  <p className="text-xs font-mono bg-muted p-2 rounded text-center break-all">{twoFASetup.secret}</p>
+                </div>
+                <div className="w-full">
+                  <p className="text-xs text-muted-foreground mb-2">Enter the 6-digit code:</p>
+                  <Input 
+                    value={twoFACode} 
+                    onChange={(e) => setTwoFACode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} 
+                    placeholder="000000" 
+                    maxLength={6}
+                    className="text-center text-lg tracking-widest font-mono"
+                  />
+                </div>
               </div>
             ) : (
-              <div className="text-center text-muted-foreground py-6">Initializing...</div>
+              <div className="text-center text-muted-foreground py-6 flex flex-col items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Initializing...
+              </div>
             )}
           </div>
           <DialogFooter>
@@ -1831,8 +1884,17 @@ export default function Profile() {
               setIsEnabling2FA(true);
               try {
                 await axios.post('/auth/2fa/enable', { secret: twoFASetup.secret, token: twoFACode });
-                toast({ title: 'Two-Factor Authentication enabled' });
-                setIs2FASetupOpen(false);
+                setIsTwoFAEnabled(true);
+                setShowTwoFASuccess(true);
+                setTwoFACode('');
+                setTimeout(() => {
+                  setIs2FASetupOpen(false);
+                  setShowTwoFASuccess(false);
+                }, 2000);
+                toast({ 
+                  title: '✅ Two-Factor Authentication Enabled!', 
+                  description: 'Your account is now protected. You will be asked for a 6-digit code on next login.' 
+                });
               } catch (e) {
                 toast({ title: 'Failed to enable 2FA', variant: 'destructive' });
               } finally {
