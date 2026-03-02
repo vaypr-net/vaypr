@@ -87,6 +87,7 @@ const PAYMENT_METHODS = [
   { value: 'check', label: 'Check' },
   { value: 'other', label: 'Other' },
 ];
+const RECEIPT_EXPORT_FIT_SCALE = 0.76;
 
 export default function Receipts() {
   const { user } = useAuth();
@@ -289,7 +290,7 @@ export default function Receipts() {
       onComplete?.();
       return;
     }
-    downloadPDF(elementId, filename, onComplete, { fitToPage: true });
+    downloadPDF(elementId, filename, onComplete, { fitToPage: true, fitScale: RECEIPT_EXPORT_FIT_SCALE });
   };
 
   const waitForElementAndPrintPdf = async (elementId: string, filename: string) => {
@@ -302,7 +303,7 @@ export default function Receipts() {
       });
       return;
     }
-    printPDF(elementId, filename, { fitToPage: true });
+    printPDF(elementId, filename, { fitToPage: true, fitScale: RECEIPT_EXPORT_FIT_SCALE });
   };
 
   const handleDownloadReceiptPdf = async (receipt: ReceiptVoucher) => {
@@ -408,7 +409,7 @@ export default function Receipts() {
 
       const pdfBase64 = await generatePdfBase64('receipt-preview-email', {
         fitToPage: true,
-        fitScale: 0.85,
+        fitScale: RECEIPT_EXPORT_FIT_SCALE,
       });
 
       // Step 2: Create HTML email body with custom message
@@ -1190,6 +1191,7 @@ ${getReceiptCompanyName(receipt)}`);
               <ReceiptPreview
                 previewId="receipt-preview-email"
                 data={mapReceiptToPreviewData(selectedReceipt)}
+                compact
               />
             </div>
           )}
@@ -1259,6 +1261,7 @@ ${getReceiptCompanyName(receipt)}`);
           <ReceiptPreview
             previewId="receipt-preview-download"
             data={mapReceiptToPreviewData(receiptForDownload)}
+            compact
           />
         </div>
       )}
