@@ -242,6 +242,7 @@ export interface RecurringBilling {
   total: number;
   currency: string;
   isActive: boolean;
+  autoSendReminder?: boolean;
   createdAt: string;
   lastGeneratedAt?: string;
   // Extended fields for invoice generation

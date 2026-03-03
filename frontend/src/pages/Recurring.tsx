@@ -84,6 +84,7 @@ export default function Recurring() {
     total: r.total,
     currency: r.currency || 'KWD',
     isActive: r.isActive,
+    autoSendReminder: r.autoSendReminder || false,
     createdAt: r.createdAt,
     lastGeneratedAt: r.lastGeneratedAt,
     logo: r.logo,
@@ -324,6 +325,7 @@ ${companyName}`;
       total: formData.grandTotal,
       currency: 'KWD',
       isActive: true,
+      autoSendReminder: formData.autoSendReminder,
       logoScale: formData.logoScale,
       showPaymentTerms: formData.showPaymentTerms,
       paymentTerms: formData.paymentTerms,
@@ -491,7 +493,7 @@ ${companyName}`;
       clientEmail: client?.email || '',
       frequency: recurring.frequency,
       nextBillingDate: formatDateForInput(recurring.nextBillingDate),
-      autoSendReminder: true,
+      autoSendReminder: recurring.autoSendReminder || false,
       paymentType: recurring.paymentType || 'cash',
       showBankDetails: recurring.showBankDetails || false,
       bankDetails: recurring.bankDetails || {
@@ -555,6 +557,7 @@ ${companyName}`;
       total: formData.grandTotal,
       currency: 'KWD',
       isActive: true,
+      autoSendReminder: formData.autoSendReminder,
       logoScale: formData.logoScale,
       showPaymentTerms: formData.showPaymentTerms,
       paymentTerms: formData.paymentTerms,
@@ -563,8 +566,7 @@ ${companyName}`;
       paymentType: formData.paymentType,
       showBankDetails: formData.showBankDetails,
       bankDetails: formData.bankDetails,
-      autoSendReminder: formData.autoSendReminder,
-    };
+    }
 
     try {
       // Convert base64 logo to File if exists and changed
