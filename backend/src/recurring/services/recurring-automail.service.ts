@@ -7,7 +7,9 @@ import { User } from '../../user/entities/user.entity';
 import { Client } from '../../clients/entities/client.entity';
 import { UserProfile } from '../../userprofile/entities/userprofile.entity';
 import { BrevoService } from '../../brevo/brevo.service';
+import { PdfGeneratorService } from '../../common/services/pdf-generator.service';
 import { RecurringFrequency } from '../enums/recurring-frequency.enum';
+import { buildBrandedEmailHtml } from '../../common/utils/branded-email-template';
 
 @Injectable()
 export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
@@ -21,6 +23,7 @@ export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
     @InjectModel(Client.name) private clientModel: Model<Client>,
     @InjectModel(UserProfile.name) private userProfileModel: Model<UserProfile>,
     private readonly brevoService: BrevoService,
+    private readonly pdfGeneratorService: PdfGeneratorService,
   ) {}
 
   onModuleInit() {
@@ -178,6 +181,14 @@ export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
+      // Map recurring items to invoice items format (add unitPrice)
+      const invoiceItems = recurring.items.map((item: any) => ({
+        description: item.description,
+        quantity: item.quantity || 1,
+        unitPrice: item.rate || item.unitPrice || 0,
+        amount: item.amount || (item.rate * (item.quantity || 1)) || 0,
+      }));
+
       // Generate invoice for this recurring billing
       const invoiceData = {
         userId: recurring.userId,
@@ -185,16 +196,26 @@ export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
         issueDate: new Date(),
         dueDate: recurring.nextBillingDate,
         invoiceNumber: `AUTO-${Date.now()}`,
-        items: recurring.items,
+        items: invoiceItems,
         subtotal: recurring.subtotal,
         tax: recurring.tax,
         total: recurring.total,
         currency: recurring.currency,
-        status: 'pending',
+        status: 'draft',
+        billTo: {
+          name: client.name || 'Client',
+          phone: client.phone,
+          area: client.area,
+          block: client.block,
+          street: client.street,
+          house: client.house,
+          other: client.other,
+        },
         companyFooter: recurring.companyFooter,
         paymentMethodType: recurring.paymentType,
         bankAccount: recurring.bankDetails,
         showBankAccount: recurring.showBankDetails,
+        showPaymentMethod: !!recurring.paymentType,
         showPaymentTerms: recurring.showPaymentTerms,
         paymentTerms: recurring.paymentTerms,
         logo: recurring.logo,
@@ -207,34 +228,52 @@ export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log(`[Recurring Automail] Generated invoice ${invoice._id} for recurring ${recurring._id}`);
 
-      // Prepare email content
+      // Prepare email content using the same branded template as manual send
       const companyName = recurring.companyFooter?.companyName || 'VAYPR';
       const frequencyLabel = this.getFrequencyLabel(recurring.frequency);
-      const defaultMessage = `Hi ${client.name},
+      const clientGreeting = client.name || 'Client';
+      
+      const defaultMessage = `Hi ${clientGreeting},
 
 This is your ${frequencyLabel.toLowerCase()} subscription invoice.
-Please find your invoice PDF attached with this email.
+Please find your invoice attached with this email.
 
 If you have any questions, just reply to this message.
 
 Best regards,
 ${companyName}`;
 
-      // Simple HTML email template
-      const emailBody = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #333;">${frequencyLabel} Subscription Invoice</h2>
-          <p style="color: #666; line-height: 1.6;">${defaultMessage.replace(/\n/g, '<br>')}</p>
-          <p style="color: #999; font-size: 12px; margin-top: 30px;">Your PDF invoice is attached below in this email.</p>
-        </div>
-      `;
+      // Use the same branded email template as manual send
+      const emailBody = buildBrandedEmailHtml({
+        emailTitle: `${frequencyLabel} Subscription Invoice`,
+        companyName,
+        message: defaultMessage,
+        accentColor: recurring.itemHeaderColor || '#6366f1',
+        templateStyle: 'modern',
+        logoUrl: recurring.logo || undefined,
+        attachmentNote: 'Your PDF invoice is attached with this email.',
+      });
 
-      // Send email
+      // Generate PDF for the invoice
+      let pdfBase64: string | undefined;
+      let pdfFilename: string | undefined;
+      try {
+        pdfBase64 = await this.pdfGeneratorService.generateInvoicePdf(invoice.toObject ? invoice.toObject() : invoice);
+        pdfFilename = `Invoice_${invoice.invoiceNumber || 'subscription'}.pdf`;
+        this.logger.log(`[Recurring Automail] Generated PDF for invoice ${invoice._id}`);
+      } catch (pdfError) {
+        this.logger.warn(`[Recurring Automail] Failed to generate PDF, sending without attachment: ${pdfError}`);
+        // Continue sending email without PDF if generation fails
+      }
+
+      // Send email via Brevo (same service as manual send) with PDF attachment
       await this.brevoService.sendEmail(
         user?.email || 'noreply@vaypr.com',
         client.email,
-        `Subscription Invoice from ${companyName}`,
+        `${frequencyLabel} Subscription Invoice from ${companyName}`,
         emailBody,
+        pdfBase64,
+        pdfFilename,
       );
 
       this.logger.log(`[Recurring Automail] Email sent to ${client.email} for recurring ${recurring._id}`);
@@ -262,6 +301,85 @@ ${companyName}`;
         `[Recurring Automail] Failed to process recurring automail:`,
         error,
       );
+      throw error;
+    }
+  }
+
+  // Public test method to manually trigger automail check (for development/testing)
+  async testTriggerRecurringAutomail() {
+    this.logger.warn('[Recurring Automail] TEST TRIGGER - Running automail check now (ignoring timezone)');
+    
+    try {
+      // Find all recurring billings with autoSendReminder enabled
+      const recurringBillings = await this.recurringModel
+        .find({
+          isActive: true,
+          autoSendReminder: true,
+          isDeleted: false,
+        })
+        .populate('userId')
+        .populate('clientId')
+        .exec();
+
+      this.logger.log(`[Recurring Automail] TEST - Checking ${recurringBillings.length} recurring billings...`);
+
+      let processed = 0;
+      let skipped = 0;
+      const errors: any[] = [];
+
+      for (const recurring of recurringBillings) {
+        try {
+          const user = recurring.userId as any;
+          const client = recurring.clientId as any;
+
+          // Validate client email exists
+          if (!client?.email) {
+            errors.push({
+              recurringId: recurring._id.toString(),
+              error: 'Missing client email',
+            });
+            skipped++;
+            continue;
+          }
+
+          // Check if nextBillingDate is today or in the past
+          const nextBillingDate = new Date(recurring.nextBillingDate);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          nextBillingDate.setHours(0, 0, 0, 0);
+
+          this.logger.debug(`[Recurring Automail] TEST - nextBillingDate: ${nextBillingDate.toDateString()}, today: ${today.toDateString()}`);
+
+          if (nextBillingDate.getTime() <= today.getTime()) {
+            this.logger.log(`[Recurring Automail] TEST - Processing recurring ${recurring._id} (nextBillingDate: ${nextBillingDate.toDateString()})`);
+            await this.processRecurringAutomail(recurring);
+            processed++;
+          } else {
+            skipped++;
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `[Recurring Automail] TEST - Error processing recurring ${recurring._id}: ${errorMsg}`,
+            error,
+          );
+          errors.push({
+            recurringId: recurring._id.toString(),
+            error: errorMsg,
+          });
+        }
+      }
+
+      return {
+        message: 'TEST: Recurring automail check completed',
+        total: recurringBillings.length,
+        processed,
+        skipped,
+        errors: errors.length > 0 ? errors : undefined,
+        note: 'This test mode processes all recurring billings with nextBillingDate <= today, regardless of time',
+      };
+    } catch (error) {
+      this.logger.error('[Recurring Automail] TEST - Error:', error);
       throw error;
     }
   }

@@ -3,7 +3,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { SuperadminSettingsService } from './superadmin-settings.service';
 import { CreateSuperadminSettingsDto } from './dto/create-superadmin-settings.dto';
 import { UpdateSuperadminSettingsDto } from './dto/update-superadmin-settings.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
+import { ChangePasswordDto } from '../common/dto/change-password.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @ApiTags('superadmin-settings')

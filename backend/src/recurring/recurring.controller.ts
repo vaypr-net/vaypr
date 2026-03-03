@@ -14,6 +14,7 @@ import {
 import { ApiBearerAuth, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { RecurringService } from './recurring.service';
+import { RecurringAutomailService } from './services/recurring-automail.service';
 import { CreateRecurringDto } from './dto/create-recurring.dto';
 import { UpdateRecurringDto } from './dto/update-recurring.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -27,6 +28,7 @@ export class RecurringController {
   constructor(
     private readonly recurringService: RecurringService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly automailService: RecurringAutomailService,
   ) {}
 
   @Post()
@@ -93,5 +95,12 @@ export class RecurringController {
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
     return this.recurringService.remove(id, req.user.userId);
+  }
+
+  @Post('test/trigger-automail')
+  triggerAutomailTest(@Request() req) {
+    // Test endpoint to manually trigger recurring automail check
+    // Use this to test the automail feature without waiting for the cron job
+    return this.automailService.testTriggerRecurringAutomail();
   }
 }

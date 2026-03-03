@@ -23,6 +23,10 @@ async function bootstrap() {
     process.env.FRONTEND_URL || 'http://localhost:8080',
     'https://vayper-production.up.railway.app', // Remove trailing slash
     'http://localhost:5173', // Vite dev server
+    'http://localhost:8081', // Alternative dev port
+    'http://127.0.0.1:8081',
+    'http://127.0.0.1:8080',
+    'http://127.0.0.1:5173',
   ].filter(Boolean); // Remove empty/undefined values
   
   console.log('🌐 CORS: Allowed origins:', allowedOrigins);
@@ -31,7 +35,17 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      // Check if origin matches allowed list or is localhost in development
+      const isAllowed = allowedOrigins.includes(origin) || 
+                        (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost')) ||
+                        (process.env.NODE_ENV !== 'production' && origin.startsWith('http://127.0.0.1'));
+      
+      if (isAllowed) {
         callback(null, true);
       } else {
         console.warn(`❌ CORS blocked: ${origin}`);

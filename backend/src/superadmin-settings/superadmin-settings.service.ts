@@ -4,7 +4,7 @@ import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { CreateSuperadminSettingsDto } from './dto/create-superadmin-settings.dto';
 import { UpdateSuperadminSettingsDto } from './dto/update-superadmin-settings.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
+import { ChangePasswordDto } from '../common/dto/change-password.dto';
 import { SuperAdminSettings } from './entities/superadmin-settings.entity';
 import { UserService } from '../user/user.service';
 
