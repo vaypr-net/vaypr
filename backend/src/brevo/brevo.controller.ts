@@ -153,4 +153,16 @@ export class BrevoUserController {
     await this.brevoService.deleteDomain(id);
     return { success: true, message: 'Domain deleted successfully' };
   }
+
+  /**
+   * Verify user's domain DNS records
+   */
+  @Post('domains/:id/verify')
+  @ApiOperation({ summary: 'Verify DNS records for your domain' })
+  @ApiResponse({ status: 200, description: 'Verification completed', type: BrevoDomain })
+  @ApiResponse({ status: 404, description: 'Domain not found' })
+  @ApiResponse({ status: 400, description: 'DNS verification failed' })
+  async verifyUserDomain(@Param('id') id: string): Promise<BrevoDomain> {
+    return this.brevoService.verifyDomain(id);
+  }
 }

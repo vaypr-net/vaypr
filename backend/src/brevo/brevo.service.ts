@@ -503,13 +503,61 @@ export class BrevoService {
   }
 
   /**
-   * Delete domain
+   * Delete domain from both Brevo API and local database
    */
   async deleteDomain(id: string): Promise<void> {
+    // Step 1: Get domain details first
+    const domain = await this.brevioDomainModel.findById(id).exec();
+    if (!domain) {
+      throw new NotFoundException(`Domain with ID ${id} not found`);
+    }
+
+    // Step 2: Delete from Brevo API
+    try {
+      console.log(`[Brevo] Attempting to delete domain from Brevo API: ${domain.domain}`);
+      
+      await firstValueFrom(
+        this.httpService.delete(
+          `${this.brevoApiUrl}/senders/domains/${domain.domain}`,
+          {
+            headers: {
+              'api-key': this.brevoApiKey,
+            },
+          }
+        )
+      );
+      
+      console.log(`[Brevo] ✓ Domain ${domain.domain} deleted from Brevo API`);
+    } catch (error: any) {
+      // Log the error but continue with database deletion
+      // Domain might have already been deleted in Brevo
+      console.warn(`[Brevo] Warning: Could not delete domain from Brevo API: ${error.message}`);
+      if (error.response?.status !== 404) {
+        throw new InternalServerErrorException(
+          `Failed to delete domain from Brevo: ${error.response?.data?.message || error.message}`
+        );
+      }
+    }
+
+    // Step 3: Delete from local database
     const result = await this.brevioDomainModel.findByIdAndDelete(id).exec();
     if (!result) {
       throw new NotFoundException(`Domain with ID ${id} not found`);
     }
+
+    // Step 4: Remove from user's domain lists if this is a user domain
+    if (domain.userId) {
+      await this.userModel.findByIdAndUpdate(domain.userId, {
+        $pull: {
+          verifiedDomains: domain.domain,
+          pendingDomains: domain.domain
+        }
+      });
+      
+      console.log(`[Brevo] ✓ Domain ${domain.domain} removed from user domain lists`);
+    }
+
+    console.log(`[Brevo] ✓ Domain ${domain.domain} deleted successfully (Brevo API + Database)`);
   }
 
   /**
