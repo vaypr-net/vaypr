@@ -8,6 +8,7 @@ import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { Ticket } from './entities/ticket.entity';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
 import { EmailNotificationService } from '../userprofile/email-notification.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type InternalNoteScope = 'admin' | 'user';
 
@@ -17,6 +18,7 @@ export class TicketsService {
     @InjectModel(Ticket.name) private ticketModel: Model<Ticket>,
     @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
     @Inject(EmailNotificationService) private emailNotificationService: EmailNotificationService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private filterTicketForViewer(
@@ -44,6 +46,30 @@ export class TicketsService {
     viewer: InternalNoteScope,
   ): Ticket[] {
     return tickets.map((ticket) => this.filterTicketForViewer(ticket, viewer));
+  }
+
+  private formatStatusLabel(status: string): string {
+    return status
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
+  private async createTicketStatusNotification(ticket: Ticket, previousStatus: string): Promise<void> {
+    if (!ticket?.customerId || !ticket?.status || previousStatus === ticket.status) return;
+    const relatedId =
+      (ticket as any).id ||
+      ((ticket as any)._id ? (ticket as any)._id.toString() : undefined);
+
+    const previousLabel = this.formatStatusLabel(previousStatus);
+    const nextLabel = this.formatStatusLabel(ticket.status);
+
+    await this.notificationsService.create({
+      userId: ticket.customerId,
+      title: 'Ticket Status Updated',
+      message: `Your ticket "${ticket.subject}" status changed from ${previousLabel} to ${nextLabel}.`,
+      relatedId,
+    });
   }
 
   async create(createTicketDto: CreateTicketDto): Promise<Ticket> {
@@ -192,14 +218,25 @@ export class TicketsService {
   }
 
   async update(id: string, updateTicketDto: UpdateTicketDto): Promise<Ticket> {
-    const ticket = await this.ticketModel.findByIdAndUpdate(
-      id,
-      updateTicketDto,
-      { new: true },
-    );
+    const existingTicket = await this.ticketModel.findById(id);
+    if (!existingTicket) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    const ticket = await this.ticketModel.findByIdAndUpdate(id, updateTicketDto, {
+      new: true,
+    });
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
+
+    if (
+      updateTicketDto.status !== undefined &&
+      existingTicket.status !== ticket.status
+    ) {
+      await this.createTicketStatusNotification(ticket, existingTicket.status);
+    }
+
     return this.filterTicketForViewer(ticket, 'admin');
   }
 
@@ -273,6 +310,10 @@ export class TicketsService {
       });
     }
 
+    if (existingTicket.status !== ticket.status) {
+      await this.createTicketStatusNotification(ticket, existingTicket.status);
+    }
+
     return this.filterTicketForViewer(ticket, 'admin');
   }
 
@@ -304,6 +345,13 @@ export class TicketsService {
       author.toLowerCase() !== (ticket.customerName || '').toLowerCase() &&
       author.toLowerCase() !== (ticket.customerEmail || '').toLowerCase();
     if (isSupportReply) {
+      await this.notificationsService.create({
+        userId: ticket.customerId,
+        title: 'Support Replied to Your Ticket',
+        message: `Support replied on "${ticket.subject}": ${message.slice(0, 140)}`,
+        relatedId: ticket.id,
+      });
+
       await this.sendSupportAgentRepliedNotification(ticket.customerId, {
         ticketId: ticket.id,
         subject: ticket.subject,

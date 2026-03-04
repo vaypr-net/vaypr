@@ -7,6 +7,7 @@ import { TicketsController } from './tickets.controller';
 import { UserTicketsController } from './user-tickets.controller';
 import { Ticket, TicketSchema } from './entities/ticket.entity';
 import { UserprofileModule } from '../userprofile/userprofile.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { UserprofileModule } from '../userprofile/userprofile.module';
       }),
     }),
     UserprofileModule,  // Import to access NotificationPreferencesHelper
+    NotificationsModule,
   ],
   controllers: [TicketsController, UserTicketsController],
   providers: [TicketsService],
