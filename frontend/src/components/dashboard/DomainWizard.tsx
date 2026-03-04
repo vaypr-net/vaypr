@@ -56,6 +56,7 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
   const [copied, setCopied] = useState<string>('');
   const [domainError, setDomainError] = useState('');
   const { toast } = useToast();
+  const getDomainLabel = (d: any) => d?.domain || d?.domain_name || '';
 
   // Validation
   const validateDomain = (value: string): boolean => {
@@ -103,12 +104,22 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
     try {
       setVerifying(true);
       const res = await axiosInstance.post(`/brevo/domains/${currentDomain._id}/verify`);
-      setCurrentDomain(res.data);
-      setStep(3);
-      toast({
-        title: 'Domain Verified!',
-        description: 'Your domain is now ready to use.',
-      });
+      const updated = res.data;
+      setCurrentDomain(updated);
+
+      if ((updated?.status || '').toUpperCase() === 'VERIFIED') {
+        setStep(3);
+        toast({
+          title: 'Domain Verified!',
+          description: 'Your domain is now ready to use.',
+        });
+      } else {
+        toast({
+          title: 'Still pending DNS verification',
+          description:
+            'Records are not fully propagated yet. Keep records in DNS and verify again in a few minutes.',
+        });
+      }
     } catch (error: any) {
       toast({
         title: 'Verification failed',
@@ -273,7 +284,7 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
                   <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-semibold text-green-900 text-sm">
-                      Domain created: <strong>{currentDomain.domain_name}</strong>
+                      Domain created: <strong>{getDomainLabel(currentDomain)}</strong>
                     </p>
                   </div>
                 </CardContent>
@@ -741,7 +752,7 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
                 <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-3" />
                 <h3 className="font-semibold text-green-900 mb-1">Domain Verified!</h3>
                 <p className="text-sm text-green-700">
-                  {currentDomain.domain_name} is now ready to use for sending emails.
+                  {getDomainLabel(currentDomain)} is now ready to use for sending emails.
                 </p>
               </Card>
 
@@ -752,7 +763,7 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Domain:</span>
-                    <span className="font-medium">{currentDomain.domain_name}</span>
+                    <span className="font-medium">{getDomainLabel(currentDomain)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Status:</span>
