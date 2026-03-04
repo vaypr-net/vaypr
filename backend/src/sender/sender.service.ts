@@ -63,43 +63,16 @@ export class SenderService {
         throw new BadRequestException('Invalid email format');
       }
 
-      // Check if domain belongs to this user
-      let brevoDomain = await this.brevoDomainModel.findOne({
+      // Multi-account support: any globally verified domain can be used for sender creation.
+      // Domain ownership is not restricted at sender level.
+      const brevoDomain = await this.brevoDomainModel.findOne({
         domain: domain.toLowerCase(),
-        userId: userObjectId,
       });
 
-      // If not found for this user, check if domain exists globally in verified state.
-      // This supports older/admin-created domains that were not linked to a user yet.
       if (!brevoDomain) {
-        const globalVerifiedDomain = await this.brevoDomainModel.findOne({
-          domain: domain.toLowerCase(),
-          status: 'VERIFIED',
-        });
-
-        if (!globalVerifiedDomain) {
-          throw new BadRequestException(
-            `Domain ${domain} is not added to your account. Add/verify it first in Domains settings.`,
-          );
-        }
-
-        // If domain is already owned by another user, block cross-tenant usage.
-        if (
-          globalVerifiedDomain.userId &&
-          globalVerifiedDomain.userId.toString() !== userObjectId.toString()
-        ) {
-          throw new BadRequestException(
-            `Domain ${domain} is already linked to another account.`,
-          );
-        }
-
-        // Claim/link this verified domain to current user if unowned.
-        if (!globalVerifiedDomain.userId) {
-          globalVerifiedDomain.userId = userObjectId as any;
-          await globalVerifiedDomain.save();
-        }
-
-        brevoDomain = globalVerifiedDomain;
+        throw new BadRequestException(
+          `Domain ${domain} is not found in Brevo domains. Add it first in Domains settings.`,
+        );
       }
 
       // Sender can be created for user-owned domain; mark verified only when domain is verified.
