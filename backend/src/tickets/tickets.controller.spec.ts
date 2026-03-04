@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
+import { SuperAdminGuard } from '../common/guards/super-admin.guard';
 
 describe('TicketsController', () => {
   let controller: TicketsController;
@@ -8,8 +9,16 @@ describe('TicketsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TicketsController],
-      providers: [TicketsService],
-    }).compile();
+      providers: [
+        {
+          provide: TicketsService,
+          useValue: {},
+        },
+      ],
+    })
+      .overrideGuard(SuperAdminGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<TicketsController>(TicketsController);
   });

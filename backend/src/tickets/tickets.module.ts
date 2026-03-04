@@ -8,10 +8,21 @@ import { UserTicketsController } from './user-tickets.controller';
 import { Ticket, TicketSchema } from './entities/ticket.entity';
 import { UserprofileModule } from '../userprofile/userprofile.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailModule } from '../email/email.module';
+import { ActivityModule } from '../activity/activity.module';
+import { User, UserSchema } from '../user/entities/user.entity';
+import {
+  SuperAdminSettings,
+  SuperAdminSettingsSchema,
+} from '../superadmin-settings/entities/superadmin-settings.entity';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Ticket.name, schema: TicketSchema }]),
+    MongooseModule.forFeature([
+      { name: Ticket.name, schema: TicketSchema },
+      { name: User.name, schema: UserSchema },
+      { name: SuperAdminSettings.name, schema: SuperAdminSettingsSchema },
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -24,6 +35,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
     }),
     UserprofileModule,  // Import to access NotificationPreferencesHelper
     NotificationsModule,
+    EmailModule,
+    ActivityModule,
   ],
   controllers: [TicketsController, UserTicketsController],
   providers: [TicketsService],

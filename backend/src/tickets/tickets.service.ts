@@ -9,6 +9,10 @@ import { Ticket } from './entities/ticket.entity';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
 import { EmailNotificationService } from '../userprofile/email-notification.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { User } from '../user/entities/user.entity';
+import { SuperAdminSettings } from '../superadmin-settings/entities/superadmin-settings.entity';
+import { EmailRouterService } from '../email/email-router.service';
+import { ActivityService } from '../activity/activity.service';
 
 type InternalNoteScope = 'admin' | 'user';
 
@@ -16,9 +20,14 @@ type InternalNoteScope = 'admin' | 'user';
 export class TicketsService {
   constructor(
     @InjectModel(Ticket.name) private ticketModel: Model<Ticket>,
+    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(SuperAdminSettings.name)
+    private superAdminSettingsModel: Model<SuperAdminSettings>,
     @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
     @Inject(EmailNotificationService) private emailNotificationService: EmailNotificationService,
     private readonly notificationsService: NotificationsService,
+    private readonly emailRouterService: EmailRouterService,
+    private readonly activityService: ActivityService,
   ) {}
 
   private filterTicketForViewer(
@@ -94,7 +103,91 @@ export class TicketsService {
         customerEmail,
     });
     const saved = await ticket.save();
+    await this.createSuperAdminTicketActivity(saved);
+    await this.notifySuperAdminAndSupportOnTicketCreated(saved);
     return this.filterTicketForViewer(saved, 'user');
+  }
+
+  private async createSuperAdminTicketActivity(ticket: Ticket): Promise<void> {
+    try {
+      const ticketId = (ticket as any).id || (ticket as any)._id?.toString?.() || '';
+      await this.activityService.create({
+        type: 'ticket',
+        title: 'Ticket Created',
+        description: `${ticket.customerName || ticket.customerEmail} created ticket "${ticket.subject}" (${ticketId})`,
+      });
+    } catch (error) {
+      console.error('[Support] Failed to create activity for ticket creation:', error);
+    }
+  }
+
+  private async notifySuperAdminAndSupportOnTicketCreated(ticket: Ticket): Promise<void> {
+    try {
+      const superAdmins = await this.userModel
+        .find({ isSuperAdmin: true })
+        .select('_id email fullName')
+        .lean()
+        .exec();
+
+      if (!superAdmins.length) {
+        return;
+      }
+
+      const ticketId = (ticket as any).id || (ticket as any)._id?.toString?.() || '';
+      const customerDisplay = ticket.customerName || ticket.customerEmail || 'A user';
+      const message = `${customerDisplay} created a new support ticket: "${ticket.subject}".`;
+
+      await Promise.all(
+        superAdmins.map((admin: any) =>
+          this.notificationsService.create({
+            userId: admin._id.toString(),
+            title: 'New Support Ticket Created',
+            message,
+            relatedId: ticketId,
+          }),
+        ),
+      );
+
+      const primaryAdmin: any = superAdmins[0];
+      const settings = await this.superAdminSettingsModel
+        .findOne({ userId: primaryAdmin._id })
+        .lean()
+        .exec();
+
+      const supportEmail = settings?.supportEmail || primaryAdmin.email;
+      if (!supportEmail) {
+        return;
+      }
+
+      const emailSubject = `[NEW TICKET] ${ticket.subject}`;
+      const emailBody = `
+        <h2>New Support Ticket Created</h2>
+        <p>A user has created a new support ticket.</p>
+        <ul>
+          <li><strong>Ticket ID:</strong> ${ticketId}</li>
+          <li><strong>User:</strong> ${ticket.customerName}</li>
+          <li><strong>User Email:</strong> ${ticket.customerEmail}</li>
+          <li><strong>Category:</strong> ${ticket.category}</li>
+          <li><strong>Priority:</strong> ${ticket.priority}</li>
+          <li><strong>Subject:</strong> ${ticket.subject}</li>
+          <li><strong>Status:</strong> ${this.formatStatusLabel(ticket.status)}</li>
+        </ul>
+        <p><strong>Description:</strong></p>
+        <p>${ticket.description.replace(/\n/g, '<br>')}</p>
+      `;
+
+      await this.emailRouterService.sendEmail(
+        primaryAdmin._id.toString(),
+        supportEmail,
+        emailSubject,
+        emailBody,
+        undefined,
+        undefined,
+        ticket.customerEmail,
+      );
+    } catch (error) {
+      console.error('[Support] Failed to send super-admin/support notification for new ticket:', error);
+    }
   }
 
   async findAll(
