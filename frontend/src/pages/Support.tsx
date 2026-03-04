@@ -136,6 +136,7 @@ export default function Support() {
   }) => {
     await createTicketMutation.mutateAsync({
       subject: ticketData.subject,
+      customerEmail: ticketData.customerEmail,
       customerPhone: ticketData.customerPhone,
       customerName: user?.name || user?.fullName || ticketData.customerName,
       category: ticketData.category,

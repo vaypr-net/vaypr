@@ -195,7 +195,7 @@ export function useCreateMyTicket() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: Omit<CreateTicketDto, 'customerId' | 'customerEmail'>) => TicketService.createMyTicket(data),
+    mutationFn: (data: Omit<CreateTicketDto, 'customerId'>) => TicketService.createMyTicket(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.myList() });
       queryClient.invalidateQueries({ queryKey: TICKET_QUERY_KEYS.myStats() });

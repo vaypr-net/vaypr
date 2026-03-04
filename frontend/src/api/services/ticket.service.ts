@@ -147,7 +147,7 @@ export const TicketService = {
     return response.data;
   },
 
-  async createMyTicket(data: Omit<CreateTicketDto, 'customerId' | 'customerEmail'>): Promise<Ticket> {
+  async createMyTicket(data: Omit<CreateTicketDto, 'customerId'>): Promise<Ticket> {
     const response = await axios.post<Ticket>(USER_BASE_URL, data);
     return response.data;
   },
