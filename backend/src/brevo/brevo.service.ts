@@ -433,82 +433,65 @@ export class BrevoService {
     const domain = await this.getDomainById(id);
     const previousStatus = domain.status;
 
-    try {
-      // Call Brevo API to get domain status
-      const response = await firstValueFrom(
-        this.httpService.get(
-          `${this.brevoApiUrl}/senders/domains/${domain.domain}`,
-          {
-            headers: {
-              'api-key': this.brevoApiKey,
-            },
-          }
-        )
+    // Reuse unified sync logic (handles `verified`/`authenticated` and newer Brevo response shapes).
+    const updatedDomain = await this.syncDomainStatusFromBrevo(domain.domain);
+
+    if (updatedDomain.userId) {
+      await this.syncUserDomainLists(
+        updatedDomain.userId,
+        updatedDomain.domain,
+        updatedDomain.status === 'VERIFIED',
       );
-
-      // Update checks based on Brevo API response
-      const checks = this.mapBrevoChecks((response as any).data);
-
-      // Determine overall status
-      let status: 'VERIFIED' | 'DNS_PENDING' | 'FAILED' = 'DNS_PENDING';
-      let errorMessage: string | null = null;
-
-      // Domain is VERIFIED if all critical records are verified in Brevo
-      if (checks.brevo_code === 'OK' && checks.dkim === 'OK') {
-        status = 'VERIFIED';
-      } else if (checks.brevo_code === 'FAIL' || checks.dkim === 'FAIL') {
-        status = 'FAILED';
-        const failedChecks: string[] = [];
-        if (checks.brevo_code === 'FAIL') failedChecks.push('Brevo Code');
-        if (checks.dkim === 'FAIL') failedChecks.push('DKIM');
-        errorMessage = `Failed to verify: ${failedChecks.join(', ')}. Please check your DNS records in your provider.`;
-      }
-
-      // Update domain
-      domain.status = status;
-      domain.checks = checks;
-      domain.lastCheckedAt = new Date();
-      domain.errorMessage = errorMessage;
-
-      const savedDomain = await domain.save();
-
-      if (domain.userId) {
-        await this.syncUserDomainLists(domain.userId, domain.domain, status === 'VERIFIED');
-      }
-
-      // Create activity if domain was successfully verified
-      if (status === 'VERIFIED' && previousStatus !== 'VERIFIED') {
-        try {
-          await this.activityService.create({
-            type: 'domain_verified',
-            title: 'Domain verified',
-            description: `Domain ${domain.domain} has been successfully verified`,
-            relatedEntityId: domain._id.toString(),
-          });
-        } catch (error) {
-          console.error('Failed to create activity:', error);
-          // Don't fail domain verification if activity creation fails
-        }
-      }
-
-      return savedDomain;
-    } catch (error) {
-      domain.status = 'FAILED';
-      domain.lastCheckedAt = new Date();
-      domain.errorMessage = `Brevo API error: ${error.response?.data?.message || error.message}`;
-      await domain.save();
-      throw new BadRequestException(domain.errorMessage);
     }
+
+    // Create activity only on first transition to verified
+    if (updatedDomain.status === 'VERIFIED' && previousStatus !== 'VERIFIED') {
+      try {
+        await this.activityService.create({
+          type: 'domain_verified',
+          title: 'Domain verified',
+          description: `Domain ${updatedDomain.domain} has been successfully verified`,
+          relatedEntityId: updatedDomain._id.toString(),
+        });
+      } catch (error) {
+        console.error('Failed to create activity:', error);
+      }
+    }
+
+    return updatedDomain;
   }
 
   /**
    * Map Brevo API response to our check status format
    */
   private mapBrevoChecks(brevoData: any): DomainChecks {
+    const dnsRecords = brevoData?.dns_records || {};
+
+    const dkimStatuses: Array<boolean | undefined> = [];
+    dkimStatuses.push(dnsRecords?.dkim_record?.status);
+    dkimStatuses.push(dnsRecords?.dkimRecord?.status);
+    dkimStatuses.push(dnsRecords?.dkim_1_record?.status);
+    dkimStatuses.push(dnsRecords?.dkim_2_record?.status);
+
+    for (let i = 1; i <= 10; i++) {
+      dkimStatuses.push(dnsRecords?.[`dkim${i}Record`]?.status);
+      dkimStatuses.push(dnsRecords?.[`dkim_${i}_record`]?.status);
+    }
+
+    const normalizedDkim = dkimStatuses.filter((s) => typeof s === 'boolean') as boolean[];
+    let dkimStatus: 'OK' | 'FAIL' | 'PENDING' = 'PENDING';
+    if (normalizedDkim.length > 0) {
+      dkimStatus = normalizedDkim.some((s) => s === false)
+        ? 'FAIL'
+        : normalizedDkim.some((s) => s === true)
+          ? 'OK'
+          : 'PENDING';
+    }
+
     const checks: DomainChecks = {
-      brevo_code: this.mapBrevoStatus(brevoData.dns_records?.brevo_code?.status),
-      dkim: this.mapBrevoStatus(brevoData.dns_records?.dkim_record?.status),
-      dmarc: this.mapBrevoStatus(brevoData.dns_records?.dmarc_record?.status),
+      brevo_code: this.mapBrevoStatus(dnsRecords?.brevo_code?.status),
+      dkim: dkimStatus,
+      dmarc: this.mapBrevoStatus(dnsRecords?.dmarc_record?.status),
     };
 
     return checks;
