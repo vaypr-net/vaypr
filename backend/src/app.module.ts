@@ -27,6 +27,8 @@ import { TranscationsModule } from './transcations/transcations.module';
 import { BrevoModule } from './brevo/brevo.module';
 import { EmailModule } from './email/email.module';
 import { ContactModule } from './contact/contact.module';
+import { SenderModule } from './sender/sender.module';
+import { EmailSettingsModule } from './email-settings/email-settings.module';
 
 import { SocialLinksModule } from './social-links/social-links.module';
 import { FaqsModule } from './faqs/faqs.module';
@@ -131,6 +133,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     BrevoModule,
     EmailModule,
     ContactModule,
+    SenderModule,
+    EmailSettingsModule,
    
     SocialLinksModule,
    

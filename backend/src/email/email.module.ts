@@ -7,6 +7,8 @@ import { GmailModule } from '../gmail/gmail.module';
 import { BrevoModule } from '../brevo/brevo.module';
 import { UserModule } from '../user/user.module';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { SenderModule } from '../sender/sender.module';
+import { EmailSettingsModule } from '../email-settings/email-settings.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { CloudinaryModule } from '../cloudinary/cloudinary.module';
     BrevoModule,
     UserModule,
     CloudinaryModule,
+    SenderModule,
+    EmailSettingsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

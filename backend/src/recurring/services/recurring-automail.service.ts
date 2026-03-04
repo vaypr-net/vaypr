@@ -6,7 +6,7 @@ import { Invoice } from '../../invoice/entities/invoice.entity';
 import { User } from '../../user/entities/user.entity';
 import { Client } from '../../clients/entities/client.entity';
 import { UserProfile } from '../../userprofile/entities/userprofile.entity';
-import { BrevoService } from '../../brevo/brevo.service';
+import { EmailRouterService } from '../../email/email-router.service';
 import { PdfGeneratorService } from '../../common/services/pdf-generator.service';
 import { RecurringFrequency } from '../enums/recurring-frequency.enum';
 import { buildBrandedEmailHtml } from '../../common/utils/branded-email-template';
@@ -22,7 +22,7 @@ export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Client.name) private clientModel: Model<Client>,
     @InjectModel(UserProfile.name) private userProfileModel: Model<UserProfile>,
-    private readonly brevoService: BrevoService,
+    private readonly emailRouterService: EmailRouterService,
     private readonly pdfGeneratorService: PdfGeneratorService,
   ) {}
 
@@ -266,9 +266,9 @@ ${companyName}`;
         // Continue sending email without PDF if generation fails
       }
 
-      // Send email via Brevo (same service as manual send) with PDF attachment
-      await this.brevoService.sendEmail(
-        user?.email || 'noreply@vaypr.com',
+      // Send email via EmailRouter (uses user's configured senders or legacy fallback)
+      await this.emailRouterService.sendEmail(
+        user._id.toString(),
         client.email,
         `${frequencyLabel} Subscription Invoice from ${companyName}`,
         emailBody,

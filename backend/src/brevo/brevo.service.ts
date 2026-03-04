@@ -37,6 +37,25 @@ export class BrevoService {
     console.log('[Brevo] API Key configured:', this.brevoApiKey ? 'YES' : 'NO');
   }
 
+  private async syncUserDomainLists(
+    userId: Types.ObjectId | string,
+    domainName: string,
+    isVerified: boolean,
+  ): Promise<void> {
+    const normalizedDomain = domainName.toLowerCase();
+    await this.userModel.findByIdAndUpdate(userId, {
+      ...(isVerified
+        ? {
+            $addToSet: { verifiedDomains: normalizedDomain },
+            $pull: { pendingDomains: normalizedDomain },
+          }
+        : {
+            $pull: { verifiedDomains: normalizedDomain },
+            $addToSet: { pendingDomains: normalizedDomain },
+          }),
+    });
+  }
+
   /**
    * Get all domains
    */
@@ -412,6 +431,7 @@ export class BrevoService {
    */
   async verifyDomain(id: string): Promise<BrevoDomain> {
     const domain = await this.getDomainById(id);
+    const previousStatus = domain.status;
 
     try {
       // Call Brevo API to get domain status
@@ -452,8 +472,12 @@ export class BrevoService {
 
       const savedDomain = await domain.save();
 
+      if (domain.userId) {
+        await this.syncUserDomainLists(domain.userId, domain.domain, status === 'VERIFIED');
+      }
+
       // Create activity if domain was successfully verified
-      if (status === 'VERIFIED' && domain.status !== 'VERIFIED') {
+      if (status === 'VERIFIED' && previousStatus !== 'VERIFIED') {
         try {
           await this.activityService.create({
             type: 'domain_verified',
@@ -610,12 +634,16 @@ export class BrevoService {
       let localDomain = await this.brevioDomainModel.findOne({ domain: domainName }).exec();
 
       if (localDomain) {
+        const previousStatus = localDomain.status;
         // Update existing domain
         localDomain.status = status;
         localDomain.checks = checks;
         localDomain.lastCheckedAt = new Date();
         localDomain.errorMessage = errorMessage;
         console.log(`[Brevo] ✓ Updated domain ${domainName}: status=${status}`);
+        if (localDomain.userId && previousStatus !== status) {
+          await this.syncUserDomainLists(localDomain.userId, domainName, status === 'VERIFIED');
+        }
       } else {
         // Create new domain document in local database
         localDomain = new this.brevioDomainModel({

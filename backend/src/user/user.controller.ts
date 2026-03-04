@@ -32,6 +32,31 @@ export class UserController {
     return this.userService.register(createUserDto);
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get current user profile with provider info' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Current user profile retrieved successfully',
+    schema: {
+      example: {
+        email: 'user@example.com',
+        fullName: 'John Doe',
+        googleAccessToken: 'ya29.a0AfH...',
+        googleRefreshToken: '1//0gx...',
+        verifiedDomains: ['example.com'],
+        pendingDomains: [],
+        brandingDomain: 'example.com',
+        authProvider: 'google'
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getCurrentUser(@Request() req) {
+    return this.userService.getUserProfile(req.user.userId || req.user.sub);
+  }
+
   @Get()
   async findAll() {
     return this.userService.findAll();

@@ -369,6 +369,38 @@ export class UserService {
   }
 
   /**
+   * Get current user profile with provider information
+   * 
+   * Used by frontend to detect which providers user has configured (Gmail or Brevo)
+   * Returns essential fields including auth provider tokens
+   * 
+   * @param userId - User ID from JWT token
+   * @returns User profile with authentication details
+   */
+  async getUserProfile(userId: string): Promise<Partial<User>> {
+    const user = await this.userModel
+      .findById(userId)
+      .select('email fullName googleAccessToken googleRefreshToken verifiedDomains pendingDomains brandingDomain authProvider')
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Transform response to indicate which providers are available
+    return {
+      email: user.email,
+      fullName: user.fullName,
+      googleAccessToken: user.googleAccessToken, // Will be truthy if user has Gmail enabled
+      googleRefreshToken: user.googleRefreshToken, // Will be truthy if user has Gmail enabled
+      verifiedDomains: user.verifiedDomains, // Will be non-empty if user has Brevo domains
+      pendingDomains: user.pendingDomains,
+      brandingDomain: user.brandingDomain,
+      authProvider: user.authProvider,
+    };
+  }
+
+  /**
    * Change user password
    * 
    * Verifies current password before allowing password change

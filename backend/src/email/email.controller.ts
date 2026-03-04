@@ -1,5 +1,5 @@
 import { Controller, Post, Body, UseGuards, Request, HttpStatus, HttpCode, UseInterceptors, UploadedFile } from '@nestjs/common';
-import { IsEmail, IsNotEmpty, IsString, IsOptional } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsOptional, IsBoolean } from 'class-validator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { EmailRouterService } from './email-router.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -28,14 +28,23 @@ class SendEmailDto {
   @IsOptional()
   @IsString()
   attachmentFilename?: string; // e.g., "Invoice_480.pdf"
+
+  @IsOptional()
+  @IsString()
+  senderId?: string; // Optional sender ID from UserSender collection
+
+  @IsOptional()
+  @IsBoolean()
+  useLoginEmailAsSender?: boolean; // If true, bypass sender chain and use login-email flow
 }
 
 /**
  * Email Controller
  * 
- * Routes emails to either Gmail or Brevo based on user configuration
- * - If user has brandingDomain → uses Brevo
- * - If user has no brandingDomain → uses Gmail
+ * Routes emails to Gmail or Brevo based on:
+ * 1. User-configured senders (if senderId provided)
+ * 2. Primary/Secondary senders (if configured)
+ * 3. Legacy fallback (brandingDomain + Gmail for backward compatibility)
  */
 @Controller('email')
 export class EmailController {
@@ -49,7 +58,8 @@ export class EmailController {
    * 
    * POST /email/send
    * 
-   * Automatically routes to Gmail or Brevo based on user's branding domain
+   * NEW: Respects user-configured senders if available
+   * LEGACY: Falls back to brandingDomain + Gmail for backward compatibility
    */
   @Post('send')
   @UseGuards(JwtAuthGuard)
@@ -76,6 +86,9 @@ export class EmailController {
       sendEmailDto.body,
       sendEmailDto.attachmentData,
       sendEmailDto.attachmentFilename,
+      undefined, // replyTo
+      sendEmailDto.senderId, // Pass the optional senderId
+      sendEmailDto.useLoginEmailAsSender,
     );
 
     return result;
