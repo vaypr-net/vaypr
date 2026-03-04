@@ -2,12 +2,14 @@ import { useState, type ChangeEvent } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRecurringAPI, useCreateRecurring, useUpdateRecurring, useDeleteRecurring, useToggleRecurring, useGenerateInvoice } from '@/hooks/api/useRecurring';
 import { useClients } from '@/hooks/api/useClients';
+import { useEmailSettings } from '@/hooks/api/useEmailSettings';
 import { EmailService } from '@/api/services/email.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { SenderSelector } from '@/components/settings/SenderSelector';
 import {
   Table,
   TableBody,
@@ -58,6 +60,7 @@ export default function Recurring() {
   
   // API Hooks
   const { data: apiRecurring = [], isLoading: loadingRecurring } = useRecurringAPI(statusFilter !== 'all' ? statusFilter : undefined);
+  const { senders: configuredSenders = [] } = useEmailSettings();
   const createRecurringMutation = useCreateRecurring();
   const updateRecurringMutation = useUpdateRecurring();
   const deleteRecurringMutation = useDeleteRecurring();
@@ -143,6 +146,7 @@ export default function Recurring() {
   const [emailAccentColor, setEmailAccentColor] = useState('#10b981');
   const [emailLogoUrl, setEmailLogoUrl] = useState('');
   const [isUploadingEmailLogo, setIsUploadingEmailLogo] = useState(false);
+  const [selectedSenderId, setSelectedSenderId] = useState<string>('');
 
   const formatCurrency = (amount: number, currency = 'KWD') => {
     return `KD ${amount.toFixed(3)}`;
@@ -401,15 +405,24 @@ ${companyName}`;
       const pdfBase64 = await generatePdfBase64('recurring-invoice-preview-email');
       const companyName = getCompanyNameForEmail(selectedRecurring, createdInvoice as Invoice);
 
-      const emailBody = buildBrandedEmailHtml({
-        emailTitle: `${getFrequencyLabel(selectedRecurring.frequency)} Subscription Invoice`,
-        companyName,
-        message: emailMessage,
-        accentColor: emailAccentColor,
-        templateStyle: emailTemplateStyle,
-        logoUrl: emailLogoUrl || undefined,
-        attachmentNote: 'Your PDF invoice is attached below in this email.',
-      });
+      // SIMPLE EMAIL MODE: send plain message body only.
+      const emailBody = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+          <p>${emailMessage.replace(/\n/g, '<br/>')}</p>
+          <p style="color:#6b7280; font-size:12px; margin-top:16px;">PDF is attached with this email.</p>
+        </div>
+      `;
+
+      // Keep branded template code for future use (disabled by request).
+      // const emailBody = buildBrandedEmailHtml({
+      //   emailTitle: `${getFrequencyLabel(selectedRecurring.frequency)} Subscription Invoice`,
+      //   companyName,
+      //   message: emailMessage,
+      //   accentColor: emailAccentColor,
+      //   templateStyle: emailTemplateStyle,
+      //   logoUrl: emailLogoUrl || undefined,
+      //   attachmentNote: 'Your PDF invoice is attached below in this email.',
+      // });
 
       await EmailService.sendEmail({
         to: emailTo.trim(),
@@ -417,6 +430,8 @@ ${companyName}`;
         body: emailBody,
         attachmentData: pdfBase64,
         attachmentFilename: `Invoice_${(createdInvoice as any)?.invoiceNumber || 'subscription'}.pdf`,
+        senderId: selectedSenderId || undefined,
+        useLoginEmailAsSender: !selectedSenderId,
       });
 
       toast({
@@ -1205,6 +1220,7 @@ ${companyName}`;
             setEmailTemplateStyle('modern');
             setEmailAccentColor('#10b981');
             setEmailLogoUrl('');
+            setSelectedSenderId('');
           }
         }}>
           <DialogContent className="w-[95vw] max-w-4xl max-h-[80vh] p-6 overflow-y-auto">
@@ -1226,6 +1242,14 @@ ${companyName}`;
               />
             </div>
 
+            {/* Sender Selection */}
+            <SenderSelector
+              selectedSenderId={selectedSenderId}
+              onSenderChange={(id) => setSelectedSenderId(id || '')}
+              senders={configuredSenders}
+              allowEmpty={true}
+            />
+
             <div className="space-y-2">
               <Label htmlFor="recurringEmailSubject">Subject</Label>
               <Input
@@ -1237,54 +1261,12 @@ ${companyName}`;
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label className="text-sm">Template</Label>
-                <Select value={emailTemplateStyle} onValueChange={(value) => setEmailTemplateStyle(value as EmailTemplateStyle)}>
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="modern">Modern</SelectItem>
-                    <SelectItem value="classic">Classic</SelectItem>
-                    <SelectItem value="minimal">Minimal</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm">Accent Color</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="color"
-                    value={emailAccentColor}
-                    onChange={(e) => setEmailAccentColor(e.target.value)}
-                    className="h-12 w-16 p-1"
-                  />
-                  <Input
-                    value={emailAccentColor}
-                    onChange={(e) => setEmailAccentColor(e.target.value)}
-                    className="h-12"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm">Company Logo</Label>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleEmailLogoUpload}
-                  disabled={isUploadingEmailLogo}
-                  className="h-12"
-                />
-              </div>
-            </div>
-
-            {emailLogoUrl ? (
-              <div className="rounded-md border p-3 bg-muted/30">
-                <p className="text-xs text-muted-foreground mb-2">Logo Preview</p>
-                <img src={emailLogoUrl} alt="Email logo preview" className="h-12 object-contain" />
-              </div>
-            ) : null}
+            {/*
+              Branded email controls preserved for later use (disabled by request):
+              - Template selector
+              - Accent color picker
+              - Company logo upload/preview
+            */}
 
             <div className="space-y-2">
               <Label htmlFor="recurringEmailMessage">Message *</Label>

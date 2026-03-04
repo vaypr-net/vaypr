@@ -50,6 +50,8 @@ import { BillingPlanService, BillingPlan } from '@/api/services/billing-plan.ser
 import { useDashboardStats } from '@/hooks/api/useDashboard';
 import CancelSubscriptionDialog from '@/components/billing/CancelSubscriptionDialog';
 import { ReferralCodeModal } from '@/components/billing/ReferralCodeModal';
+import { EmailSettingsForm } from '@/components/settings/EmailSettingsForm';
+import { SendersManagement } from '@/components/settings/SendersManagement';
 import {
   User,
   Mail,
@@ -757,7 +759,7 @@ export default function Profile() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full lg:w-auto lg:inline-grid" style={{ gridTemplateColumns: isSuperAdmin ? 'repeat(3, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))' }}>
+          <TabsList className="grid w-full lg:w-auto lg:inline-grid" style={{ gridTemplateColumns: isSuperAdmin ? 'repeat(3, minmax(0, 1fr))' : 'repeat(5, minmax(0, 1fr))' }}>
             <TabsTrigger value="profile" className="gap-2">
               <User className="h-4 w-4 hidden sm:inline" />
               Profile
@@ -771,10 +773,16 @@ export default function Profile() {
               Security
             </TabsTrigger>
             {!isSuperAdmin && (
-              <TabsTrigger value="notifications" className="gap-2">
-                <Bell className="h-4 w-4 hidden sm:inline" />
-                Notifications
-              </TabsTrigger>
+              <>
+                <TabsTrigger value="email" className="gap-2">
+                  <Mail className="h-4 w-4 hidden sm:inline" />
+                  Email
+                </TabsTrigger>
+                <TabsTrigger value="notifications" className="gap-2">
+                  <Bell className="h-4 w-4 hidden sm:inline" />
+                  Notifications
+                </TabsTrigger>
+              </>
             )}
           </TabsList>
 
@@ -1521,6 +1529,14 @@ export default function Profile() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Email Settings Tab - Only for Regular Users */}
+          {!isSuperAdmin && (
+            <TabsContent value="email" className="space-y-6">
+              <EmailSettingsForm />
+              <SendersManagement />
+            </TabsContent>
+          )}
 
           {/* Notifications Tab - Only for Regular Users */}
           {!isSuperAdmin && (

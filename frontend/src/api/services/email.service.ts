@@ -8,6 +8,8 @@ export interface SendEmailRequest {
   body: string;
   attachmentData?: string; // Base64 encoded PDF
   attachmentFilename?: string; // e.g., "Invoice_480.pdf"
+  senderId?: string; // User's selected sender ID (UserSender._id)
+  useLoginEmailAsSender?: boolean; // If true, backend uses login-email flow by default
 }
 
 export interface SendEmailResponse {

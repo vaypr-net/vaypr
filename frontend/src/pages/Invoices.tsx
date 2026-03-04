@@ -3,6 +3,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useInvoices as useInvoicesAPI, useCreateInvoice, useUpdateInvoice, useDeleteInvoice } from '@/hooks/api/useInvoices';
 import { useClients as useClientsAPI } from '@/hooks/api/useClients';
 import { usePayments, useReminders } from '@/hooks/useData';
+import { useEmailSettings } from '@/hooks/api/useEmailSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DocumentDateInput } from '@/components/ui/document-date-input';
@@ -10,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmailService } from '@/api/services/email.service';
 import { InvoiceService } from '@/api/services/invoice.service';
+import { SenderSelector } from '@/components/settings/SenderSelector';
 import {
   Table,
   TableBody,
@@ -58,6 +60,7 @@ export default function Invoices() {
   const { user } = useAuth();
   const { data: invoices = [], isLoading, error } = useInvoicesAPI();
   const { data: clients = [] } = useClientsAPI();
+  const { senders: configuredSenders = [] } = useEmailSettings();
   
   // Ensure invoices and clients are always arrays
   const invoicesArray = Array.isArray(invoices) ? invoices : [];
@@ -87,6 +90,7 @@ export default function Invoices() {
   const [emailAccentColor, setEmailAccentColor] = useState('#6366f1');
   const [emailLogoUrl, setEmailLogoUrl] = useState('');
   const [isUploadingEmailLogo, setIsUploadingEmailLogo] = useState(false);
+  const [selectedSenderId, setSelectedSenderId] = useState<string>('');
 
   const isRecurringInvoice = (invoice?: Invoice | null) =>
     Boolean((invoice as any)?.recurringId);
@@ -427,15 +431,24 @@ ${companyName}`;
       const companyName = getInvoiceCompanyName(selectedInvoice);
       const emailSubject = customSubject.trim() || getDefaultEmailSubject(selectedInvoice);
       
-      const emailBody = buildBrandedEmailHtml({
-        emailTitle: `Invoice ${selectedInvoice.invoiceNumber}`,
-        companyName,
-        message: customMessage,
-        accentColor: emailAccentColor,
-        templateStyle: emailTemplateStyle,
-        logoUrl: emailLogoUrl || undefined,
-        attachmentNote: 'Your PDF is attached below in this email.',
-      });
+      // SIMPLE EMAIL MODE: send plain message body only.
+      const emailBody = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+          <p>${customMessage.replace(/\n/g, '<br/>')}</p>
+          <p style="color:#6b7280; font-size:12px; margin-top:16px;">PDF is attached with this email.</p>
+        </div>
+      `;
+
+      // Keep branded template code for future use (disabled by request).
+      // const emailBody = buildBrandedEmailHtml({
+      //   emailTitle: `Invoice ${selectedInvoice.invoiceNumber}`,
+      //   companyName,
+      //   message: customMessage,
+      //   accentColor: emailAccentColor,
+      //   templateStyle: emailTemplateStyle,
+      //   logoUrl: emailLogoUrl || undefined,
+      //   attachmentNote: 'Your PDF is attached below in this email.',
+      // });
 
       // Step 3: Send email via Gmail or Brevo (based on user's branding domain)
       const result = await EmailService.sendEmail({
@@ -444,6 +457,8 @@ ${companyName}`;
         body: emailBody,
         attachmentData: pdfBase64,
         attachmentFilename: `Invoice_${selectedInvoice.invoiceNumber}.pdf`,
+        senderId: selectedSenderId || undefined,
+        useLoginEmailAsSender: !selectedSenderId,
       });
 
       toast({
@@ -957,6 +972,7 @@ ${companyName}`;
             setEmailTemplateStyle('modern');
             setEmailAccentColor('#6366f1');
             setEmailLogoUrl('');
+            setSelectedSenderId('');
           }
         }}>
           <DialogContent className={isComposing ? "w-[95vw] max-w-4xl max-h-[80vh] p-6 overflow-y-auto" : "w-[95vw] max-w-lg p-6 overflow-hidden"}>
@@ -978,6 +994,14 @@ ${companyName}`;
                 onChange={(e) => setClientEmail(e.target.value)}
               />
             </div>
+
+            {/* Sender Selection */}
+            <SenderSelector
+              selectedSenderId={selectedSenderId}
+              onSenderChange={(id) => setSelectedSenderId(id || '')}
+              senders={configuredSenders}
+              allowEmpty={true}
+            />
 
             {/* Add Message Button */}
             {!isComposing && (
@@ -1022,54 +1046,12 @@ ${companyName}`;
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-sm">Template</Label>
-                    <Select value={emailTemplateStyle} onValueChange={(value) => setEmailTemplateStyle(value as EmailTemplateStyle)}>
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="modern">Modern</SelectItem>
-                        <SelectItem value="classic">Classic</SelectItem>
-                        <SelectItem value="minimal">Minimal</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm">Accent Color</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="color"
-                        value={emailAccentColor}
-                        onChange={(e) => setEmailAccentColor(e.target.value)}
-                        className="h-12 w-16 p-1"
-                      />
-                      <Input
-                        value={emailAccentColor}
-                        onChange={(e) => setEmailAccentColor(e.target.value)}
-                        className="h-12"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm">Company Logo</Label>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleEmailLogoUpload}
-                      disabled={isUploadingEmailLogo}
-                      className="h-12"
-                    />
-                  </div>
-                </div>
-
-                {emailLogoUrl ? (
-                  <div className="rounded-md border p-3 bg-muted/30">
-                    <p className="text-xs text-muted-foreground mb-2">Logo Preview</p>
-                    <img src={emailLogoUrl} alt="Email logo preview" className="h-12 object-contain" />
-                  </div>
-                ) : null}
+                {/*
+                  Branded email controls preserved for later use (disabled by request):
+                  - Template selector
+                  - Accent color picker
+                  - Company logo upload/preview
+                */}
 
                 {/* Message Field */}
                 <div className="space-y-2">
