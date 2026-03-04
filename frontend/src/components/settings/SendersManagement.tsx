@@ -42,13 +42,6 @@ interface GmailStatusResponse {
   hasPermission?: boolean;
 }
 
-interface BrevoDomainResponse {
-  _id?: string;
-  id?: string;
-  domain?: string;
-  status?: string;
-}
-
 export const SendersManagement = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -75,10 +68,9 @@ export const SendersManagement = () => {
   });
 
   const resolveAvailableProviders = async (existingSenders: UserSender[] = []) => {
-    const [userResult, gmailResult, brevoDomainsResult] = await Promise.allSettled([
+    const [userResult, gmailResult] = await Promise.allSettled([
       axios.get('/user/me'),
       axios.get('/gmail/status'),
-      axios.get('/brevo/domains'),
     ]);
 
     const user =
@@ -87,21 +79,14 @@ export const SendersManagement = () => {
       gmailResult.status === 'fulfilled'
         ? (gmailResult.value.data as GmailStatusResponse)
         : undefined;
-    const brevoDomains =
-      brevoDomainsResult.status === 'fulfilled'
-        ? ((brevoDomainsResult.value.data as BrevoDomainResponse[]) || [])
-        : [];
-
     const hasGmail =
       !!gmailStatus?.hasPermission ||
       !!user?.googleAccessToken ||
       existingSenders.some((s) => s.provider === 'gmail');
 
-    const hasBrevoVerifiedDomain =
-      brevoDomains.some((d) => (d.status || '').toUpperCase() === 'VERIFIED') ||
-      (user?.verifiedDomains?.length || 0) > 0;
-
-    const hasBrevo = hasBrevoVerifiedDomain || existingSenders.some((s) => s.provider === 'brevo');
+    // Keep Brevo selectable even if user-domain sync is stale.
+    // Backend validates domain ownership/verification on create.
+    const hasBrevo = true;
 
     return { hasGmail, hasBrevo };
   };
@@ -347,7 +332,7 @@ export const SendersManagement = () => {
                   <SelectItem value="gmail">📧 Gmail (Your Google Account)</SelectItem>
                 )}
                 {availableProviders.brevo && (
-                  <SelectItem value="brevo">✉️ Brevo (From Verified Domain)</SelectItem>
+                  <SelectItem value="brevo">✉️ Brevo (From Your Domain)</SelectItem>
                 )}
                 {!availableProviders.gmail && (
                   <SelectItem value="gmail-disabled" disabled>
@@ -356,14 +341,15 @@ export const SendersManagement = () => {
                 )}
                 {!availableProviders.brevo && (
                   <SelectItem value="brevo-disabled" disabled>
-                    Brevo (No Verified Domains)
+                    Brevo (No Domains Added)
                   </SelectItem>
                 )}
               </SelectContent>
             </Select>
             <p className="text-xs text-gray-500">
               {newSender.provider === 'gmail' && 'Email will be sent from your Google account.'}
-              {newSender.provider === 'brevo' && 'Email will be sent from your Brevo verified domain.'}
+              {newSender.provider === 'brevo' &&
+                'Email sends only after domain verification. Pending-domain senders can be added now.'}
               {!newSender.provider && 'Choose which email service to send from.'}
             </p>
           </div>
