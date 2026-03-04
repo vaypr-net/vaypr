@@ -1048,7 +1048,7 @@ ${getReceiptCompanyName(receipt)}`);
           setEmailLogoUrl('');
         }
       }}>
-        <DialogContent className="w-[95vw] max-w-lg p-6 overflow-hidden">
+        <DialogContent className={isComposing ? "w-[95vw] max-w-4xl max-h-[80vh] p-6 overflow-y-auto" : "w-[95vw] max-w-lg p-6 overflow-hidden"}>
           <DialogHeader>
             <DialogTitle>Send Receipt via Email</DialogTitle>
             <DialogDescription>
@@ -1170,8 +1170,8 @@ ${getReceiptCompanyName(receipt)}`);
                   placeholder="Write your message here..."
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
-                  rows={8}
-                  className="resize-y text-sm min-h-[220px]"
+                  rows={4}
+                  className="resize-y text-sm min-h-[120px]"
                 />
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <p className="text-xs text-muted-foreground">

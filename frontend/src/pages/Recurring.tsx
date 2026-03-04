@@ -1207,7 +1207,7 @@ ${companyName}`;
             setEmailLogoUrl('');
           }
         }}>
-          <DialogContent className="w-[95vw] max-w-lg p-6 overflow-hidden">
+          <DialogContent className="w-[95vw] max-w-4xl max-h-[80vh] p-6 overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Send Recurring Invoice via Email</DialogTitle>
               <DialogDescription>
@@ -1290,11 +1290,11 @@ ${companyName}`;
               <Label htmlFor="recurringEmailMessage">Message *</Label>
               <Textarea
                 id="recurringEmailMessage"
-                rows={8}
+                rows={4}
                 value={emailMessage}
                 onChange={(e) => setEmailMessage(e.target.value)}
                 placeholder="Write your message here..."
-                className="resize-y text-sm min-h-[220px]"
+                className="resize-y text-sm min-h-[120px]"
               />
               <p className="text-xs text-muted-foreground">PDF invoice will be attached automatically.</p>
             </div>
