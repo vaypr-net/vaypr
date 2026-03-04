@@ -214,13 +214,13 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
                   )}
                   {data.bankAccount.accountName && (
                     <p className="text-foreground">
-                      <span className="text-muted-foreground">Account: </span>
+                      <span className="text-muted-foreground">Account Number: </span>
                       {data.bankAccount.accountName}
                     </p>
                   )}
                   {data.bankAccount.iban && (
                     <p className="text-foreground font-mono" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                      <span className="text-muted-foreground font-sans">IBAN: </span>
+                      <span className="text-muted-foreground font-sans">IBAN Number: </span>
                       {data.bankAccount.iban}
                     </p>
                   )}

@@ -125,8 +125,8 @@ export function RecurringPreview({ data }: RecurringPreviewProps) {
           <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Bank Details</h3>
           <div className="space-y-1 text-sm text-gray-700">
             <p><span className="font-medium">Bank:</span> {data.bankDetails.bankName}</p>
-            <p><span className="font-medium">Account Name:</span> {data.bankDetails.accountName}</p>
-            <p><span className="font-medium">IBAN:</span> {data.bankDetails.iban}</p>
+            <p><span className="font-medium">Account Number:</span> {data.bankDetails.accountName}</p>
+            <p><span className="font-medium">IBAN Number:</span> {data.bankDetails.iban}</p>
           </div>
         </div>
       )}
@@ -144,7 +144,7 @@ export function RecurringPreview({ data }: RecurringPreviewProps) {
         <div className="mt-8 pt-4 border-t border-gray-200 text-center text-sm text-gray-500">
           <p>
             {data.companyFooter.companyName}
-            {data.companyFooter.address && `, ${data.companyFooter.address}`}
+            {data.companyFooter.address && ` • ${data.companyFooter.address}`}
             {data.companyFooter.officePhone && ` • Office: ${data.companyFooter.officePhone}`}
             {data.companyFooter.websiteEmail && ` • ${data.companyFooter.websiteEmail}`}
           </p>

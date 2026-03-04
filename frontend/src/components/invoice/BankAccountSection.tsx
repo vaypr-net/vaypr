@@ -51,16 +51,16 @@ export function BankAccountSection({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="accountName">Account Name</Label>
+            <Label htmlFor="accountName">Account Number</Label>
             <Input
               id="accountName"
-              placeholder="e.g., Your Company Name"
+              placeholder="e.g., 1234567890"
               value={bankAccount.accountName}
               onChange={(e) => onChange({ ...bankAccount, accountName: e.target.value })}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="iban">IBAN</Label>
+            <Label htmlFor="iban">IBAN Number</Label>
             <Input
               id="iban"
               placeholder="e.g., KW81CBKU0000000000001234560101"

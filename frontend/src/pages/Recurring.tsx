@@ -6,6 +6,7 @@ import { useEmailSettings } from '@/hooks/api/useEmailSettings';
 import { EmailService } from '@/api/services/email.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DocumentDateInput } from '@/components/ui/document-date-input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -52,6 +53,7 @@ import { InvoicePreview } from '@/components/invoice/InvoicePreview';
 import { useDocumentActions } from '@/hooks/useDocumentActions';
 import { InvoiceData } from '@/types/invoice';
 import { buildBrandedEmailHtml, type EmailTemplateStyle } from '@/lib/branded-email-template';
+import { formatDateDMY } from '@/lib/document-date';
 
 export default function Recurring() {
   // State declarations
@@ -756,7 +758,7 @@ ${companyName}`;
                       <TableCell className="font-medium">{recurring.clientName}</TableCell>
                       <TableCell>{formatCurrency(recurring.total, recurring.currency)}</TableCell>
                       <TableCell>{getFrequencyLabel(recurring.frequency)}</TableCell>
-                      <TableCell>{format(new Date(recurring.nextBillingDate), 'MMM d, yyyy')}</TableCell>
+                      <TableCell>{formatDateDMY(recurring.nextBillingDate) || '-'}</TableCell>
                       <TableCell>
                         <Badge variant={recurring.isActive ? 'default' : 'secondary'}>
                           {recurring.isActive ? 'Active' : 'Paused'}
@@ -947,10 +949,9 @@ ${companyName}`;
 
               <div className="space-y-2">
                 <Label>First Billing Date</Label>
-                <Input
-                  type="date"
+                <DocumentDateInput
                   value={formData.nextBillingDate}
-                  onChange={(e) => setFormData({ ...formData, nextBillingDate: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, nextBillingDate: value })}
                 />
               </div>
 
@@ -984,9 +985,9 @@ ${companyName}`;
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Account Name</Label>
+                        <Label>Account Number</Label>
                         <Input
-                          placeholder="e.g., Your Company LLC"
+                          placeholder="e.g., 1234567890"
                           value={formData.bankDetails.accountName}
                           onChange={(e) => setFormData({ 
                             ...formData, 
@@ -996,7 +997,7 @@ ${companyName}`;
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>IBAN / Account Number</Label>
+                      <Label>IBAN Number</Label>
                       <Input
                         placeholder="e.g., GB82 WEST 1234 5698 7654 32"
                         value={formData.bankDetails.iban}

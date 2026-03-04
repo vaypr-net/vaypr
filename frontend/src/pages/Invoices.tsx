@@ -71,7 +71,7 @@ export default function Invoices() {
   const { addPayment } = usePayments();
   const { addReminder } = useReminders();
   const { toast } = useToast();
-  const { downloadPDF, printDocument, generatePdfBase64, sendEmail, openInGenerator } = useDocumentActions();
+  const { downloadPDF, printDocument, generatePdfBase64, openInGenerator } = useDocumentActions();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -478,7 +478,7 @@ ${companyName}`;
       console.error('Gmail send error:', error);
       toast({
         title: 'Failed to Send Email',
-        description: error.message || 'Could not send email. Please try again or use "Open Email Client" option.',
+        description: error.message || 'Could not send email. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -1090,44 +1090,18 @@ ${companyName}`;
 
             {/* Footer Buttons - Only show when composing */}
             {isComposing && (
-              <DialogFooter className="flex-col gap-2 pt-4">
+              <DialogFooter className="pt-4">
                 <Button 
                   variant="outline" 
                   onClick={() => setIsComposing(false)}
                   disabled={isSendingEmail}
-                  className="w-full"
                 >
                   Cancel
                 </Button>
                 
-                {/* Fallback: Open local email client */}
-                <Button 
-                  variant="outline"
-                  onClick={() => {
-                    if (selectedInvoice && customMessage.trim()) {
-                      sendEmail({
-                        to: clientEmail,
-                        subject: customSubject || getDefaultEmailSubject(selectedInvoice),
-                        body: customMessage,
-                      });
-                      setIsEmailDialogOpen(false);
-                      setClientEmail('');
-                      setCustomMessage('');
-                      setCustomSubject('');
-                      setIsComposing(false);
-                    }
-                  }} 
-                  className="gap-2 w-full"
-                  disabled={isSendingEmail || !clientEmail.trim() || !customMessage.trim()}
-                >
-                  <Mail className="h-4 w-4" />
-                  Open Email Client
-                </Button>
-
-                {/* Primary: Send via Gmail API */}
                 <Button 
                   onClick={handleSendViaGmail}
-                  className="gap-2 bg-purple-600 hover:bg-purple-700 w-full"
+                  className="gap-2 bg-purple-600 hover:bg-purple-700"
                   disabled={isSendingEmail || !clientEmail.trim() || !customMessage.trim()}
                 >
                   {isSendingEmail ? (
@@ -1138,7 +1112,7 @@ ${companyName}`;
                   ) : (
                     <>
                       <Send className="h-4 w-4" />
-                      Send via Gmail
+                      Send Email
                     </>
                   )}
                 </Button>

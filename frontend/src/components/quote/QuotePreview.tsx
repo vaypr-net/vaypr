@@ -220,8 +220,8 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
           <p className="text-sm font-semibold text-foreground mb-1">Bank Details</p>
           <div className="text-sm text-muted-foreground space-y-1">
             {data.bankAccount.bankName && <p>Bank: {data.bankAccount.bankName}</p>}
-            {data.bankAccount.accountName && <p>Account Name: {data.bankAccount.accountName}</p>}
-            {data.bankAccount.iban && <p>IBAN: {data.bankAccount.iban}</p>}
+            {data.bankAccount.accountName && <p>Account Number: {data.bankAccount.accountName}</p>}
+            {data.bankAccount.iban && <p>IBAN Number: {data.bankAccount.iban}</p>}
           </div>
         </div>
       )}

@@ -93,6 +93,7 @@ const TIMEZONES = [
   { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
   { value: 'Europe/London', label: 'London (GMT/BST)' },
   { value: 'Europe/Paris', label: 'Paris (CET/CEST)' },
+  { value: 'Asia/Kuwait', label: 'Kuwait (AST)' },
   { value: 'Asia/Dubai', label: 'Dubai (GST)' },
   { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
   { value: 'Asia/Shanghai', label: 'Shanghai (CST)' },

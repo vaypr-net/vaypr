@@ -6,7 +6,8 @@ import {
   CheckCircle, 
   XCircle, 
   MessageSquare,
-  Clock 
+  Clock,
+  Pencil,
 } from 'lucide-react';
 import { QuoteTimelineEvent } from '@/types/app';
 import { cn } from '@/lib/utils';
@@ -16,7 +17,7 @@ interface QuoteTimelineProps {
   createdAt: string;
 }
 
-const eventConfig: Record<QuoteTimelineEvent['type'], { 
+const eventConfig: Record<string, {
   icon: typeof FileText; 
   label: string; 
   color: string;
@@ -58,6 +59,12 @@ const eventConfig: Record<QuoteTimelineEvent['type'], {
     color: 'text-yellow-600 dark:text-yellow-400',
     bgColor: 'bg-yellow-100 dark:bg-yellow-900/30'
   },
+  edited: {
+    icon: Pencil,
+    label: 'Quote Edited',
+    color: 'text-indigo-600 dark:text-indigo-400',
+    bgColor: 'bg-indigo-100 dark:bg-indigo-900/30'
+  },
 };
 
 export function QuoteTimeline({ events, createdAt }: QuoteTimelineProps) {
@@ -88,7 +95,14 @@ export function QuoteTimeline({ events, createdAt }: QuoteTimelineProps) {
         
         <div className="space-y-3">
           {sortedEvents.map((event, index) => {
-            const config = eventConfig[event.type];
+            const config =
+              eventConfig[event.type as keyof typeof eventConfig] ||
+              {
+                icon: Clock,
+                label: 'Status Updated',
+                color: 'text-muted-foreground',
+                bgColor: 'bg-muted',
+              };
             const Icon = config.icon;
             const isLast = index === sortedEvents.length - 1;
             

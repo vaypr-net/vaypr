@@ -101,7 +101,7 @@ const toBool = (value: unknown): boolean => value === true || value === 'true' |
 export default function Quotes() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { downloadPDF, generatePdfBase64, sendEmail, openInGenerator } = useDocumentActions();
+  const { downloadPDF, generatePdfBase64, openInGenerator } = useDocumentActions();
   const { senders: configuredSenders = [] } = useEmailSettings();
   
   // State declarations
@@ -806,7 +806,7 @@ export default function Quotes() {
       console.error('Gmail send error:', error);
       toast({
         title: 'Failed to Send Email',
-        description: error.message || 'Could not send email. Please try again or use "Open Email Client" option.',
+        description: error.message || 'Could not send email. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -1956,44 +1956,18 @@ ${getQuoteCompanyName(quote)}`);
 
         {/* Footer Buttons - Only show when composing */}
         {isComposing && (
-          <DialogFooter className="flex-col gap-2 pt-4">
+          <DialogFooter className="pt-4">
             <Button 
               variant="outline" 
               onClick={() => setIsComposing(false)}
               disabled={isSendingEmail}
-              className="w-full"
             >
               Cancel
             </Button>
             
-            {/* Fallback: Open local email client */}
-            <Button 
-              variant="outline"
-              onClick={() => {
-                if (selectedQuote && customMessage.trim()) {
-                  sendEmail({
-                    to: clientEmail,
-                    subject: customSubject || `Quote from ${getQuoteCompanyName(selectedQuote)}`,
-                    body: customMessage,
-                  });
-                  setIsEmailDialogOpen(false);
-                  setClientEmail('');
-                  setCustomMessage('');
-                  setCustomSubject('');
-                  setIsComposing(false);
-                }
-              }} 
-              className="gap-2 w-full"
-              disabled={isSendingEmail || !clientEmail.trim() || !customMessage.trim()}
-            >
-              <Mail className="h-4 w-4" />
-              Open Email Client
-            </Button>
-
-            {/* Primary: Send via Gmail API */}
             <Button 
               onClick={handleSendViaGmail}
-              className="gap-2 bg-purple-600 hover:bg-purple-700 w-full"
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
               disabled={isSendingEmail || !clientEmail.trim() || !customMessage.trim()}
             >
               {isSendingEmail ? (
@@ -2004,7 +1978,7 @@ ${getQuoteCompanyName(quote)}`);
               ) : (
                 <>
                   <Send className="h-4 w-4" />
-                  Send via Gmail
+                  Send Email
                 </>
               )}
             </Button>
