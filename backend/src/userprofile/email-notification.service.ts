@@ -22,6 +22,46 @@ export class EmailNotificationService {
     @InjectModel(User.name) private userModel: Model<User>,
   ) {}
 
+  private hasEmailSendingCapability(user: any): boolean {
+    if (!user) return false;
+    return Boolean(
+      user.googleAccessToken ||
+      user.googleRefreshToken ||
+      (Array.isArray(user.verifiedDomains) && user.verifiedDomains.length > 0) ||
+      user.brandingDomain,
+    );
+  }
+
+  private async resolveSenderUserId(preferredUserId: string): Promise<string> {
+    const preferred = await this.userModel
+      .findById(preferredUserId)
+      .select('googleAccessToken googleRefreshToken verifiedDomains brandingDomain')
+      .lean()
+      .exec();
+
+    if (this.hasEmailSendingCapability(preferred)) {
+      return preferredUserId;
+    }
+
+    const superAdmin = await this.userModel
+      .findOne({ isSuperAdmin: true })
+      .select('googleAccessToken googleRefreshToken verifiedDomains brandingDomain')
+      .lean()
+      .exec();
+
+    if (this.hasEmailSendingCapability(superAdmin)) {
+      const fallbackId = (superAdmin as any)?._id?.toString?.();
+      if (fallbackId) {
+        console.log(
+          `[Notification] Using super-admin sender fallback for user ${preferredUserId}`,
+        );
+        return fallbackId;
+      }
+    }
+
+    return preferredUserId;
+  }
+
   /**
    * Send a notification email if user has enabled that notification type
    */
@@ -46,8 +86,10 @@ export class EmailNotificationService {
         notificationData.data,
       );
 
+      const senderUserId = await this.resolveSenderUserId(notificationData.userId);
+
       await this.emailRouterService.sendEmail(
-        notificationData.userId,
+        senderUserId,
         notificationData.recipientEmail,
         subject,
         htmlBody,
@@ -309,7 +351,9 @@ export class EmailNotificationService {
     subject: string;
     htmlBody: string;
   } {
-    const { ticketNumber, agentName, message } = data;
+    const ticketNumber = data.ticketNumber || data.ticketId || 'N/A';
+    const agentName = data.agentName || 'Support Team';
+    const message = data.message || data.messagePreview || '';
     return {
       subject: `Support agent replied to ticket #${ticketNumber}`,
       htmlBody: `
@@ -328,16 +372,29 @@ export class EmailNotificationService {
     subject: string;
     htmlBody: string;
   } {
-    const { ticketNumber, subject } = data;
+    const ticketNumber = data.ticketNumber || data.ticketId || 'N/A';
+    const subjectText = data.subject || 'Support Ticket';
+    const resolution = String(data.resolution || 'resolved')
+      .replace(/_/g, ' ')
+      .toLowerCase();
+    const previousStatus = data.previousStatus
+      ? String(data.previousStatus).replace(/_/g, ' ').toLowerCase()
+      : null;
+    const isResolvedLike = resolution === 'resolved' || resolution === 'closed';
+
     return {
-      subject: `Support ticket #${ticketNumber} has been resolved`,
+      subject: isResolvedLike
+        ? `Support ticket #${ticketNumber} has been ${resolution}`
+        : `Support ticket #${ticketNumber} status updated to ${resolution}`,
       htmlBody: `
-        <h2 style="color: #4caf50;">Ticket Resolved</h2>
-        <p>Your support ticket <strong>#${ticketNumber}</strong> has been marked as resolved.</p>
+        <h2 style="color: #4caf50;">Ticket Status Updated</h2>
+        <p>Your support ticket <strong>#${ticketNumber}</strong> status is now <strong>${resolution}</strong>.</p>
         <ul>
-          <li><strong>Subject:</strong> ${subject}</li>
+          <li><strong>Subject:</strong> ${subjectText}</li>
+          ${previousStatus ? `<li><strong>Previous Status:</strong> ${previousStatus}</li>` : ''}
+          <li><strong>Current Status:</strong> ${resolution}</li>
         </ul>
-        <p>If you need further assistance, you can reopen this ticket or create a new one.</p>
+        <p>Please check your support dashboard for full ticket details.</p>
       `,
     };
   }

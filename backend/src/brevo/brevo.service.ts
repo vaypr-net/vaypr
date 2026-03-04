@@ -78,6 +78,8 @@ export class BrevoService {
    * Create domain by user - WITH SUBSCRIPTION LIMIT CHECK
    */
   async createDomainByUser(userId: string, createDto: CreateBrevoDomainDto): Promise<BrevoDomain> {
+    const normalizedDomain = createDto.domain.toLowerCase();
+
     // 1. Get user with subscription plan
     const user = await this.userModel.findById(userId).populate('planId');
     if (!user) {
@@ -100,21 +102,45 @@ export class BrevoService {
     const pendingCount = (user.pendingDomains || []).length;
     const totalCount = verifiedCount + pendingCount;
 
-    if (domainLimit > 0 && totalCount >= domainLimit) {
+    const alreadyLinkedToUser =
+      (user.verifiedDomains || []).includes(normalizedDomain) ||
+      (user.pendingDomains || []).includes(normalizedDomain);
+
+    if (domainLimit > 0 && totalCount >= domainLimit && !alreadyLinkedToUser) {
       throw new BadRequestException(
         `You have reached your domain limit (${domainLimit}). Upgrade your plan to add more domains.`
       );
     }
 
-    // 4. Create domain via Brevo API
+    // 4. If domain already exists globally, reuse it (multi-account support)
+    const existingDomain = await this.brevioDomainModel.findOne({ domain: normalizedDomain }).exec();
+    if (existingDomain) {
+      if (!alreadyLinkedToUser) {
+        if (existingDomain.status === 'VERIFIED') {
+          await this.userModel.findByIdAndUpdate(userId, {
+            $addToSet: { verifiedDomains: normalizedDomain },
+            $pull: { pendingDomains: normalizedDomain },
+          });
+        } else {
+          await this.userModel.findByIdAndUpdate(userId, {
+            $addToSet: { pendingDomains: normalizedDomain },
+            $pull: { verifiedDomains: normalizedDomain },
+          });
+        }
+      }
+
+      return existingDomain;
+    }
+
+    // 5. Create domain via Brevo API
     const domain = await this.createDomainCore(createDto, userId);
 
-    // 5. Track domain as pending for user
+    // 6. Track domain as pending for user
     await this.userModel.findByIdAndUpdate(userId, {
       $push: { pendingDomains: domain.domain }
     });
 
-    // 6. Log activity
+    // 7. Log activity
     await this.activityService.create({
       type: 'domain_created',
       title: `Custom domain added: ${domain.domain}`,
@@ -243,8 +269,24 @@ export class BrevoService {
    * Get all domains for a user
    */
   async getUserDomains(userId: string): Promise<BrevoDomain[]> {
+    const user = await this.userModel
+      .findById(userId)
+      .select('verifiedDomains pendingDomains')
+      .lean()
+      .exec();
+
+    const userDomains = [
+      ...((user as any)?.verifiedDomains || []),
+      ...((user as any)?.pendingDomains || []),
+    ];
+
     return this.brevioDomainModel
-      .find({ userId: new Types.ObjectId(userId) })
+      .find({
+        $or: [
+          { userId: new Types.ObjectId(userId) },
+          { domain: { $in: userDomains } },
+        ],
+      })
       .sort({ createdAt: -1 })
       .exec();
   }

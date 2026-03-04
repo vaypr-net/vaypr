@@ -70,6 +70,8 @@ export class TicketsService {
       message: `Your ticket "${ticket.subject}" status changed from ${previousLabel} to ${nextLabel}.`,
       relatedId,
     });
+
+    await this.sendTicketStatusChangedEmail(ticket, previousStatus);
   }
 
   async create(createTicketDto: CreateTicketDto): Promise<Ticket> {
@@ -303,11 +305,7 @@ export class TicketsService {
       existingTicket.status !== ticket.status &&
       (ticket.status === 'resolved' || ticket.status === 'closed')
     ) {
-      await this.sendTicketResolvedNotification(ticket.customerId, {
-        ticketId: ticket.id,
-        subject: ticket.subject,
-        resolution: ticket.status,
-      });
+      // Email sending is handled in createTicketStatusNotification() for all status changes.
     }
 
     if (existingTicket.status !== ticket.status) {
@@ -356,6 +354,7 @@ export class TicketsService {
         ticketId: ticket.id,
         subject: ticket.subject,
         messagePreview: message.slice(0, 140),
+        agentName: author,
       });
     }
 
@@ -466,7 +465,7 @@ export class TicketsService {
    */
   async sendSupportAgentRepliedNotification(
     userId: string,
-    ticketData: { ticketId: string; subject: string; messagePreview: string }
+    ticketData: { ticketId: string; subject: string; messagePreview: string; agentName?: string }
   ): Promise<boolean> {
     try {
       const ticket = await this.ticketModel.findById(ticketData.ticketId).exec();
@@ -477,13 +476,44 @@ export class TicketsService {
         userId,
         recipientEmail: ticket.customerEmail,
         data: {
-          ticketId: ticketData.ticketId,
+          ticketNumber: ticketData.ticketId,
           subject: ticketData.subject,
-          messagePreview: ticketData.messagePreview,
+          message: ticketData.messagePreview,
+          agentName: ticketData.agentName || 'Support Team',
         },
       });
     } catch (error) {
       console.error(`[Support] Error sending supportAgentReplied email:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Send ticket status changed email for any status transition
+   * Uses ticketResolved preference group for support lifecycle notifications.
+   */
+  async sendTicketStatusChangedEmail(
+    ticket: Ticket,
+    previousStatus: string,
+  ): Promise<boolean> {
+    try {
+      if (!ticket?.customerEmail) return false;
+
+      const ticketId = (ticket as any).id || (ticket as any)._id?.toString() || '';
+
+      return await this.emailNotificationService.sendNotification({
+        type: 'ticketResolved',
+        userId: ticket.customerId,
+        recipientEmail: ticket.customerEmail,
+        data: {
+          ticketNumber: ticketId,
+          subject: ticket.subject,
+          resolution: ticket.status,
+          previousStatus,
+        },
+      });
+    } catch (error) {
+      console.error(`[Support] Error sending ticket status changed email:`, error);
       return false;
     }
   }

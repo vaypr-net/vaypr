@@ -5,6 +5,7 @@ import { UserSender, SenderProvider, SenderStatus } from './entities/user-sender
 import { CreateSenderDto, UpdateSenderDto, SenderResponseDto } from './dto/sender.dto';
 import { User } from '../user/entities/user.entity';
 import { BrevoDomain } from '../brevo/entities/brevo.entity';
+import { EmailSettings } from '../email-settings/entities/email-settings.entity';
 
 @Injectable()
 export class SenderService {
@@ -12,6 +13,7 @@ export class SenderService {
     @InjectModel(UserSender.name) private userSenderModel: Model<UserSender>,
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(BrevoDomain.name) private brevoDomainModel: Model<BrevoDomain>,
+    @InjectModel(EmailSettings.name) private emailSettingsModel: Model<EmailSettings>,
   ) {}
 
   /**
@@ -253,10 +255,10 @@ export class SenderService {
   }
 
   /**
-   * Deactivate (soft delete) a sender
+   * Hard delete sender from DB
    */
   async deactivateSender(userId: string, senderId: string): Promise<SenderResponseDto> {
-    const sender = await this.userSenderModel.findOne({
+    const sender = await this.userSenderModel.findOneAndDelete({
       _id: new Types.ObjectId(senderId),
       userId: new Types.ObjectId(userId),
     });
@@ -265,14 +267,16 @@ export class SenderService {
       throw new NotFoundException('Sender not found');
     }
 
-    // If this was primary or secondary, clear the priority
-    if (sender.priority) {
-      sender.priority = null;
-    }
-
-    sender.status = 'inactive';
-    sender.updatedAt = new Date();
-    await sender.save();
+    // If deleted sender was set as default, clear defaultSenderId
+    await this.emailSettingsModel.updateOne(
+      {
+        ownerId: new Types.ObjectId(userId),
+        defaultSenderId: sender._id,
+      },
+      {
+        $set: { defaultSenderId: null, updatedAt: new Date() },
+      },
+    );
 
     return this.toResponseDto(sender);
   }
