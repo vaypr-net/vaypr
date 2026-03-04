@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsEmail } from 'class-validator';
 
 export class CreateMyTicketDto {
   @IsString()
@@ -7,6 +7,10 @@ export class CreateMyTicketDto {
   @IsOptional()
   @IsString()
   customerName?: string;
+
+  @IsOptional()
+  @IsEmail()
+  customerEmail?: string;
 
   @IsOptional()
   @IsString()

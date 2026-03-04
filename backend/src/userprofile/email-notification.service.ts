@@ -11,6 +11,10 @@ interface NotificationEmailData {
   userId: string;
   recipientEmail: string;
   data: Record<string, any>;
+  replyTo?: string;
+  senderUserId?: string;
+  fromEmail?: string;
+  useLoginEmailAsSender?: boolean;
 }
 
 @Injectable()
@@ -86,13 +90,21 @@ export class EmailNotificationService {
         notificationData.data,
       );
 
-      const senderUserId = await this.resolveSenderUserId(notificationData.userId);
+      const senderUserId =
+        notificationData.senderUserId ||
+        (await this.resolveSenderUserId(notificationData.userId));
 
       await this.emailRouterService.sendEmail(
         senderUserId,
         notificationData.recipientEmail,
         subject,
         htmlBody,
+        undefined,
+        undefined,
+        notificationData.replyTo,
+        undefined,
+        notificationData.useLoginEmailAsSender ?? false,
+        notificationData.fromEmail,
       );
 
       console.log(
@@ -355,10 +367,10 @@ export class EmailNotificationService {
     const agentName = data.agentName || 'Support Team';
     const message = data.message || data.messagePreview || '';
     return {
-      subject: `Support agent replied to ticket #${ticketNumber}`,
+      subject: `Support has sent a message on ticket #${ticketNumber}`,
       htmlBody: `
         <h2>Support Response</h2>
-        <p>A support agent has replied to your ticket <strong>#${ticketNumber}</strong>.</p>
+        <p>Support has sent a message on your ticket <strong>#${ticketNumber}</strong>.</p>
         <p><strong>From:</strong> ${agentName}</p>
         <div style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; margin: 10px 0;">
           ${message}

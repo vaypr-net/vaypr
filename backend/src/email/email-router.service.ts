@@ -62,6 +62,7 @@ export class EmailRouterService {
     replyTo?: string,
     senderId?: string,
     useLoginEmailAsSender: boolean = false,
+    fromEmailOverride?: string,
   ): Promise<{ success: boolean; message: string; messageId?: string; sentVia: 'gmail' | 'brevo' }> {
     const user = await this.userService.findOne(userId);
 
@@ -147,7 +148,8 @@ export class EmailRouterService {
     // LEGACY FALLBACK: Use brandingDomain + Gmail (backward compatibility)
     console.log('[EmailRouter] Using legacy fallback (brandingDomain + Gmail)');
 
-    const emailDomain = this.getDomainFromEmail(user.email);
+    const fromEmail = (fromEmailOverride || user.email || '').trim().toLowerCase();
+    const emailDomain = this.getDomainFromEmail(fromEmail);
     const brandingDomain = user.brandingDomain?.trim().toLowerCase() || '';
     const verifiedDomains = (user.verifiedDomains || []).map((d) => d.trim().toLowerCase());
 
@@ -157,14 +159,14 @@ export class EmailRouterService {
       !!emailDomain;
 
     console.log(
-      `[EmailRouter] User email: ${user.email}, brandingDomain: ${brandingDomain || 'NONE'}, emailDomain: ${emailDomain || 'NONE'}`,
+      `[EmailRouter] User email: ${fromEmail || user.email}, brandingDomain: ${brandingDomain || 'NONE'}, emailDomain: ${emailDomain || 'NONE'}`,
     );
 
     // Try Brevo with user's primary domain
     if (shouldTryBrevo) {
       try {
         const result = await this.brevoService.sendEmail(
-          user.email,
+          fromEmail,
           toEmail,
           subject,
           htmlBody,
@@ -178,7 +180,7 @@ export class EmailRouterService {
           sentVia: 'brevo',
         };
       } catch (error) {
-        console.error(`[EmailRouter] Brevo send failed for ${user.email}:`, error.message);
+        console.error(`[EmailRouter] Brevo send failed for ${fromEmail}:`, error.message);
         // If Brevo fails but user has Gmail connected, fallback to Gmail.
         if (!user.googleAccessToken) {
           throw new BadRequestException(

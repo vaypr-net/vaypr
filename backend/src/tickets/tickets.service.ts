@@ -64,6 +64,10 @@ export class TicketsService {
       .join(' ');
   }
 
+  private escapeRegex(input: string): string {
+    return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   private async createTicketStatusNotification(ticket: Ticket, previousStatus: string): Promise<void> {
     if (!ticket?.customerId || !ticket?.status || previousStatus === ticket.status) return;
     const relatedId =
@@ -90,17 +94,21 @@ export class TicketsService {
 
   async createForCustomer(
     customerId: string,
-    customerEmail: string,
+    fallbackCustomerEmail: string,
     createTicketDto: CreateMyTicketDto,
   ): Promise<Ticket> {
+    const effectiveCustomerEmail =
+      createTicketDto.customerEmail?.trim().toLowerCase() ||
+      fallbackCustomerEmail?.trim().toLowerCase();
+
     const ticket = new this.ticketModel({
       ...createTicketDto,
       customerId,
-      customerEmail,
+      customerEmail: effectiveCustomerEmail,
       customerName:
         createTicketDto.customerName?.trim() ||
-        customerEmail.split('@')[0] ||
-        customerEmail,
+        effectiveCustomerEmail?.split('@')[0] ||
+        effectiveCustomerEmail,
     });
     const saved = await ticket.save();
     await this.createSuperAdminTicketActivity(saved);
@@ -155,6 +163,7 @@ export class TicketsService {
         .exec();
 
       const supportEmail = settings?.supportEmail || primaryAdmin.email;
+      const senderUserId = primaryAdmin._id.toString();
       if (!supportEmail) {
         return;
       }
@@ -177,17 +186,76 @@ export class TicketsService {
       `;
 
       await this.emailRouterService.sendEmail(
-        primaryAdmin._id.toString(),
+        senderUserId,
         supportEmail,
         emailSubject,
         emailBody,
         undefined,
         undefined,
         ticket.customerEmail,
+        undefined,
+        false,
+        supportEmail,
       );
+
+      if (ticket.customerEmail) {
+        const customerSubject = `We received your support ticket #${ticketId}`;
+        const customerBody = `
+          <h2>Support Ticket Received</h2>
+          <p>Hi ${ticket.customerName || 'there'},</p>
+          <p>We received your support request and our team will reply soon.</p>
+          <ul>
+            <li><strong>Ticket ID:</strong> ${ticketId}</li>
+            <li><strong>Subject:</strong> ${ticket.subject}</li>
+            <li><strong>Category:</strong> ${ticket.category}</li>
+            <li><strong>Priority:</strong> ${ticket.priority}</li>
+            <li><strong>Status:</strong> ${this.formatStatusLabel(ticket.status)}</li>
+          </ul>
+          <p>Thank you for contacting support.</p>
+        `;
+
+        await this.emailRouterService.sendEmail(
+          senderUserId,
+          ticket.customerEmail,
+          customerSubject,
+          customerBody,
+          undefined,
+          undefined,
+          supportEmail,
+          undefined,
+          false,
+          supportEmail,
+        );
+      }
     } catch (error) {
       console.error('[Support] Failed to send super-admin/support notification for new ticket:', error);
     }
+  }
+
+  private async resolveSupportContext(): Promise<{ supportEmail?: string; senderUserId?: string }> {
+    const settings = await this.superAdminSettingsModel
+      .findOne()
+      .select('supportEmail userId')
+      .lean()
+      .exec();
+
+    if (settings?.supportEmail || settings?.userId) {
+      return {
+        supportEmail: settings?.supportEmail,
+        senderUserId: (settings as any)?.userId?.toString?.(),
+      };
+    }
+
+    const superAdmin: any = await this.userModel
+      .findOne({ isSuperAdmin: true })
+      .select('_id email')
+      .lean()
+      .exec();
+
+    return {
+      supportEmail: superAdmin?.email,
+      senderUserId: superAdmin?._id?.toString?.(),
+    };
   }
 
   async findAll(
@@ -207,10 +275,11 @@ export class TicketsService {
     const query: any = {};
 
     if (search) {
+      const safeSearch = this.escapeRegex(search.trim());
       query.$or = [
-        { subject: { $regex: search, $options: 'i' } },
-        { customerName: { $regex: search, $options: 'i' } },
-        { customerEmail: { $regex: search, $options: 'i' } },
+        { subject: { $regex: safeSearch, $options: 'i' } },
+        { customerName: { $regex: safeSearch, $options: 'i' } },
+        { customerEmail: { $regex: safeSearch, $options: 'i' } },
       ];
     }
 
@@ -270,9 +339,10 @@ export class TicketsService {
     };
 
     if (search) {
+      const safeSearch = this.escapeRegex(search.trim());
       query.$or = [
-        { subject: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
+        { subject: { $regex: safeSearch, $options: 'i' } },
+        { description: { $regex: safeSearch, $options: 'i' } },
       ];
     }
 
@@ -563,11 +633,17 @@ export class TicketsService {
     try {
       const ticket = await this.ticketModel.findById(ticketData.ticketId).exec();
       if (!ticket?.customerEmail) return false;
+      const supportContext = await this.resolveSupportContext();
+      const supportInboxEmail = supportContext.supportEmail;
 
       return await this.emailNotificationService.sendNotification({
         type: 'supportAgentReplied',
         userId,
         recipientEmail: ticket.customerEmail,
+        replyTo: supportInboxEmail,
+        senderUserId: supportContext.senderUserId,
+        fromEmail: supportInboxEmail,
+        useLoginEmailAsSender: true,
         data: {
           ticketNumber: ticketData.ticketId,
           subject: ticketData.subject,
