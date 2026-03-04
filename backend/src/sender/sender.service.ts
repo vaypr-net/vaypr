@@ -63,23 +63,58 @@ export class SenderService {
         throw new BadRequestException('Invalid email format');
       }
 
-      // Check if domain is verified in BrevoDomain
-      const brevoDomain = await this.brevoDomainModel.findOne({
+      // Check if domain belongs to this user
+      let brevoDomain = await this.brevoDomainModel.findOne({
         domain: domain.toLowerCase(),
-        status: 'VERIFIED',
+        userId: userObjectId,
       });
 
+      // If not found for this user, check if domain exists globally in verified state.
+      // This supports older/admin-created domains that were not linked to a user yet.
       if (!brevoDomain) {
-        throw new BadRequestException(
-          `Domain ${domain} is not verified in Brevo. Verify your domain first in Domains settings.`,
-        );
+        const globalVerifiedDomain = await this.brevoDomainModel.findOne({
+          domain: domain.toLowerCase(),
+          status: 'VERIFIED',
+        });
+
+        if (!globalVerifiedDomain) {
+          throw new BadRequestException(
+            `Domain ${domain} is not added to your account. Add/verify it first in Domains settings.`,
+          );
+        }
+
+        // If domain is already owned by another user, block cross-tenant usage.
+        if (
+          globalVerifiedDomain.userId &&
+          globalVerifiedDomain.userId.toString() !== userObjectId.toString()
+        ) {
+          throw new BadRequestException(
+            `Domain ${domain} is already linked to another account.`,
+          );
+        }
+
+        // Claim/link this verified domain to current user if unowned.
+        if (!globalVerifiedDomain.userId) {
+          globalVerifiedDomain.userId = userObjectId as any;
+          await globalVerifiedDomain.save();
+        }
+
+        brevoDomain = globalVerifiedDomain;
       }
 
-      verified = true;
+      // Sender can be created for user-owned domain; mark verified only when domain is verified.
+      verified = brevoDomain.status === 'VERIFIED';
+
+      // Keep user's verifiedDomains in sync for provider detection.
+      if (verified) {
+        await this.userModel.findByIdAndUpdate(userObjectId, {
+          $addToSet: { verifiedDomains: domain.toLowerCase() },
+        });
+      }
     } else if (dto.provider === 'gmail') {
       // Check if user has Gmail connected
       const user = await this.userModel.findById(userObjectId);
-      if (!user?.googleAccessToken) {
+      if (!user?.googleAccessToken && !user?.googleRefreshToken) {
         throw new BadRequestException('Gmail not connected. Please connect your Google account first.');
       }
 
