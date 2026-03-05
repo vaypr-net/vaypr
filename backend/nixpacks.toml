@@ -3,7 +3,7 @@
 # No cd commands needed
 
 [phases.setup]
-nixPkgs = ["nodejs_20"]
+nixPkgs = ["nodejs_20", "chromium"]
 
 [phases.install]
 cmds = [

@@ -371,21 +371,12 @@ ${companyName}`;
             continue;
           }
 
-          // Check if nextBillingDate is today or in the past
-          const nextBillingDate = new Date(recurring.nextBillingDate);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          nextBillingDate.setHours(0, 0, 0, 0);
-
-          this.logger.debug(`[Recurring Automail] TEST - nextBillingDate: ${nextBillingDate.toDateString()}, today: ${today.toDateString()}`);
-
-          if (nextBillingDate.getTime() <= today.getTime()) {
-            this.logger.log(`[Recurring Automail] TEST - Processing recurring ${recurring._id} (nextBillingDate: ${nextBillingDate.toDateString()})`);
-            await this.processRecurringAutomail(recurring);
-            processed++;
-          } else {
-            skipped++;
-          }
+          // TEST mode: process all active recurring entries regardless of nextBillingDate/time.
+          this.logger.log(
+            `[Recurring Automail] TEST - Processing recurring ${recurring._id} (nextBillingDate: ${new Date(recurring.nextBillingDate).toDateString()})`,
+          );
+          await this.processRecurringAutomail(recurring);
+          processed++;
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
           this.logger.error(
@@ -405,7 +396,7 @@ ${companyName}`;
         processed,
         skipped,
         errors: errors.length > 0 ? errors : undefined,
-        note: 'This test mode processes all recurring billings with nextBillingDate <= today, regardless of time',
+        note: 'This test mode processes all active recurring billings with autoSendReminder enabled, regardless of date/time.',
       };
     } catch (error) {
       this.logger.error('[Recurring Automail] TEST - Error:', error);

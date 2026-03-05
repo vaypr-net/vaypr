@@ -1,5 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { chromium } from 'playwright';
+import { existsSync } from 'fs';
+import { execSync } from 'child_process';
 
 /**
  * PDF generation service for recurring auto-mails.
@@ -35,6 +37,7 @@ export class PdfGeneratorService implements OnModuleDestroy {
   private async renderPdfWithChromium(html: string): Promise<Buffer> {
     const browser = await chromium.launch({
       headless: true,
+      executablePath: this.getChromiumExecutablePath(),
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
@@ -54,6 +57,47 @@ export class PdfGeneratorService implements OnModuleDestroy {
     } finally {
       await browser.close();
     }
+  }
+
+  private getChromiumExecutablePath(): string | undefined {
+    // Let Playwright use its bundled browser first if available.
+    // If unavailable in production (common on some Railway builds), try system Chromium paths.
+    const candidates: string[] = [];
+
+    const envPath = process.env.CHROMIUM_EXECUTABLE_PATH?.trim();
+    if (envPath) {
+      candidates.push(envPath);
+    }
+
+    candidates.push(
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+    );
+
+    for (const candidate of candidates) {
+      if (candidate && existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    try {
+      const whichPath = execSync(
+        'which chromium || which chromium-browser || which google-chrome || which google-chrome-stable',
+        { stdio: ['ignore', 'pipe', 'ignore'] },
+      )
+        .toString()
+        .trim()
+        .split('\n')[0];
+      if (whichPath && existsSync(whichPath)) {
+        return whichPath;
+      }
+    } catch {
+      // Ignore and allow Playwright default behavior.
+    }
+
+    return undefined;
   }
 
   private buildInvoiceHtml(invoice: any): string {
