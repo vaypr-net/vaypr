@@ -170,7 +170,9 @@ export function SaveToDashboardDialog({
           clientId: selectedClientId || defaultClientId || undefined,
           billTo: {
             name: invoiceData.billTo.name,
-            phone: invoiceData.billTo.phone || selectedClient?.phone || '',
+            phone: isEditingInvoice
+              ? (invoiceData.billTo.phone || '')
+              : (invoiceData.billTo.phone || selectedClient?.phone || ''),
             area: invoiceData.billTo.area || '',
             block: invoiceData.billTo.block || '',
             street: invoiceData.billTo.street || '',
