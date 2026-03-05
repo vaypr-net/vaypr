@@ -22,10 +22,12 @@ export class PdfGeneratorService implements OnModuleDestroy {
       const base64Content = pdfBuffer.toString('base64');
       this.logger.log(`[PDF Generator] Generated Chromium PDF for: ${invoice.invoiceNumber}`);
       return base64Content;
-    } catch (error) {
-      this.logger.warn(
-        `[PDF Generator] Chromium render failed for ${invoice?.invoiceNumber}. Falling back to built-in renderer. Error: ${error?.message || error}`,
+    } catch (error: any) {
+      this.logger.error(
+        `[PDF Generator] Chromium PDF failed for ${invoice?.invoiceNumber}: ${error?.message || error}`,
+        error?.stack,
       );
+      this.logger.warn('[PDF Generator] Falling back to minimal PDF renderer');
 
       const fallbackPdf = this.buildFallbackPdf(invoice);
       const base64Content = fallbackPdf.toString('base64');
@@ -35,34 +37,70 @@ export class PdfGeneratorService implements OnModuleDestroy {
   }
 
   private async renderPdfWithChromium(html: string): Promise<Buffer> {
-    const browser = await chromium.launch({
-      headless: true,
-      executablePath: this.getChromiumExecutablePath(),
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    const detectedExecutablePath = this.getChromiumExecutablePath();
+    const attempts = [
+      { executablePath: detectedExecutablePath, label: `detected-path:${detectedExecutablePath || 'none'}` },
+      { executablePath: undefined, label: 'playwright-default' },
+    ];
 
-    try {
-      const page = await browser.newPage({ viewport: { width: 900, height: 1400 } });
-      await page.setContent(html, { waitUntil: 'networkidle' });
-      await page.emulateMedia({ media: 'screen' });
+    let lastError: any;
 
-      const pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: { top: '0', right: '0', bottom: '0', left: '0' },
-        preferCSSPageSize: true,
-      });
+    for (const attempt of attempts) {
+      let browser: any;
+      try {
+        this.logger.log(`[PDF Generator] Chromium launch attempt: ${attempt.label}`);
+        browser = await chromium.launch({
+          headless: true,
+          executablePath: attempt.executablePath,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+          ],
+        });
 
-      return Buffer.from(pdf);
-    } finally {
-      await browser.close();
+        const page = await browser.newPage({ viewport: { width: 900, height: 1400 } });
+        await page.setContent(html, { waitUntil: 'networkidle' });
+        await page.emulateMedia({ media: 'screen' });
+
+        const pdf = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: { top: '0', right: '0', bottom: '0', left: '0' },
+          preferCSSPageSize: true,
+        });
+
+        this.logger.log(`[PDF Generator] Chromium launch success via: ${attempt.label}`);
+        return Buffer.from(pdf);
+      } catch (error: any) {
+        lastError = error;
+        this.logger.warn(
+          `[PDF Generator] Chromium launch attempt failed (${attempt.label}): ${error?.message || error}`,
+        );
+      } finally {
+        if (browser) {
+          await browser.close();
+        }
+      }
     }
+
+    throw lastError || new Error('All Chromium launch attempts failed');
   }
 
   private getChromiumExecutablePath(): string | undefined {
     // Let Playwright use its bundled browser first if available.
     // If unavailable in production (common on some Railway builds), try system Chromium paths.
     const candidates: string[] = [];
+
+    try {
+      const playwrightBundledPath = chromium.executablePath();
+      if (playwrightBundledPath) {
+        candidates.push(playwrightBundledPath);
+      }
+    } catch {
+      // Ignore and continue with env/system candidates.
+    }
 
     const envPath = process.env.CHROMIUM_EXECUTABLE_PATH?.trim();
     if (envPath) {
