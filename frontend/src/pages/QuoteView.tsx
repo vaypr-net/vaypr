@@ -483,11 +483,20 @@ export default function QuoteView() {
                 </p>
                 <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 space-y-1">
                   <p className="font-semibold text-lg">{quote.billTo?.name || quote.clientName}</p>
-                  {(quote.billTo?.phone || quote.clientPhone) && <p className="text-muted-foreground text-sm">{quote.billTo?.phone || quote.clientPhone}</p>}
-                  {quote.clientEmail && <p className="text-muted-foreground text-sm">{quote.clientEmail}</p>}
-                  {(quote.billTo?.area || quote.billTo?.block || quote.billTo?.street || quote.clientArea || quote.clientBlock || quote.clientStreet) && (
+                  {(quote.billTo?.phone || (!quote.billTo && quote.clientPhone)) && (
                     <p className="text-muted-foreground text-sm">
-                      {[quote.billTo?.area || quote.clientArea, quote.billTo?.block || quote.clientBlock, quote.billTo?.street || quote.clientStreet, quote.billTo?.house || quote.clientHouse]
+                      {quote.billTo?.phone || quote.clientPhone}
+                    </p>
+                  )}
+                  {quote.clientEmail && <p className="text-muted-foreground text-sm">{quote.clientEmail}</p>}
+                  {(quote.billTo?.area || quote.billTo?.block || quote.billTo?.street || (!quote.billTo && (quote.clientArea || quote.clientBlock || quote.clientStreet))) && (
+                    <p className="text-muted-foreground text-sm">
+                      {[
+                        quote.billTo?.area || (!quote.billTo ? quote.clientArea : ''),
+                        quote.billTo?.block || (!quote.billTo ? quote.clientBlock : ''),
+                        quote.billTo?.street || (!quote.billTo ? quote.clientStreet : ''),
+                        quote.billTo?.house || (!quote.billTo ? quote.clientHouse : ''),
+                      ]
                         .filter(Boolean)
                         .join(', ')}
                     </p>

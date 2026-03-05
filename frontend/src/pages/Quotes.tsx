@@ -147,16 +147,27 @@ export default function Quotes() {
   const clientsArray = Array.isArray(clients) ? clients : [];
   
   const mapApiQuoteToLocal = (q: any): Quote => ({
+    billTo: q.billTo
+      ? {
+          name: q.billTo?.name || '',
+          phone: q.billTo?.phone || '',
+          area: q.billTo?.area || '',
+          block: q.billTo?.block || '',
+          street: q.billTo?.street || '',
+          house: q.billTo?.house || '',
+          other: q.billTo?.other || '',
+        }
+      : undefined,
     id: q._id,
     quoteNumber: q.quoteNumber,
     clientId: (typeof q.clientId === 'string' ? q.clientId : q.clientId?._id) || '',
     clientName: q.billTo?.name || '',
-    clientPhone: q.billTo?.phone || '',
+    clientPhone: q.billTo ? (q.billTo?.phone || '') : (q.clientPhone || ''),
     clientEmail: q.billTo?.email || '',
-    clientArea: q.billTo?.area || '',
-    clientBlock: q.billTo?.block || '',
-    clientStreet: q.billTo?.street || '',
-    clientHouse: q.billTo?.house || '',
+    clientArea: q.billTo ? (q.billTo?.area || '') : (q.clientArea || ''),
+    clientBlock: q.billTo ? (q.billTo?.block || '') : (q.clientBlock || ''),
+    clientStreet: q.billTo ? (q.billTo?.street || '') : (q.clientStreet || ''),
+    clientHouse: q.billTo ? (q.billTo?.house || '') : (q.clientHouse || ''),
     status: q.status,
     quoteDate: q.quoteDate,
     validUntil: q.validUntil,
@@ -319,13 +330,13 @@ export default function Quotes() {
       currency: quote.currency,
       currencySymbol: quote.currencySymbol || quote.currency,
       billTo: {
-        name: quote.clientName,
-        phone: quote.clientPhone || '',
-        area: quote.clientArea || '',
-        block: quote.clientBlock || '',
-        street: quote.clientStreet || '',
-        house: quote.clientHouse || '',
-        other: '',
+        name: quote.billTo?.name || quote.clientName,
+        phone: quote.billTo?.phone || '',
+        area: quote.billTo?.area || '',
+        block: quote.billTo?.block || '',
+        street: quote.billTo?.street || '',
+        house: quote.billTo?.house || '',
+        other: quote.billTo?.other || '',
       },
       quoteNumber: quote.quoteNumber,
       quoteDate: quote.quoteDate,
@@ -514,13 +525,13 @@ export default function Quotes() {
       quoteDate: formatDateForInput(quote.quoteDate),
       validUntil: formatDateForInput(quote.validUntil),
       billTo: {
-        name: quote.clientName,
-        phone: quote.clientPhone || '',
-        area: quote.clientArea || '',
-        block: quote.clientBlock || '',
-        street: quote.clientStreet || '',
-        house: quote.clientHouse || '',
-        other: '',
+        name: quote.billTo?.name || quote.clientName,
+        phone: quote.billTo?.phone || '',
+        area: quote.billTo?.area || '',
+        block: quote.billTo?.block || '',
+        street: quote.billTo?.street || '',
+        house: quote.billTo?.house || '',
+        other: quote.billTo?.other || '',
       },
       items: quote.items.length > 0 ? quote.items : [],
       discount: quote.discount,
@@ -563,7 +574,12 @@ export default function Quotes() {
     }
 
     const subtotal = calculateSubtotal(editQuoteData.items);
-    const total = calculateTotal(editQuoteData.items, editQuoteData.discount);
+    const useManualGrandTotal =
+      toBool(editQuoteData.useManualGrandTotal) &&
+      Number(editQuoteData.manualGrandTotal || 0) > 0;
+    const total = useManualGrandTotal
+      ? Number(editQuoteData.manualGrandTotal || 0)
+      : calculateTotal(editQuoteData.items, editQuoteData.discount);
 
     // Transform items to include amount field and remove id
     const transformedItems = editQuoteData.items.map((item: any) => ({
@@ -1639,8 +1655,8 @@ ${getQuoteCompanyName(quote)}`);
                     <div>
                       <p className="text-sm text-muted-foreground">Client</p>
                       <p className="font-medium break-words">{selectedQuote.clientName}</p>
-                      {selectedQuote.clientPhone && (
-                        <p className="text-sm text-muted-foreground break-words">{selectedQuote.clientPhone}</p>
+                      {selectedQuote.billTo?.phone && (
+                        <p className="text-sm text-muted-foreground break-words">{selectedQuote.billTo.phone}</p>
                       )}
                     </div>
                     <div className="sm:text-right">
