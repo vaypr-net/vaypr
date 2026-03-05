@@ -18,6 +18,7 @@ export interface CreateRecurringDto {
   paymentType?: string;
   showBankDetails?: boolean;
   bankDetails?: any;
+  autoEmailMessage?: string;
 }
 
 export interface UpdateRecurringDto extends Partial<CreateRecurringDto> {}

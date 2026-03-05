@@ -90,6 +90,7 @@ export default function Recurring() {
     currency: r.currency || 'KWD',
     isActive: r.isActive,
     autoSendReminder: r.autoSendReminder || false,
+    autoEmailMessage: r.autoEmailMessage || '',
     createdAt: r.createdAt,
     lastGeneratedAt: r.lastGeneratedAt,
     logo: r.logo,
@@ -113,6 +114,7 @@ export default function Recurring() {
     frequency: 'monthly' as 'weekly' | 'monthly' | 'quarterly' | 'yearly',
     nextBillingDate: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
     autoSendReminder: true,
+    autoEmailMessage: '',
     paymentType: 'cash' as 'cash' | 'bank_transfer' | 'cheque' | 'online_payment',
     showBankDetails: false,
     bankDetails: {
@@ -149,6 +151,9 @@ export default function Recurring() {
   const [emailLogoUrl, setEmailLogoUrl] = useState('');
   const [isUploadingEmailLogo, setIsUploadingEmailLogo] = useState(false);
   const [selectedSenderId, setSelectedSenderId] = useState<string>('');
+  const [isAutoEmailMessageDialogOpen, setIsAutoEmailMessageDialogOpen] = useState(false);
+  const [autoEmailMessageRecurring, setAutoEmailMessageRecurring] = useState<RecurringBilling | null>(null);
+  const [autoEmailMessageDraft, setAutoEmailMessageDraft] = useState('');
 
   const formatCurrency = (amount: number, currency = 'KWD') => {
     return `KD ${amount.toFixed(3)}`;
@@ -332,6 +337,7 @@ ${companyName}`;
       currency: 'KWD',
       isActive: true,
       autoSendReminder: formData.autoSendReminder,
+      autoEmailMessage: formData.autoEmailMessage,
       logoScale: formData.logoScale,
       showPaymentTerms: formData.showPaymentTerms,
       paymentTerms: formData.paymentTerms,
@@ -377,6 +383,52 @@ ${companyName}`;
     setEmailLogoUrl((recurring.logo || '').trim());
     setEmailTemplateStyle('modern');
     setIsEmailDialogOpen(true);
+  };
+
+  const handleOpenAutoEmailMessageDialog = (recurring: RecurringBilling) => {
+    const companyName = getCompanyNameForEmail(recurring);
+    const defaultAutoMessage = `Hi {{clientName}},
+
+This is your {{frequency}} subscription invoice.
+Please find your invoice attached with this email.
+
+If you have any questions, just reply to this message.
+
+Best regards,
+{{companyName}}`;
+
+    setAutoEmailMessageRecurring(recurring);
+    setAutoEmailMessageDraft(
+      recurring.autoEmailMessage && recurring.autoEmailMessage.trim()
+        ? recurring.autoEmailMessage
+        : defaultAutoMessage
+            .replace(/\{\{clientName\}\}/g, recurring.clientName || 'Client')
+            .replace(/\{\{frequency\}\}/g, getFrequencyLabel(recurring.frequency).toLowerCase())
+            .replace(/\{\{companyName\}\}/g, companyName || 'VAYPR'),
+    );
+    setIsAutoEmailMessageDialogOpen(true);
+  };
+
+  const handleSaveAutoEmailMessage = async () => {
+    if (!autoEmailMessageRecurring) return;
+
+    try {
+      await updateRecurringMutation.mutateAsync({
+        id: autoEmailMessageRecurring.id,
+        data: {
+          autoEmailMessage: autoEmailMessageDraft,
+        },
+      });
+      toast({
+        title: 'Auto Email Message Updated',
+        description: 'Recurring automail will now use this saved message.',
+      });
+      setIsAutoEmailMessageDialogOpen(false);
+      setAutoEmailMessageRecurring(null);
+      setAutoEmailMessageDraft('');
+    } catch (error) {
+      console.error('Failed to update recurring auto email message:', error);
+    }
   };
 
   const handleSendRecurringEmail = async () => {
@@ -511,6 +563,7 @@ ${companyName}`;
       frequency: recurring.frequency,
       nextBillingDate: formatDateForInput(recurring.nextBillingDate),
       autoSendReminder: recurring.autoSendReminder || false,
+      autoEmailMessage: recurring.autoEmailMessage || '',
       paymentType: recurring.paymentType || 'cash',
       showBankDetails: recurring.showBankDetails || false,
       bankDetails: recurring.bankDetails || {
@@ -575,6 +628,7 @@ ${companyName}`;
       currency: 'KWD',
       isActive: true,
       autoSendReminder: formData.autoSendReminder,
+      autoEmailMessage: formData.autoEmailMessage,
       logoScale: formData.logoScale,
       showPaymentTerms: formData.showPaymentTerms,
       paymentTerms: formData.paymentTerms,
@@ -640,6 +694,7 @@ ${companyName}`;
       frequency: 'monthly',
       nextBillingDate: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
       autoSendReminder: true,
+      autoEmailMessage: '',
       paymentType: 'cash',
       showBankDetails: false,
       bankDetails: {
@@ -783,6 +838,10 @@ ${companyName}`;
                             <DropdownMenuItem onClick={() => handleOpenEmailDialog(recurring)}>
                               <Send className="h-4 w-4 mr-2" />
                               Send Email
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenAutoEmailMessageDialog(recurring)}>
+                              <Mail className="h-4 w-4 mr-2" />
+                              Auto Email Message
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggle(recurring)}>
                               {recurring.isActive ? (
@@ -1169,6 +1228,28 @@ ${companyName}`;
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="autoEmailMessage">Auto Email Message (Optional)</Label>
+                <Textarea
+                  id="autoEmailMessage"
+                  rows={5}
+                  value={formData.autoEmailMessage}
+                  onChange={(e) => setFormData({ ...formData, autoEmailMessage: e.target.value })}
+                  placeholder={`Hi {{clientName}},
+
+This is your {{frequency}} subscription invoice.
+Please find your invoice attached with this email.
+
+Best regards,
+{{companyName}}`}
+                  className="resize-y"
+                  disabled={!formData.autoSendReminder}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used only for automatic recurring emails.
+                </p>
+              </div>
+
               {/* Total */}
               <div className="border-t pt-4">
                 <div className="flex justify-between font-bold text-lg">
@@ -1316,6 +1397,66 @@ ${companyName}`;
                     Generate & Send
                   </>
                 )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={isAutoEmailMessageDialogOpen}
+          onOpenChange={(open) => {
+            setIsAutoEmailMessageDialogOpen(open);
+            if (!open) {
+              setAutoEmailMessageRecurring(null);
+              setAutoEmailMessageDraft('');
+            }
+          }}
+        >
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Auto Email Message</DialogTitle>
+              <DialogDescription>
+                Save the message for this recurring item. Automail will send this message to client.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              <Label htmlFor="autoEmailMessageDialog">
+                Message for {autoEmailMessageRecurring?.clientName || 'client'}
+              </Label>
+              <Textarea
+                id="autoEmailMessageDialog"
+                rows={7}
+                value={autoEmailMessageDraft}
+                onChange={(e) => setAutoEmailMessageDraft(e.target.value)}
+                placeholder={`Hi {{clientName}},
+
+This is your {{frequency}} subscription invoice.
+Please find your invoice attached with this email.
+
+Best regards,
+{{companyName}}`}
+                className="resize-y"
+              />
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAutoEmailMessageDialogOpen(false);
+                  setAutoEmailMessageRecurring(null);
+                  setAutoEmailMessageDraft('');
+                }}
+                disabled={updateRecurringMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveAutoEmailMessage}
+                disabled={updateRecurringMutation.isPending}
+              >
+                {updateRecurringMutation.isPending ? 'Saving...' : 'Save Message'}
               </Button>
             </DialogFooter>
           </DialogContent>
