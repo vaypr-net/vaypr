@@ -38,10 +38,21 @@ export class PdfGeneratorService implements OnModuleDestroy {
 
   private async renderPdfWithChromium(html: string): Promise<Buffer> {
     const detectedExecutablePath = this.getChromiumExecutablePath();
-    const attempts = [
-      { executablePath: detectedExecutablePath, label: `detected-path:${detectedExecutablePath || 'none'}` },
-      { executablePath: undefined, label: 'playwright-default' },
-    ];
+
+    // Log env-var state to aid Railway debugging.
+    this.logger.log(
+      `[PDF Generator] PLAYWRIGHT_BROWSERS_PATH=${process.env.PLAYWRIGHT_BROWSERS_PATH ?? '(unset)'} ` +
+      `CHROMIUM_EXECUTABLE_PATH=${process.env.CHROMIUM_EXECUTABLE_PATH ?? '(unset)'}`,
+    );
+
+    // Build attempt list: skip detected-path attempt when it's the same as the
+    // Playwright default to avoid duplicate failures.
+    const attempts: Array<{ executablePath: string | undefined; label: string }> = [];
+    if (detectedExecutablePath) {
+      attempts.push({ executablePath: detectedExecutablePath, label: `detected-path:${detectedExecutablePath}` });
+    }
+    // Always include the Playwright-default resolution as a final attempt.
+    attempts.push({ executablePath: undefined, label: 'playwright-default' });
 
     let lastError: any;
 
@@ -57,11 +68,17 @@ export class PdfGeneratorService implements OnModuleDestroy {
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--single-process',
           ],
         });
 
         const page = await browser.newPage({ viewport: { width: 900, height: 1400 } });
-        await page.setContent(html, { waitUntil: 'networkidle' });
+
+        // Use 'domcontentloaded' instead of 'networkidle' so that external
+        // image loads (e.g. Cloudinary logos) don't block or time out PDF
+        // generation in Railway's environment.
+        await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 30_000 });
         await page.emulateMedia({ media: 'screen' });
 
         const pdf = await page.pdf({
@@ -80,7 +97,7 @@ export class PdfGeneratorService implements OnModuleDestroy {
         );
       } finally {
         if (browser) {
-          await browser.close();
+          try { await browser.close(); } catch { /* ignore close errors */ }
         }
       }
     }

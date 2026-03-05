@@ -2,6 +2,15 @@
 # For Railway service deployed at /backend root
 # No cd commands needed
 
+# PLAYWRIGHT_BROWSERS_PATH=0 makes Playwright install its Chromium into
+# the project directory (alongside node_modules). This variable MUST be
+# present at runtime too so Playwright can locate its browser when the
+# server starts. Setting it here in [variables] ensures it is baked into
+# the image and available at all stages (install, build, and runtime).
+[variables]
+PLAYWRIGHT_BROWSERS_PATH = "0"
+PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true"
+
 [phases.setup]
 nixPkgs = [
   "nodejs_20",
@@ -11,7 +20,7 @@ nixPkgs = [
 [phases.install]
 cmds = [
   "npm install",
-  "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium"
+  "npx playwright install chromium"
 ]
 
 [phases.build]
