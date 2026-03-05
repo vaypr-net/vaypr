@@ -1,575 +1,283 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import { chromium } from 'playwright';
-import { existsSync } from 'fs';
-import { execSync } from 'child_process';
+import { Injectable, Logger } from '@nestjs/common';
+import PDFDocument from 'pdfkit';
+import * as https from 'https';
+import * as http from 'http';
 
 /**
  * PDF generation service for recurring auto-mails.
- * Primary path uses Chromium HTML rendering to match frontend/manual output.
+ * Uses PDFKit (pure Node.js) — no Chromium, no browser, no system dependencies.
+ * Works reliably on Railway and any containerized environment.
  */
 @Injectable()
-export class PdfGeneratorService implements OnModuleDestroy {
+export class PdfGeneratorService {
   private readonly logger = new Logger(PdfGeneratorService.name);
-
-  onModuleDestroy() {
-    // No persistent resources to clean up.
-  }
 
   async generateInvoicePdf(invoice: any): Promise<string> {
     try {
-      const html = this.buildInvoiceHtml(invoice);
-      const pdfBuffer = await this.renderPdfWithChromium(html);
+      const pdfBuffer = await this.buildPdfWithPdfKit(invoice);
       const base64Content = pdfBuffer.toString('base64');
-      this.logger.log(`[PDF Generator] Generated Chromium PDF for: ${invoice.invoiceNumber}`);
+      this.logger.log(`[PDF Generator] Generated PDFKit PDF for: ${invoice.invoiceNumber}`);
       return base64Content;
     } catch (error: any) {
       this.logger.error(
-        `[PDF Generator] Chromium PDF failed for ${invoice?.invoiceNumber}: ${error?.message || error}`,
+        `[PDF Generator] PDFKit failed for ${invoice?.invoiceNumber}: ${error?.message || error}`,
         error?.stack,
       );
-      this.logger.warn('[PDF Generator] Falling back to minimal PDF renderer');
-
-      const fallbackPdf = this.buildFallbackPdf(invoice);
-      const base64Content = fallbackPdf.toString('base64');
-      this.logger.log(`[PDF Generator] Generated fallback PDF for: ${invoice.invoiceNumber}`);
-      return base64Content;
+      throw error;
     }
   }
 
-  private async renderPdfWithChromium(html: string): Promise<Buffer> {
-    const detectedExecutablePath = this.getChromiumExecutablePath();
-
-    // Log env-var state to aid Railway debugging.
-    this.logger.log(
-      `[PDF Generator] PLAYWRIGHT_BROWSERS_PATH=${process.env.PLAYWRIGHT_BROWSERS_PATH ?? '(unset)'} ` +
-      `CHROMIUM_EXECUTABLE_PATH=${process.env.CHROMIUM_EXECUTABLE_PATH ?? '(unset)'}`,
-    );
-
-    // Build attempt list: skip detected-path attempt when it's the same as the
-    // Playwright default to avoid duplicate failures.
-    const attempts: Array<{ executablePath: string | undefined; label: string }> = [];
-    if (detectedExecutablePath) {
-      attempts.push({ executablePath: detectedExecutablePath, label: `detected-path:${detectedExecutablePath}` });
-    }
-    // Always include the Playwright-default resolution as a final attempt.
-    attempts.push({ executablePath: undefined, label: 'playwright-default' });
-
-    let lastError: any;
-
-    for (const attempt of attempts) {
-      let browser: any;
+  private async buildPdfWithPdfKit(invoice: any): Promise<Buffer> {
+    return new Promise(async (resolve, reject) => {
       try {
-        this.logger.log(`[PDF Generator] Chromium launch attempt: ${attempt.label}`);
-        browser = await chromium.launch({
-          headless: true,
-          executablePath: attempt.executablePath,
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--disable-software-rasterizer',
-            '--single-process',
-          ],
+        const doc = new PDFDocument({
+          size: 'A4',
+          margin: 0,
+          info: {
+            Title: `Invoice ${invoice.invoiceNumber || ''}`,
+            Author: invoice.companyFooter?.companyName || 'VAYPR',
+          },
         });
 
-        const page = await browser.newPage({ viewport: { width: 900, height: 1400 } });
+        const chunks: Buffer[] = [];
+        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
 
-        // Use 'domcontentloaded' instead of 'networkidle' so that external
-        // image loads (e.g. Cloudinary logos) don't block or time out PDF
-        // generation in Railway's environment.
-        await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-        await page.emulateMedia({ media: 'screen' });
-
-        const pdf = await page.pdf({
-          format: 'A4',
-          printBackground: true,
-          margin: { top: '0', right: '0', bottom: '0', left: '0' },
-          preferCSSPageSize: true,
-        });
-
-        this.logger.log(`[PDF Generator] Chromium launch success via: ${attempt.label}`);
-        return Buffer.from(pdf);
-      } catch (error: any) {
-        lastError = error;
-        this.logger.warn(
-          `[PDF Generator] Chromium launch attempt failed (${attempt.label}): ${error?.message || error}`,
-        );
-      } finally {
-        if (browser) {
-          try { await browser.close(); } catch { /* ignore close errors */ }
-        }
+        await this.renderInvoice(doc, invoice);
+        doc.end();
+      } catch (err) {
+        reject(err);
       }
-    }
-
-    throw lastError || new Error('All Chromium launch attempts failed');
+    });
   }
 
-  private getChromiumExecutablePath(): string | undefined {
-    // Priority order:
-    // 1. Explicit env override (CHROMIUM_EXECUTABLE_PATH set in Railway dashboard)
-    // 2. System Chromium via `which` — this catches the nix-installed chromium
-    //    (nixPkgs = ["chromium"]) which bundles its own libraries and is
-    //    guaranteed to work on Railway containers.
-    // 3. Well-known hardcoded paths as last resort.
-    // NOTE: We intentionally do NOT call chromium.executablePath() because
-    // PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 means Playwright has no bundled browser.
+  private async renderInvoice(doc: any, invoice: any): Promise<void> {
+    const PAGE_W = 595.28;
+    const PAGE_H = 841.89;
+    const MARGIN = 36;
+    const CONTENT_W = PAGE_W - MARGIN * 2;
 
-    const envPath = process.env.CHROMIUM_EXECUTABLE_PATH?.trim();
-    if (envPath && existsSync(envPath)) {
-      this.logger.log(`[PDF Generator] Using CHROMIUM_EXECUTABLE_PATH: ${envPath}`);
-      return envPath;
-    }
+    const rawHeaderColor = invoice.tableHeaderColor || '#000000';
+    const headerColor = /^#[0-9A-Fa-f]{6}$/.test(rawHeaderColor.trim()) ? rawHeaderColor.trim() : '#000000';
 
-    // Try `which` first — fastest way to find the nix system chromium.
-    try {
-      const whichPath = execSync(
-        'which chromium || which chromium-browser || which google-chrome || which google-chrome-stable',
-        { stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 },
-      )
-        .toString()
-        .trim()
-        .split('\n')[0];
-      if (whichPath) {
-        this.logger.log(`[PDF Generator] Found system Chromium via which: ${whichPath}`);
-        return whichPath;
-      }
-    } catch {
-      // Ignore — fall through to hardcoded candidates.
-    }
+    const currency = invoice.currency || 'KWD';
+    const invoiceNumber = invoice.invoiceNumber || '---';
+    const invoiceDate = this.formatDateDMY(invoice.issueDate || new Date());
 
-    // Hardcoded fallback paths.
-    const candidates = [
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      '/usr/bin/google-chrome',
-      '/usr/bin/google-chrome-stable',
-    ];
-
-    for (const candidate of candidates) {
-      if (existsSync(candidate)) {
-        this.logger.log(`[PDF Generator] Found system Chromium at: ${candidate}`);
-        return candidate;
-      }
-    }
-
-    this.logger.warn('[PDF Generator] No system Chromium found — Playwright will use its default resolution');
-    return undefined;
-  }
-
-  private buildInvoiceHtml(invoice: any): string {
-    const safe = (v: any) => this.escapeHtml(String(v ?? ''));
-    const currency = safe(invoice.currency || 'KWD');
-    const invoiceNumber = safe(invoice.invoiceNumber || '---');
-    const invoiceDate = safe(this.formatDateDMY(invoice.issueDate || new Date()));
-
-    const billTo = invoice.billTo || {};
     const companyFooter = invoice.companyFooter || {};
+    const billTo = invoice.billTo || {};
     const bankAccount = invoice.bankAccount || {};
 
-    const logoUrl = typeof invoice.logo === 'string' ? invoice.logo.trim() : '';
-    const logoScale = Number(invoice.logoScale || 1);
+    const showQuantity = !invoice.hideQuantity;
+    const showUnitPrice = !invoice.hideUnitPrice;
+    const showTotalCost = !invoice.hideTotalCost;
+    const hideSubTotal = Boolean(invoice.hideSubTotal);
 
-    const rawItems = Array.isArray(invoice.items) ? invoice.items : [];
-    const items = rawItems.map((item: any, idx: number) => ({
-      id: item?.id || `row-${idx}`,
-      description: safe(item?.description || ''),
+    const rawItems: any[] = Array.isArray(invoice.items) ? invoice.items : [];
+    const items = rawItems.map((item: any) => ({
+      description: String(item?.description || ''),
       quantity: Number(item?.quantity || 0),
       unitPrice: Number(item?.unitPrice || 0),
     }));
 
-    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
     const discount = Number(invoice.discount || 0);
     const deliveryFee = Number(invoice.deliveryFee || 0);
     const discountAmount = (subtotal * discount) / 100;
     const calculatedGrandTotal = subtotal - discountAmount + deliveryFee;
+    const normalizedManual = Number(invoice.manualGrandTotal || 0);
+    const hasQuantifiable = items.some((i) => i.quantity > 0 || i.unitPrice > 0);
+    const useManual = Boolean(invoice.useManualGrandTotal) && (normalizedManual > 0 || !hasQuantifiable);
+    const grandTotal = useManual ? normalizedManual : calculatedGrandTotal;
+    const fmt = (n: number) => `${currency} ${Number.isFinite(n) ? n.toFixed(2) : '0.00'}`;
 
-    const normalizedManualGrandTotal = Number(invoice.manualGrandTotal || 0);
-    const hasQuantifiableItems = items.some((item) => item.quantity > 0 || item.unitPrice > 0);
-    const useManualGrandTotal =
-      Boolean(invoice.useManualGrandTotal) && (normalizedManualGrandTotal > 0 || !hasQuantifiableItems);
-    const grandTotal = useManualGrandTotal ? normalizedManualGrandTotal : calculatedGrandTotal;
+    // White background
+    doc.rect(0, 0, PAGE_W, PAGE_H).fill('#ffffff');
+    let y = MARGIN;
 
-    const showPaymentMethod = Boolean(invoice.showPaymentMethod);
-    const showPaymentTerms = Boolean(invoice.showPaymentTerms) && !!invoice.paymentTerms;
-    const showBankAccount =
-      Boolean(invoice.showBankAccount) &&
-      (Boolean(bankAccount.bankName) || Boolean(bankAccount.accountName) || Boolean(bankAccount.iban));
+    // ── HEADER ──────────────────────────────────────────────────────────────
+    const logoUrl = typeof invoice.logo === 'string' ? invoice.logo.trim() : '';
+    const logoScale = Number(invoice.logoScale || 1);
+    const logoMaxH = Math.max(20, Math.min(80, 50 * logoScale));
+    const headerTopY = y;
 
-    const hideQuantity = Boolean(invoice.hideQuantity);
-    const hideUnitPrice = Boolean(invoice.hideUnitPrice);
-    const hideTotalCost = Boolean(invoice.hideTotalCost);
-    const hideSubTotal = Boolean(invoice.hideSubTotal);
+    let logoBuffer: Buffer | null = null;
+    if (logoUrl) {
+      try { logoBuffer = await this.fetchImageBuffer(logoUrl); } catch { logoBuffer = null; }
+    }
 
-    const showQuantity = !hideQuantity;
-    const showUnitPrice = !hideUnitPrice;
-    const showTotalCost = !hideTotalCost;
+    if (logoBuffer) {
+      doc.image(logoBuffer, MARGIN, headerTopY, { fit: [160, logoMaxH] });
+    } else if (companyFooter.companyName) {
+      doc.font('Helvetica-Bold').fontSize(20).fillColor('#111827').text(companyFooter.companyName, MARGIN, headerTopY + 6, { width: 200 });
+    }
 
-    const tableHeaderColor =
-      typeof invoice.tableHeaderColor === 'string' && /^#[0-9A-Fa-f]{6}$/.test(invoice.tableHeaderColor.trim())
-        ? invoice.tableHeaderColor.trim()
-        : '#000000';
+    doc.font('Helvetica-Bold').fontSize(36).fillColor(headerColor).text('Invoice', MARGIN, headerTopY, { width: CONTENT_W, align: 'right' });
+    doc.font('Helvetica').fontSize(10).fillColor('#6b7280').text('Invoice#:  ', MARGIN, headerTopY + 46, { width: CONTENT_W, align: 'right', continued: true })
+      .font('Helvetica-Bold').fillColor('#111827').text(invoiceNumber);
+    doc.font('Helvetica').fontSize(10).fillColor('#6b7280').text(`Invoice Date:  ${invoiceDate}`, MARGIN, headerTopY + 62, { width: CONTENT_W, align: 'right' });
 
+    y = headerTopY + Math.max(logoMaxH, 80) + 16;
+
+    // Divider
+    doc.moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).strokeColor('#e5e7eb').lineWidth(1).stroke();
+    y += 16;
+
+    // ── BILL TO ──────────────────────────────────────────────────────────────
+    const billLines: string[] = [];
+    if (billTo.name) billLines.push(billTo.name);
+    const addrParts = [billTo.area, billTo.block ? `Block ${billTo.block}` : '', billTo.street ? `Street ${billTo.street}` : '', billTo.house ? `House ${billTo.house}` : ''].filter(Boolean);
+    if (addrParts.length) billLines.push(addrParts.join(' / '));
+    if (billTo.phone) billLines.push(billTo.phone);
+    if (billTo.other) billLines.push(billTo.other);
+
+    const BP = 14;
+    const billBoxH = BP * 2 + 18 + billLines.length * 16;
+    doc.roundedRect(MARGIN, y, CONTENT_W, billBoxH, 3).fill('#f3f4f6');
+    doc.font('Helvetica-Bold').fontSize(13).fillColor('#111827').text('Billed to', MARGIN + BP, y + BP);
+    let billY = y + BP + 18;
+    doc.font('Helvetica').fontSize(11).fillColor('#374151');
+    for (const line of billLines) { doc.text(line, MARGIN + BP, billY, { width: CONTENT_W - BP * 2 }); billY += 16; }
+    y += billBoxH + 18;
+
+    // ── ITEMS TABLE ──────────────────────────────────────────────────────────
     const visibleCols = [showQuantity, showUnitPrice, showTotalCost].filter(Boolean).length;
-    const colWidths =
-      visibleCols === 0
-        ? { desc: '100%', qty: '0%', price: '0%', total: '0%' }
-        : visibleCols === 1
-          ? {
-              desc: '65%',
-              qty: showQuantity ? '35%' : '0%',
-              price: showUnitPrice ? '35%' : '0%',
-              total: showTotalCost ? '35%' : '0%',
-            }
-          : visibleCols === 2
-            ? {
-                desc: '50%',
-                qty: showQuantity ? '25%' : '0%',
-                price: showUnitPrice ? '25%' : '0%',
-                total: showTotalCost ? '25%' : '0%',
-              }
-            : { desc: '40%', qty: '20%', price: '20%', total: '20%' };
+    const descW = visibleCols === 0 ? CONTENT_W : visibleCols === 1 ? CONTENT_W * 0.6 : visibleCols === 2 ? CONTENT_W * 0.5 : CONTENT_W * 0.4;
+    const otherW = visibleCols === 0 ? 0 : (CONTENT_W - descW) / visibleCols;
+    const colX = {
+      desc: MARGIN,
+      qty: MARGIN + descW,
+      price: MARGIN + descW + (showQuantity ? otherW : 0),
+      total: MARGIN + descW + (showQuantity ? otherW : 0) + (showUnitPrice ? otherW : 0),
+    };
 
-    const formatCurrency = (amount: number) => `${currency} ${Number.isFinite(amount) ? amount.toFixed(2) : '0.00'}`;
+    const TH = 26;
+    doc.rect(MARGIN, y, CONTENT_W, TH).fill(headerColor);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#ffffff');
+    doc.text('Item description', colX.desc + 8, y + 8, { width: descW - 12 });
+    if (showQuantity) doc.text('Qty.', colX.qty, y + 8, { width: otherW - 4, align: 'center' });
+    if (showUnitPrice) doc.text('Unit Price', colX.price, y + 8, { width: otherW - 8, align: 'right' });
+    if (showTotalCost) doc.text('Total Cost', colX.total, y + 8, { width: otherW - 8, align: 'right' });
+    y += TH;
 
-    const billToAddress = [
-      billTo.area,
-      billTo.block ? `Block ${billTo.block}` : '',
-      billTo.street ? `Street ${billTo.street}` : '',
-      billTo.house ? `House ${billTo.house}` : '',
-    ]
-      .filter(Boolean)
-      .map((x: string) => safe(x))
-      .join(' / ');
-
-    const paymentMethodLabel = this.getPaymentMethodLabel(invoice.paymentMethodType);
-
-    const itemsRows =
-      items.length === 0
-        ? `<tr><td colspan="4" class="empty-row">No items added</td></tr>`
-        : items
-            .map(
-              (item) => `
-          <tr class="item-row">
-            <td class="td desc">${item.description || '-'}</td>
-            <td class="td qty ${showQuantity ? '' : 'hidden-col'}">${showQuantity ? item.quantity : ''}</td>
-            <td class="td price ${showUnitPrice ? '' : 'hidden-col'}">${showUnitPrice ? formatCurrency(item.unitPrice) : ''}</td>
-            <td class="td total ${showTotalCost ? '' : 'hidden-col'}">${showTotalCost ? formatCurrency(item.quantity * item.unitPrice) : ''}</td>
-          </tr>`,
-            )
-            .join('');
-
-    const footerExtras = [companyFooter.address, companyFooter.officePhone, companyFooter.websiteEmail]
-      .filter(Boolean)
-      .map((x: string) => safe(x));
-
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    @page { size: A4; margin: 0; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: #ffffff;
-      color: #111827;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      font-size: 14px;
+    if (items.length === 0) {
+      doc.font('Helvetica').fontSize(10).fillColor('#6b7280').text('No items added', MARGIN + 8, y + 10, { width: CONTENT_W - 16, align: 'center' });
+      doc.moveTo(MARGIN, y + 28).lineTo(PAGE_W - MARGIN, y + 28).strokeColor('#e5e7eb').lineWidth(0.5).stroke();
+      y += 30;
+    } else {
+      for (const item of items) {
+        const rowH = Math.max(30, doc.heightOfString(item.description || '-', { width: descW - 16, fontSize: 11 }) + 16);
+        doc.font('Helvetica').fontSize(11).fillColor('#111827');
+        doc.text(item.description || '-', colX.desc + 8, y + 8, { width: descW - 16 });
+        if (showQuantity) doc.text(String(item.quantity), colX.qty, y + 8, { width: otherW - 4, align: 'center' });
+        if (showUnitPrice) doc.text(fmt(item.unitPrice), colX.price, y + 8, { width: otherW - 8, align: 'right' });
+        if (showTotalCost) doc.text(fmt(item.quantity * item.unitPrice), colX.total, y + 8, { width: otherW - 8, align: 'right' });
+        doc.moveTo(MARGIN, y + rowH).lineTo(PAGE_W - MARGIN, y + rowH).strokeColor('#e5e7eb').lineWidth(0.5).stroke();
+        y += rowH;
+      }
     }
-    .page {
-      width: 794px;
-      min-height: 1123px;
-      padding: 28px 36px;
-      margin: 0 auto;
-      background: #ffffff;
+    y += 16;
+
+    // ── BOTTOM: Payment left, Totals right ──────────────────────────────────
+    const leftColW = CONTENT_W * 0.52;
+    const rightColW = CONTENT_W * 0.44;
+    const rightColX = MARGIN + CONTENT_W - rightColW;
+    let leftY = y;
+    let rightY = y;
+
+    if (Boolean(invoice.showPaymentMethod) && invoice.paymentMethodType) {
+      doc.font('Helvetica-Bold').fontSize(12).fillColor('#111827').text('Payment Method', MARGIN, leftY);
+      leftY += 18;
+      doc.font('Helvetica').fontSize(11).fillColor('#374151').text(this.getPaymentMethodLabel(invoice.paymentMethodType), MARGIN, leftY);
+      leftY += 22;
     }
-    .card {
-      background: #ffffff;
-      padding: 20px;
+
+    if (Boolean(invoice.showPaymentTerms) && invoice.paymentTerms) {
+      const ptH = 14 + doc.heightOfString(invoice.paymentTerms, { width: leftColW - 20, fontSize: 10 }) + 10;
+      doc.roundedRect(MARGIN, leftY, leftColW, ptH, 4).fill('#f9fafb').stroke('#e5e7eb');
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('Payment Terms', MARGIN + 10, leftY + 8);
+      leftY += 22;
+      doc.font('Helvetica').fontSize(10).fillColor('#374151').text(invoice.paymentTerms, MARGIN + 10, leftY, { width: leftColW - 20 });
+      leftY += doc.heightOfString(invoice.paymentTerms, { width: leftColW - 20, fontSize: 10 }) + 12;
     }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
-    .logo-wrap { max-width: 200px; }
-    .logo {
-      max-width: 200px;
-      width: auto;
-      height: auto;
-      object-fit: contain;
-      transform-origin: top left;
+
+    const showBank = Boolean(invoice.showBankAccount) && (bankAccount.bankName || bankAccount.accountName || bankAccount.iban);
+    if (showBank) {
+      const bankLines = [bankAccount.bankName && `Bank: ${bankAccount.bankName}`, bankAccount.accountName && `Account: ${bankAccount.accountName}`, bankAccount.iban && `IBAN: ${bankAccount.iban}`].filter(Boolean) as string[];
+      const bkH = 14 + bankLines.length * 15 + 10;
+      doc.roundedRect(MARGIN, leftY, leftColW, bkH, 4).fill('#f9fafb').stroke('#e5e7eb');
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('Bank Transfer Details', MARGIN + 10, leftY + 8);
+      let bkY = leftY + 22;
+      doc.font('Helvetica').fontSize(10).fillColor('#374151');
+      for (const l of bankLines) { doc.text(l, MARGIN + 10, bkY); bkY += 15; }
+      leftY = bkY + 8;
     }
-    .logo-placeholder {
-      height: 80px;
-      width: 160px;
-      border-radius: 6px;
-      background: #f3f4f6;
-      color: #6b7280;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 500;
+
+    // Totals
+    const TROH = 18;
+    if (!hideSubTotal && !useManual) {
+      doc.font('Helvetica').fontSize(11).fillColor('#6b7280').text('Sub Total:', rightColX, rightY, { width: rightColW - 4, align: 'right', continued: true }).fillColor('#111827').text(`  ${fmt(subtotal)}`);
+      rightY += TROH;
     }
-    .company-name { font-size: 30px; font-weight: 700; margin: 0; }
-
-    .meta { text-align: right; }
-    .title { font-size: 42px; font-weight: 700; line-height: 1; margin: 0 0 10px 0; color: ${tableHeaderColor}; }
-    .meta-row { font-size: 24px; line-height: 1.3; }
-    .meta-muted { color: #6b7280; }
-    .meta-strong { font-weight: 600; }
-
-    .bill-box {
-      background: rgba(243, 244, 246, 0.55);
-      border-radius: 2px;
-      padding: 22px;
-      margin-bottom: 24px;
+    if (!useManual && discount > 0) {
+      doc.font('Helvetica').fontSize(11).fillColor('#6b7280').text(`Discount (${discount}%):`, rightColX, rightY, { width: rightColW - 4, align: 'right', continued: true }).fillColor('#111827').text(`  -${fmt(discountAmount)}`);
+      rightY += TROH;
     }
-    .bill-title { font-weight: 700; font-size: 24px; margin: 0 0 10px 0; }
-    .bill-line { font-size: 16px; line-height: 1.4; margin: 0; }
-
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 8px; margin-bottom: 26px; }
-    col.desc { width: ${colWidths.desc}; }
-    col.qty { width: ${colWidths.qty}; }
-    col.price { width: ${colWidths.price}; }
-    col.total { width: ${colWidths.total}; }
-    thead tr { background: ${tableHeaderColor}; color: #ffffff; }
-    th { text-align: left; padding: 12px 14px; font-size: 14px; font-weight: 600; }
-    th.qty, td.qty { text-align: center; }
-    th.price, td.price, th.total, td.total { text-align: right; }
-    .td { padding: 14px; border-bottom: 1px solid #e5e7eb; font-size: 16px; vertical-align: top; word-break: break-word; }
-    .hidden-col { padding: 0 !important; font-size: 0 !important; line-height: 0 !important; border: none !important; overflow: hidden !important; }
-    .empty-row { padding: 24px; text-align: center; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
-
-    .bottom-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
-    .left { max-width: 55%; min-width: 0; }
-    .section-title { font-size: 18px; font-weight: 700; margin: 0 0 6px 0; }
-    .section-text { margin: 0 0 8px 0; font-size: 16px; }
-    .box {
-      background: rgba(243, 244, 246, 0.35);
-      border: 1px solid rgba(229, 231, 235, 0.7);
-      border-radius: 6px;
-      padding: 10px;
-      margin-top: 8px;
+    if (!useManual && deliveryFee > 0) {
+      doc.font('Helvetica').fontSize(11).fillColor('#6b7280').text('Delivery Fee:', rightColX, rightY, { width: rightColW - 4, align: 'right', continued: true }).fillColor('#111827').text(`  ${fmt(deliveryFee)}`);
+      rightY += TROH + 2;
     }
-    .box h4 { margin: 0 0 6px 0; font-size: 14px; }
-    .box p { margin: 0 0 2px 0; font-size: 12px; }
+    doc.font('Helvetica-Bold').fontSize(13).fillColor('#111827').text('Grand Total:', rightColX, rightY, { width: rightColW - 4, align: 'right', continued: true }).fillColor(headerColor).text(`  ${fmt(grandTotal)}`);
+    rightY += 24;
 
-    .totals { text-align: right; font-size: 15px; }
-    .tot-row { display: flex; justify-content: flex-end; gap: 16px; margin-bottom: 4px; white-space: nowrap; }
-    .tot-muted { color: #6b7280; }
-    .grand { font-weight: 700; font-size: 16px; }
-    .grand .value { color: ${tableHeaderColor}; }
+    y = Math.max(leftY, rightY) + 20;
 
-    .footer {
-      border-top: 1px solid #e5e7eb;
-      padding-top: 18px;
-      margin-top: 34px;
-      font-size: 12px;
-      color: #6b7280;
-      text-align: center;
-      line-height: 1.5;
-      word-break: break-word;
+    // ── FOOTER ──────────────────────────────────────────────────────────────
+    const footerParts = [companyFooter.address, companyFooter.officePhone, companyFooter.websiteEmail].filter(Boolean);
+    if (companyFooter.companyName || footerParts.length > 0) {
+      const footerY = Math.max(y + 10, PAGE_H - 55);
+      doc.moveTo(MARGIN, footerY).lineTo(PAGE_W - MARGIN, footerY).strokeColor('#e5e7eb').lineWidth(0.5).stroke();
+      const footerText = [companyFooter.companyName, ...footerParts].filter(Boolean).join('  •  ');
+      doc.font('Helvetica').fontSize(9).fillColor('#6b7280').text(footerText, MARGIN, footerY + 10, { width: CONTENT_W, align: 'center' });
     }
-    .footer strong { color: #111827; }
-  </style>
-</head>
-<body>
-  <div class="page">
-    <div class="card">
-      <div class="header">
-        <div class="logo-wrap">
-          ${logoUrl
-            ? `<img class="logo" src="${safe(logoUrl)}" style="max-height: ${Math.max(2, 6 * (Number.isFinite(logoScale) ? logoScale : 1))}rem; transform: scale(${Number.isFinite(logoScale) ? logoScale : 1});" />`
-            : companyFooter.companyName
-              ? `<h1 class="company-name">${safe(companyFooter.companyName)}</h1>`
-              : `<div class="logo-placeholder">Your Logo</div>`}
-        </div>
+  }
 
-        <div class="meta">
-          <h2 class="title">Invoice</h2>
-          <div class="meta-row"><span class="meta-muted">Invoice#: </span><span class="meta-strong">${invoiceNumber}</span></div>
-          <div class="meta-row"><span class="meta-muted">Invoice Date: </span>${invoiceDate}</div>
-        </div>
-      </div>
-
-      <div class="bill-box">
-        <p class="bill-title">Billed to</p>
-        <p class="bill-line">${safe(billTo.name || 'Customer Name')}</p>
-        ${billToAddress ? `<p class="bill-line">${billToAddress}</p>` : ''}
-        ${billTo.phone ? `<p class="bill-line">${safe(billTo.phone)}</p>` : ''}
-        ${billTo.other ? `<p class="bill-line">${safe(billTo.other)}</p>` : ''}
-      </div>
-
-      <table>
-        <colgroup>
-          <col class="desc" />
-          <col class="qty" />
-          <col class="price" />
-          <col class="total" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Item description</th>
-            <th class="qty ${showQuantity ? '' : 'hidden-col'}">${showQuantity ? 'Qty.' : ''}</th>
-            <th class="price ${showUnitPrice ? '' : 'hidden-col'}">${showUnitPrice ? 'Unit Price' : ''}</th>
-            <th class="total ${showTotalCost ? '' : 'hidden-col'}">${showTotalCost ? 'Total Cost' : ''}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemsRows}
-        </tbody>
-      </table>
-
-      <div class="bottom-row">
-        <div class="left">
-          ${showPaymentMethod
-            ? `<p class="section-title">Payment Method</p><p class="section-text">${safe(paymentMethodLabel)}</p>`
-            : ''}
-
-          ${showPaymentTerms
-            ? `<div class="box"><h4>Payment Terms</h4><p style="white-space: pre-wrap;">${safe(invoice.paymentTerms)}</p></div>`
-            : ''}
-
-          ${showBankAccount
-            ? `<div class="box"><h4>Bank Transfer Details</h4>
-                ${bankAccount.bankName ? `<p><span class="tot-muted">Bank: </span>${safe(bankAccount.bankName)}</p>` : ''}
-                ${bankAccount.accountName ? `<p><span class="tot-muted">Account: </span>${safe(bankAccount.accountName)}</p>` : ''}
-                ${bankAccount.iban ? `<p><span class="tot-muted">IBAN: </span>${safe(bankAccount.iban)}</p>` : ''}
-              </div>`
-            : ''}
-        </div>
-
-        <div class="totals">
-          ${!hideSubTotal && !useManualGrandTotal
-            ? `<div class="tot-row"><span class="tot-muted">Sub Total:</span><span>${formatCurrency(subtotal)}</span></div>`
-            : ''}
-          ${!useManualGrandTotal && discount > 0
-            ? `<div class="tot-row"><span class="tot-muted">Discount (${discount}%):</span><span>-${formatCurrency(discountAmount)}</span></div>`
-            : ''}
-          ${!useManualGrandTotal && deliveryFee > 0
-            ? `<div class="tot-row"><span class="tot-muted">Delivery Fee:</span><span>${formatCurrency(deliveryFee)}</span></div>`
-            : ''}
-          <div class="tot-row grand"><span>Grand Total:</span><span class="value">${formatCurrency(grandTotal)}</span></div>
-        </div>
-      </div>
-
-      ${(companyFooter.companyName || footerExtras.length > 0)
-        ? `<div class="footer">
-            ${companyFooter.companyName ? `<strong>${safe(companyFooter.companyName)}</strong>` : ''}
-            ${footerExtras.length > 0 ? ` <span>• ${footerExtras.join(' • ')}</span>` : ''}
-          </div>`
-        : ''}
-    </div>
-  </div>
-</body>
-</html>`;
+  private async fetchImageBuffer(url: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const proto = url.startsWith('https') ? https : http;
+      const req = proto.get(url, { timeout: 8000 }, (res) => {
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          this.fetchImageBuffer(res.headers.location).then(resolve).catch(reject);
+          return;
+        }
+        if (res.statusCode !== 200) { reject(new Error(`Image fetch failed: ${res.statusCode}`)); return; }
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+        res.on('error', reject);
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Image fetch timeout')); });
+    });
   }
 
   private getPaymentMethodLabel(value: any): string {
     switch (String(value || '').toLowerCase()) {
-      case 'cash':
-        return 'Cash';
-      case 'bank_transfer':
-        return 'Bank Transfer';
-      case 'cheque':
-        return 'Cheque';
-      case 'online_payment':
-        return 'Online Payment';
-      default:
-        return value ? String(value) : 'Cash';
+      case 'cash': return 'Cash';
+      case 'bank_transfer': return 'Bank Transfer';
+      case 'cheque': return 'Cheque';
+      case 'online_payment': return 'Online Payment';
+      default: return value ? String(value) : 'Cash';
     }
-  }
-
-  private buildFallbackPdf(invoice: any): Buffer {
-    // Minimal plain fallback only when Chromium fails at runtime.
-    const lines = [
-      'INVOICE',
-      `No: ${this.safeText(invoice.invoiceNumber || 'INV-000')}`,
-      `Date: ${this.formatDateDMY(invoice.issueDate || new Date())}`,
-      '',
-      `Bill To: ${this.safeText(invoice?.billTo?.name || 'Client')}`,
-      '',
-    ];
-
-    const items = Array.isArray(invoice?.items) ? invoice.items : [];
-    if (!items.length) {
-      lines.push('No items');
-    } else {
-      for (const item of items.slice(0, 20)) {
-        lines.push(
-          `- ${this.safeText(item?.description || 'Item')} | ${Number(item?.quantity || 0)} x ${Number(item?.unitPrice || 0).toFixed(2)}`,
-        );
-      }
-    }
-
-    lines.push('');
-    lines.push(`Total: ${this.safeText(invoice?.currency || 'KWD')} ${Number(invoice?.total || 0).toFixed(2)}`);
-
-    const content = [
-      'BT',
-      '/F1 11 Tf',
-      '14 TL',
-      '48 790 Td',
-      ...lines.map((line, idx) => `${idx === 0 ? '' : 'T* '}(${this.escapePdfText(line)}) Tj`),
-      'ET',
-    ].join('\n');
-
-    const objects: string[] = [];
-    const addObj = (no: number, body: string) => objects.push(`${no} 0 obj\n${body}\nendobj\n`);
-
-    addObj(1, '<< /Type /Catalog /Pages 2 0 R >>');
-    addObj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-    addObj(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>');
-    addObj(4, `<< /Length ${Buffer.byteLength(content, 'utf8')} >>\nstream\n${content}\nendstream`);
-    addObj(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
-
-    let pdf = '%PDF-1.4\n';
-    const offsets: number[] = [0];
-    for (const object of objects) {
-      offsets.push(Buffer.byteLength(pdf, 'utf8'));
-      pdf += object;
-    }
-
-    const xref = Buffer.byteLength(pdf, 'utf8');
-    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-    for (let i = 1; i <= objects.length; i++) {
-      pdf += `${offsets[i].toString().padStart(10, '0')} 00000 n \n`;
-    }
-    pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
-
-    return Buffer.from(pdf, 'utf8');
   }
 
   private formatDateDMY(value: any): string {
     const date = new Date(value || Date.now());
-    if (Number.isNaN(date.getTime())) {
-      return '-';
-    }
-
+    if (Number.isNaN(date.getTime())) return '-';
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
-  }
-
-  private safeText(value: any): string {
-    return String(value ?? '').replace(/[^\x20-\x7E]/g, ' ').trim();
-  }
-
-  private escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
-  private escapePdfText(text: string): string {
-    return this.safeText(text)
-      .replace(/\\/g, '\\\\')
-      .replace(/\(/g, '\\(')
-      .replace(/\)/g, '\\)');
   }
 }

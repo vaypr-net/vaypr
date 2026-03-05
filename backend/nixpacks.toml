@@ -1,19 +1,10 @@
 # Nixpacks configuration for Backend service
 # For Railway service deployed at /backend root
-# No cd commands needed
-
-# Use the nix system Chromium (installed via nixPkgs below) instead of
-# Playwright's own downloaded Chromium. Playwright's Chromium often fails
-# in Railway containers due to missing shared libraries. The nix package
-# bundles all its own dependencies and is always reliable.
-[variables]
-PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
-PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true"
+# PDF generation uses PDFKit (pure Node.js) — no Chromium needed.
 
 [phases.setup]
 nixPkgs = [
-  "nodejs_20",
-  "chromium"
+  "nodejs_20"
 ]
 
 [phases.install]
