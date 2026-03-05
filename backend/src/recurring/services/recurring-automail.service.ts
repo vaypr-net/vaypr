@@ -9,7 +9,6 @@ import { UserProfile } from '../../userprofile/entities/userprofile.entity';
 import { EmailRouterService } from '../../email/email-router.service';
 import { PdfGeneratorService } from '../../common/services/pdf-generator.service';
 import { RecurringFrequency } from '../enums/recurring-frequency.enum';
-import { buildBrandedEmailHtml } from '../../common/utils/branded-email-template';
 
 @Injectable()
 export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
@@ -228,7 +227,7 @@ export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log(`[Recurring Automail] Generated invoice ${invoice._id} for recurring ${recurring._id}`);
 
-      // Prepare email content using the same branded template as manual send
+      // Prepare email content for automail using saved/default recurring message.
       const companyName = recurring.companyFooter?.companyName || 'VAYPR';
       const frequencyLabel = this.getFrequencyLabel(recurring.frequency);
       const clientGreeting = client.name || 'Client';
@@ -243,16 +242,23 @@ If you have any questions, just reply to this message.
 Best regards,
 ${companyName}`;
 
-      // Use the same branded email template as manual send
-      const emailBody = buildBrandedEmailHtml({
-        emailTitle: `${frequencyLabel} Subscription Invoice`,
-        companyName,
-        message: defaultMessage,
-        accentColor: recurring.itemHeaderColor || '#6366f1',
-        templateStyle: 'modern',
-        logoUrl: recurring.logo || undefined,
-        attachmentNote: 'Your PDF invoice is attached with this email.',
-      });
+      const customAutoMessage = this.applyAutoMessageVariables(
+        recurring.autoEmailMessage,
+        {
+          clientName: clientGreeting,
+          companyName,
+          frequencyLabel,
+        },
+      );
+
+      // Keep automail body plain/generic by request (no branded email template wrapper).
+      const messageToSend = customAutoMessage || defaultMessage;
+      const emailBody = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+          <p>${this.escapeHtml(messageToSend).replace(/\n/g, '<br/>')}</p>
+          <p style="color:#6b7280; font-size:12px; margin-top:16px;">PDF is attached with this email.</p>
+        </div>
+      `;
 
       // Generate PDF for the invoice
       let pdfBase64: string | undefined;
@@ -303,6 +309,29 @@ ${companyName}`;
       );
       throw error;
     }
+  }
+
+  private applyAutoMessageVariables(
+    template: string | undefined,
+    context: { clientName: string; companyName: string; frequencyLabel: string },
+  ): string {
+    if (!template || !template.trim()) {
+      return '';
+    }
+
+    return template
+      .replace(/\{\{clientName\}\}/g, context.clientName)
+      .replace(/\{\{companyName\}\}/g, context.companyName)
+      .replace(/\{\{frequency\}\}/g, context.frequencyLabel.toLowerCase());
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // Public test method to manually trigger automail check (for development/testing)

@@ -72,6 +72,9 @@ export class Recurring extends BaseEntity {
 
   @Prop({ default: false })
   autoSendReminder: boolean;
+
+  @Prop()
+  autoEmailMessage: string;
 }
 
 export const RecurringSchema = SchemaFactory.createForClass(Recurring);

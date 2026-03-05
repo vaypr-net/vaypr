@@ -129,4 +129,8 @@ export class CreateRecurringDto {
   @IsBoolean()
   @IsOptional()
   autoSendReminder?: boolean;
+
+  @IsString()
+  @IsOptional()
+  autoEmailMessage?: string;
 }

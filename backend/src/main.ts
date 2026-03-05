@@ -22,6 +22,7 @@ async function bootstrap() {
   const allowedOrigins = [
     process.env.FRONTEND_URL || 'http://localhost:8080',
     'https://vayper-production.up.railway.app', // Remove trailing slash
+    'https://modest-gratitude-production-9a4f.up.railway.app',
     'http://localhost:5173', // Vite dev server
     'http://localhost:8081', // Alternative dev port
     'http://127.0.0.1:8081',
