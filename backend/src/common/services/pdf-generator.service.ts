@@ -106,52 +106,54 @@ export class PdfGeneratorService implements OnModuleDestroy {
   }
 
   private getChromiumExecutablePath(): string | undefined {
-    // Let Playwright use its bundled browser first if available.
-    // If unavailable in production (common on some Railway builds), try system Chromium paths.
-    const candidates: string[] = [];
-
-    try {
-      const playwrightBundledPath = chromium.executablePath();
-      if (playwrightBundledPath) {
-        candidates.push(playwrightBundledPath);
-      }
-    } catch {
-      // Ignore and continue with env/system candidates.
-    }
+    // Priority order:
+    // 1. Explicit env override (CHROMIUM_EXECUTABLE_PATH set in Railway dashboard)
+    // 2. System Chromium via `which` — this catches the nix-installed chromium
+    //    (nixPkgs = ["chromium"]) which bundles its own libraries and is
+    //    guaranteed to work on Railway containers.
+    // 3. Well-known hardcoded paths as last resort.
+    // NOTE: We intentionally do NOT call chromium.executablePath() because
+    // PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 means Playwright has no bundled browser.
 
     const envPath = process.env.CHROMIUM_EXECUTABLE_PATH?.trim();
-    if (envPath) {
-      candidates.push(envPath);
+    if (envPath && existsSync(envPath)) {
+      this.logger.log(`[PDF Generator] Using CHROMIUM_EXECUTABLE_PATH: ${envPath}`);
+      return envPath;
     }
 
-    candidates.push(
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      '/usr/bin/google-chrome',
-      '/usr/bin/google-chrome-stable',
-    );
-
-    for (const candidate of candidates) {
-      if (candidate && existsSync(candidate)) {
-        return candidate;
-      }
-    }
-
+    // Try `which` first — fastest way to find the nix system chromium.
     try {
       const whichPath = execSync(
         'which chromium || which chromium-browser || which google-chrome || which google-chrome-stable',
-        { stdio: ['ignore', 'pipe', 'ignore'] },
+        { stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 },
       )
         .toString()
         .trim()
         .split('\n')[0];
-      if (whichPath && existsSync(whichPath)) {
+      if (whichPath) {
+        this.logger.log(`[PDF Generator] Found system Chromium via which: ${whichPath}`);
         return whichPath;
       }
     } catch {
-      // Ignore and allow Playwright default behavior.
+      // Ignore — fall through to hardcoded candidates.
     }
 
+    // Hardcoded fallback paths.
+    const candidates = [
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+    ];
+
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) {
+        this.logger.log(`[PDF Generator] Found system Chromium at: ${candidate}`);
+        return candidate;
+      }
+    }
+
+    this.logger.warn('[PDF Generator] No system Chromium found — Playwright will use its default resolution');
     return undefined;
   }
 
