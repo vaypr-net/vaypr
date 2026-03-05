@@ -305,6 +305,9 @@ export class GmailService {
       const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
 
       // Encode email in RFC 2822 format (with optional attachment)
+      console.log(
+        `[Gmail] Sending email attachment info: hasAttachment=${Boolean(attachmentData && attachmentFilename)}, filename=${attachmentFilename || 'NONE'}, base64Length=${attachmentData?.length || 0}`,
+      );
       const encodedEmail = this.encodeEmail(
         to,
         subject,

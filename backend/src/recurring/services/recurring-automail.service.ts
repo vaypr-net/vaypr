@@ -266,10 +266,18 @@ ${companyName}`;
       try {
         pdfBase64 = await this.pdfGeneratorService.generateInvoicePdf(invoice.toObject ? invoice.toObject() : invoice);
         pdfFilename = `Invoice_${invoice.invoiceNumber || 'subscription'}.pdf`;
-        this.logger.log(`[Recurring Automail] Generated PDF for invoice ${invoice._id}`);
+        this.logger.log(
+          `[Recurring Automail] Generated PDF for invoice ${invoice._id}. filename=${pdfFilename}, base64Length=${pdfBase64?.length || 0}`,
+        );
       } catch (pdfError) {
         this.logger.warn(`[Recurring Automail] Failed to generate PDF, sending without attachment: ${pdfError}`);
         // Continue sending email without PDF if generation fails
+      }
+
+      if (!pdfBase64 || !pdfFilename) {
+        this.logger.warn(
+          `[Recurring Automail] Attachment missing before send for recurring ${recurring._id}. pdfBase64=${Boolean(pdfBase64)}, pdfFilename=${pdfFilename || 'NONE'}`,
+        );
       }
 
       // Send email via EmailRouter (uses user's configured senders or legacy fallback)
