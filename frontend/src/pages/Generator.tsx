@@ -493,7 +493,7 @@ const Index = () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
       
       // Use fitToPage for receipts to prevent text scaling issues
-      const options = activeTab === "receipt" ? { fitToPage: true } : undefined;
+      const options = activeTab === "receipt" ? { fitToPage: true, fitScale: 0.55 } : undefined;
       downloadPDF(exportId, exportName, undefined, options);
     };
 
@@ -837,9 +837,10 @@ const Index = () => {
         (sum, item) => sum + (sanitizeNumber(item.quantity) * sanitizeNumber(item.unitPrice)),
         0
       );
+      const discountAmount = (subtotal * sanitizeNumber(quoteData.discount)) / 100;
       const total = quoteData.useManualGrandTotal
         ? sanitizeNumber(quoteData.manualGrandTotal)
-        : subtotal - sanitizeNumber(quoteData.discount) + sanitizeNumber(quoteData.deliveryFee);
+        : subtotal - discountAmount + sanitizeNumber(quoteData.deliveryFee);
 
       const quote: Omit<Quote, "id" | "createdAt"> = {
         quoteNumber: quoteData.quoteNumber || `QT-${Date.now()}`,

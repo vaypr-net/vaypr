@@ -102,6 +102,7 @@ export default function Recurring() {
     paymentType: r.paymentType,
     showBankDetails: r.showBankDetails || false,
     bankDetails: r.bankDetails,
+    billTo: r.billTo,
   }));
 
   const { toast } = useToast();
@@ -136,6 +137,15 @@ export default function Recurring() {
       websiteEmail: '',
     },
     itemHeaderColor: '#6366f1',
+    billTo: {
+      name: '',
+      phone: '',
+      area: '',
+      block: '',
+      street: '',
+      house: '',
+      other: '',
+    },
   });
   
   const [dialogViewMode, setDialogViewMode] = useState<'edit' | 'preview'>('edit');
@@ -346,6 +356,7 @@ ${companyName}`;
       paymentType: formData.paymentType,
       showBankDetails: formData.showBankDetails,
       bankDetails: formData.bankDetails,
+      billTo: formData.billTo,
     };
 
     try {
@@ -584,6 +595,15 @@ Best regards,
         websiteEmail: '',
       },
       itemHeaderColor: recurring.itemHeaderColor || '#6366f1',
+      billTo: {
+        name: recurring.billTo?.name || client?.name || '',
+        phone: recurring.billTo?.phone || '',
+        area: recurring.billTo?.area || '',
+        block: recurring.billTo?.block || '',
+        street: recurring.billTo?.street || '',
+        house: recurring.billTo?.house || '',
+        other: recurring.billTo?.other || '',
+      },
     });
     setIsDialogOpen(true);
   };
@@ -637,6 +657,7 @@ Best regards,
       paymentType: formData.paymentType,
       showBankDetails: formData.showBankDetails,
       bankDetails: formData.bankDetails,
+      billTo: formData.billTo,
     }
 
     try {
@@ -667,7 +688,17 @@ Best regards,
     setFormData({ 
       ...formData, 
       clientId,
-      clientEmail: selectedClient?.email || ''
+      clientEmail: selectedClient?.email || '',
+      // Only populate client name in billTo, leave phone/address empty
+      billTo: {
+        name: selectedClient?.name || '',
+        phone: '',
+        area: '',
+        block: '',
+        street: '',
+        house: '',
+        other: '',
+      }
     });
   };
 
@@ -715,6 +746,15 @@ Best regards,
         websiteEmail: '',
       },
       itemHeaderColor: '#6366f1',
+      billTo: {
+        name: '',
+        phone: '',
+        area: '',
+        block: '',
+        street: '',
+        house: '',
+        other: '',
+      },
     });
     setDialogViewMode('edit');
   };
@@ -1012,6 +1052,102 @@ Best regards,
                   value={formData.nextBillingDate}
                   onChange={(value) => setFormData({ ...formData, nextBillingDate: value })}
                 />
+              </div>
+
+              {/* Bill To Section */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="p-4 bg-muted/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm font-medium">Bill To Information</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Customize what client information appears on generated invoices. Only name is required.
+                  </p>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Client Name *</Label>
+                      <Input
+                        placeholder="Client name"
+                        value={formData.billTo.name}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          billTo: { ...formData.billTo, name: e.target.value }
+                        })}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Phone Number (Optional)</Label>
+                        <Input
+                          placeholder="e.g., +965 1234 5678"
+                          value={formData.billTo.phone}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            billTo: { ...formData.billTo, phone: e.target.value }
+                          })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Area (Optional)</Label>
+                        <Input
+                          placeholder="e.g., Salmiya"
+                          value={formData.billTo.area}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            billTo: { ...formData.billTo, area: e.target.value }
+                          })}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Block (Optional)</Label>
+                        <Input
+                          placeholder="e.g., 5"
+                          value={formData.billTo.block}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            billTo: { ...formData.billTo, block: e.target.value }
+                          })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Street (Optional)</Label>
+                        <Input
+                          placeholder="e.g., 25"
+                          value={formData.billTo.street}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            billTo: { ...formData.billTo, street: e.target.value }
+                          })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>House (Optional)</Label>
+                        <Input
+                          placeholder="e.g., 123"
+                          value={formData.billTo.house}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            billTo: { ...formData.billTo, house: e.target.value }
+                          })}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Other Address Info (Optional)</Label>
+                      <Input
+                        placeholder="e.g., Apartment 4B"
+                        value={formData.billTo.other}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          billTo: { ...formData.billTo, other: e.target.value }
+                        })}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Bank Transfer Details */}

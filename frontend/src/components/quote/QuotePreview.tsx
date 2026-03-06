@@ -157,41 +157,80 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
         </table>
       </div>
 
-      {/* Totals */}
-      <div className="flex justify-end mb-8" data-pdf-avoid-break="true">
-        <div className="w-64 space-y-2">
+      {/* Payment Method & Bank Details & Totals Row */}
+      <div className="flex justify-between items-start gap-4 mb-8 print:block" data-pdf-avoid-break="true">
+        {/* Payment Method & Bank Details & Payment Terms */}
+        <div className="space-y-3 flex-shrink min-w-0 max-w-[55%]">
+          {data.showPaymentMethod && data.paymentMethodType && (
+            <div>
+              <p className="font-semibold text-foreground mb-1">Payment Method</p>
+              <p className="text-sm text-foreground">
+                {data.paymentMethodType === 'cash' && 'Cash'}
+                {data.paymentMethodType === 'bank_transfer' && 'Bank Transfer'}
+                {data.paymentMethodType === 'cheque' && 'Cheque'}
+                {data.paymentMethodType === 'online_payment' && 'Online Payment'}
+              </p>
+            </div>
+          )}
+          {data.showPaymentTerms && data.paymentTerms && (
+            <div className="bg-muted/30 rounded-md p-2.5 border border-border/50" data-pdf-avoid-break="true">
+              <p className="font-semibold text-foreground mb-1.5 text-sm">Payment Terms</p>
+              <p className="text-xs text-muted-foreground" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', lineHeight: '1.4' }}>{data.paymentTerms}</p>
+            </div>
+          )}
+          {data.showBankAccount && (data.bankAccount.bankName || data.bankAccount.accountName || data.bankAccount.iban) && (
+            <div className="bg-muted/30 rounded-md p-2.5 border border-border/50" data-pdf-avoid-break="true">
+              <p className="font-semibold text-foreground mb-1.5 text-sm">Bank Transfer Details</p>
+              <div className="text-xs space-y-0.5">
+                {data.bankAccount.bankName && (
+                  <p className="text-foreground">
+                    <span className="text-muted-foreground">Bank: </span>
+                    {data.bankAccount.bankName}
+                  </p>
+                )}
+                {data.bankAccount.accountName && (
+                  <p className="text-foreground">
+                    <span className="text-muted-foreground">Account Number: </span>
+                    {data.bankAccount.accountName}
+                  </p>
+                )}
+                {data.bankAccount.iban && (
+                  <p className="text-foreground font-mono" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                    <span className="text-muted-foreground font-sans">IBAN Number: </span>
+                    {data.bankAccount.iban}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Totals */}
+        <div className="text-sm space-y-1 text-right flex-shrink-0" data-pdf-avoid-break="true">
           {!data.hideSubTotal && (
-            <div className="flex justify-between text-foreground">
-              <span>Subtotal</span>
-              <span>{data.currencySymbol} {subtotal.toFixed(2)}</span>
+            <div className="flex justify-end gap-4 whitespace-nowrap">
+              <span className="text-muted-foreground">Subtotal:</span>
+              <span className="text-foreground">{data.currencySymbol} {subtotal.toFixed(2)}</span>
             </div>
           )}
           {data.discount > 0 && (
-            <div className="flex justify-between text-muted-foreground">
-              <span>Discount ({data.discount}%)</span>
-              <span>-{data.currencySymbol} {discountAmount.toFixed(2)}</span>
+            <div className="flex justify-end gap-4 whitespace-nowrap">
+              <span className="text-muted-foreground">Discount ({data.discount}%):</span>
+              <span className="text-foreground">-{data.currencySymbol} {discountAmount.toFixed(2)}</span>
             </div>
           )}
           {data.deliveryFee > 0 && (
-            <div className="flex justify-between text-muted-foreground">
-              <span>Delivery Fee</span>
-              <span>{data.currencySymbol} {data.deliveryFee.toFixed(2)}</span>
+            <div className="flex justify-end gap-4 whitespace-nowrap">
+              <span className="text-muted-foreground">Delivery Fee:</span>
+              <span className="text-foreground">{data.currencySymbol} {data.deliveryFee.toFixed(2)}</span>
             </div>
           )}
-          <div className="flex justify-between pt-2 border-t border-border font-semibold text-lg text-foreground">
-            <span>Total</span>
-            <span style={{ color: data.tableHeaderColor }}>{data.currencySymbol} {grandTotal.toFixed(2)}</span>
+          <div className="flex justify-end gap-4 pt-1 whitespace-nowrap">
+            <span className="font-bold text-foreground">Total:</span>
+            <span className="font-bold text-base" style={{ color: data.tableHeaderColor }}>{data.currencySymbol} {grandTotal.toFixed(2)}</span>
           </div>
         </div>
       </div>
-
-      {/* Payment Terms */}
-      {data.showPaymentTerms && data.paymentTerms && (
-        <div className="mb-6 p-4 bg-secondary/50 rounded-lg" data-pdf-avoid-break="true">
-          <p className="text-sm font-semibold text-foreground mb-1">Terms & Conditions</p>
-          <p className="text-sm text-muted-foreground" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', lineHeight: '1.4' }}>{data.paymentTerms}</p>
-        </div>
-      )}
 
       {/* Notes */}
       {data.notes && (
@@ -201,37 +240,12 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
         </div>
       )}
 
-      {/* Payment Method */}
-      {data.showPaymentMethod && data.paymentMethodType && (
-        <div className="mb-6 p-4 bg-secondary/50 rounded-lg" data-pdf-avoid-break="true">
-          <p className="text-sm font-semibold text-foreground mb-1">Payment Method</p>
-          <p className="text-sm text-muted-foreground">
-            {data.paymentMethodType === 'cash' && 'Cash'}
-            {data.paymentMethodType === 'bank_transfer' && 'Bank Transfer'}
-            {data.paymentMethodType === 'cheque' && 'Cheque'}
-            {data.paymentMethodType === 'online_payment' && 'Online Payment'}
-          </p>
-        </div>
-      )}
-
-      {/* Bank Account */}
-      {data.showBankAccount && (data.bankAccount.bankName || data.bankAccount.accountName || data.bankAccount.iban) && (
-        <div className="mb-6 p-4 bg-secondary/50 rounded-lg" data-pdf-avoid-break="true">
-          <p className="text-sm font-semibold text-foreground mb-1">Bank Details</p>
-          <div className="text-sm text-muted-foreground space-y-1">
-            {data.bankAccount.bankName && <p>Bank: {data.bankAccount.bankName}</p>}
-            {data.bankAccount.accountName && <p>Account Number: {data.bankAccount.accountName}</p>}
-            {data.bankAccount.iban && <p>IBAN Number: {data.bankAccount.iban}</p>}
-          </div>
-        </div>
-      )}
-
       {/* Footer */}
       {(data.companyFooter.companyName || data.companyFooter.address || data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
         <div className="pt-6 mt-10 border-t border-border" data-pdf-avoid-break="true">
           <div className="text-xs text-muted-foreground flex flex-wrap items-center justify-center gap-2" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
             {data.companyFooter.companyName && (
-              <span className="font-semibold text-foreground">{data.companyFooter.companyName}</span>
+              <span className="text-muted-foreground">{data.companyFooter.companyName}</span>
             )}
             {([data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail].filter(Boolean) as string[]).length > 0 && (
               <span className="text-muted-foreground">• {([data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail].filter(Boolean) as string[]).join(' • ')}</span>

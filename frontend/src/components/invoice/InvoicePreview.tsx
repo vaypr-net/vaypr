@@ -261,7 +261,7 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
           <div className="border-t border-border pt-6 mt-10" data-pdf-avoid-break="true">
             <div className="text-xs text-muted-foreground flex flex-wrap items-center justify-center gap-2" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
               {data.companyFooter.companyName && (
-                <span className="font-semibold text-foreground">{data.companyFooter.companyName}</span>
+                <span className="text-muted-foreground">{data.companyFooter.companyName}</span>
               )}
               {([data.companyFooter.address, data.companyFooter.officePhone, data.companyFooter.websiteEmail]
                 .filter(Boolean) as string[]).length > 0 && (

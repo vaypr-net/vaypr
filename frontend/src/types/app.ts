@@ -265,6 +265,15 @@ export interface RecurringBilling {
     accountName: string;
     iban: string;
   };
+  billTo?: {
+    name: string;
+    phone?: string;
+    area?: string;
+    block?: string;
+    street?: string;
+    house?: string;
+    other?: string;
+  };
 }
 
 export interface Payment {

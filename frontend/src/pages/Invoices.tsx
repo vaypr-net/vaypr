@@ -147,6 +147,7 @@ ${companyName}`;
     notes: '',
     paymentMethod: '',
     discount: 0,
+    deliveryFee: 0,
     items: [{ id: crypto.randomUUID(), description: '', quantity: 1, unitPrice: 0, amount: 0 }] as InvoiceItem[],
   });
 
@@ -278,7 +279,8 @@ ${companyName}`;
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
     const discountAmount = typeof formData.discount === 'number' && !isNaN(formData.discount) ? formData.discount : 0;
-    return subtotal - discountAmount;
+    const deliveryFee = typeof formData.deliveryFee === 'number' && !isNaN(formData.deliveryFee) ? formData.deliveryFee : 0;
+    return subtotal - discountAmount + deliveryFee;
   };
 
   const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
@@ -354,6 +356,7 @@ ${companyName}`;
       subtotal: sanitizeNumber(subtotal),
       tax: 0,
       discount: sanitizeNumber(formData.discount),
+      deliveryFee: sanitizeNumber(formData.deliveryFee),
       total: sanitizeNumber(total),
       currency: 'KWD',
       currencySymbol: 'KWD',
@@ -545,6 +548,7 @@ ${companyName}`;
       notes: '',
       paymentMethod: '',
       discount: 0,
+      deliveryFee: 0,
       items: [{ id: crypto.randomUUID(), description: '', quantity: 1, unitPrice: 0, amount: 0 }],
     });
   };
@@ -804,23 +808,35 @@ ${companyName}`;
                 </Button>
               </div>
 
-              {/* Payment Method & Discount */}
+              {/* Payment Method */}
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Textarea
+                  placeholder="Enter payment details (e.g., Bank: ABC Bank, Account: 1234567890)"
+                  value={formData.paymentMethod}
+                  onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                  rows={2}
+                />
+              </div>
+
+              {/* Discount & Delivery Fee */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <Textarea
-                    placeholder="Enter payment details (e.g., Bank: ABC Bank, Account: 1234567890)"
-                    value={formData.paymentMethod}
-                    onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                    rows={2}
-                  />
-                </div>
                 <div className="space-y-2">
                   <Label>Discount ($)</Label>
                   <Input
                     type="number"
                     value={formData.discount}
                     onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Delivery Fee ($)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.deliveryFee}
+                    onChange={(e) => setFormData({ ...formData, deliveryFee: Number(e.target.value) })}
                   />
                 </div>
               </div>
@@ -845,6 +861,12 @@ ${companyName}`;
                   <div className="flex justify-between text-sm">
                     <span>Discount</span>
                     <span>-{formatCurrency(formData.discount)}</span>
+                  </div>
+                )}
+                {formData.deliveryFee > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Delivery Fee</span>
+                    <span>{formatCurrency(formData.deliveryFee)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-lg border-t pt-2">

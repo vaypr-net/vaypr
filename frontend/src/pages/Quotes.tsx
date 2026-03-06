@@ -289,6 +289,7 @@ export default function Quotes() {
     currency: 'KWD',
     currencySymbol: 'KD',
     discount: 0,
+    deliveryFee: 0,
     notes: '',
     companyName: '',
     companyAddress: '',
@@ -310,9 +311,9 @@ export default function Quotes() {
     return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   };
 
-  const calculateTotal = (items: QuoteItem[], discount: number) => {
+  const calculateTotal = (items: QuoteItem[], discount: number, deliveryFee: number = 0) => {
     const subtotal = calculateSubtotal(items);
-    return subtotal - (subtotal * discount / 100);
+    return subtotal - (subtotal * discount / 100) + deliveryFee;
   };
 
   const formatCurrency = (amount: number, symbol: string) => {
@@ -472,7 +473,7 @@ export default function Quotes() {
     }
 
     const subtotal = calculateSubtotal(formData.items);
-    const total = calculateTotal(formData.items, formData.discount);
+    const total = calculateTotal(formData.items, formData.discount, formData.deliveryFee);
     const shareToken = generateShareToken();
 
     const newQuote = addQuote({
@@ -490,6 +491,7 @@ export default function Quotes() {
       items: formData.items,
       subtotal,
       discount: formData.discount,
+      deliveryFee: formData.deliveryFee,
       total,
       currency: formData.currency,
       currencySymbol: formData.currencySymbol,
@@ -579,7 +581,7 @@ export default function Quotes() {
       Number(editQuoteData.manualGrandTotal || 0) > 0;
     const total = useManualGrandTotal
       ? Number(editQuoteData.manualGrandTotal || 0)
-      : calculateTotal(editQuoteData.items, editQuoteData.discount);
+      : calculateTotal(editQuoteData.items, editQuoteData.discount, editQuoteData.deliveryFee);
 
     // Transform items to include amount field and remove id
     const transformedItems = editQuoteData.items.map((item: any) => ({
@@ -865,7 +867,7 @@ export default function Quotes() {
     }));
 
     const subtotal = calculateSubtotal(selectedQuote.items);
-    const total = calculateTotal(selectedQuote.items, selectedQuote.discount);
+    const total = calculateTotal(selectedQuote.items, selectedQuote.discount, selectedQuote.deliveryFee || 0);
 
     const invoiceNumber = `INV-${Date.now()}`;
 
@@ -991,7 +993,7 @@ export default function Quotes() {
         subtotal: quote.subtotal || calculateSubtotal(quote.items),
         discount: quote.discount || 0,
         deliveryFee: quote.deliveryFee || 0,
-        total: quote.total || calculateTotal(quote.items, quote.discount || 0),
+        total: calculateTotal(quote.items, quote.discount || 0, quote.deliveryFee || 0), // Always recalculate to ensure delivery fee is included
         currency: quote.currency,
         currencySymbol: quote.currencySymbol,
         companyFooter: {
@@ -1433,7 +1435,7 @@ ${getQuoteCompanyName(quote)}`);
               ))}
             </div>
 
-            {/* Discount */}
+            {/* Discount and Delivery Fee */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Discount (%)</Label>
@@ -1445,12 +1447,22 @@ ${getQuoteCompanyName(quote)}`);
                   onChange={(e) => setFormData(prev => ({ ...prev, discount: parseFloat(e.target.value) || 0 }))}
                 />
               </div>
-              <div className="flex items-end">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Subtotal: {formatCurrency(calculateSubtotal(formData.items), formData.currencySymbol)}</p>
-                  <p className="text-lg font-semibold">Total: {formatCurrency(calculateTotal(formData.items, formData.discount), formData.currencySymbol)}</p>
-                </div>
+              <div className="space-y-2">
+                <Label>Delivery Fee ({formData.currency})</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.deliveryFee}
+                  onChange={(e) => setFormData(prev => ({ ...prev, deliveryFee: parseFloat(e.target.value) || 0 }))}
+                />
               </div>
+            </div>
+
+            {/* Totals Display */}
+            <div className="bg-muted/30 rounded-lg p-4 space-y-1">
+              <p className="text-sm text-muted-foreground">Subtotal: {formatCurrency(calculateSubtotal(formData.items), formData.currencySymbol)}</p>
+              <p className="text-lg font-semibold">Total: {formatCurrency(calculateTotal(formData.items, formData.discount, formData.deliveryFee), formData.currencySymbol)}</p>
             </div>
 
             {/* Notes */}

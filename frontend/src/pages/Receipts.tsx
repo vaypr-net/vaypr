@@ -89,7 +89,7 @@ const PAYMENT_METHODS = [
   { value: 'check', label: 'Check' },
   { value: 'other', label: 'Other' },
 ];
-const RECEIPT_EXPORT_FIT_SCALE = 0.76;
+const RECEIPT_EXPORT_FIT_SCALE = 0.55;
 
 export default function Receipts() {
   const { user } = useAuth();
