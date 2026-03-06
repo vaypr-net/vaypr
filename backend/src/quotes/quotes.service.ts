@@ -165,10 +165,20 @@ export class QuotesService implements OnModuleInit {
           : existingQuote.clientId,
       };
 
-      // If quote was in MODIFICATION_REQUESTED status and is being updated,
+      // Check if this is only a manual status update (no content changes)
+      const isOnlyStatusUpdate = Object.keys(updateQuoteDto).length === 1 && 
+        updateQuoteDto.status !== undefined;
+
+      // If manually marking as accepted/rejected, clear clientResponse to avoid confusion
+      if (isOnlyStatusUpdate && (updateQuoteDto.status === QuoteStatus.ACCEPTED || updateQuoteDto.status === QuoteStatus.REJECTED)) {
+        updatePayload.clientResponse = undefined;
+      }
+
+      // If quote was in MODIFICATION_REQUESTED status and is being updated with content changes,
       // reset status to SENT so client can respond again with fresh feedback
       // but keep clientResponse for reference/history
-      if (existingQuote.status === QuoteStatus.MODIFICATION_REQUESTED) {
+      // Allow manual status updates (accepted/rejected) to go through
+      if (existingQuote.status === QuoteStatus.MODIFICATION_REQUESTED && !isOnlyStatusUpdate) {
         updatePayload.status = QuoteStatus.SENT;
         
         // Add timeline event for the edit
