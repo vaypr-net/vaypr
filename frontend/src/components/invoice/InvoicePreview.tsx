@@ -57,7 +57,12 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
   const colWidths = getColumnWidths();
 
   return (
-    <div className="bg-background max-w-2xl mx-auto print:shadow-none" id={previewId}>
+    <div 
+      className="bg-background max-w-2xl mx-auto print:shadow-none" 
+      id={previewId}
+      dir="ltr"
+      style={{ direction: 'ltr', textAlign: 'left' }}
+    >
       {/* Document Container */}
       <div className="bg-card p-8 print:block print:min-h-0">
         {/* Header - Logo left, Invoice info right */}

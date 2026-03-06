@@ -44,7 +44,12 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
   const hiddenStyle: React.CSSProperties = { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 };
 
   return (
-    <div className="bg-card rounded-xl shadow-card p-8 max-w-2xl mx-auto print:shadow-none print:block print:min-h-0" id={previewId}>
+    <div 
+      className="bg-card rounded-xl shadow-card p-8 max-w-2xl mx-auto print:shadow-none print:block print:min-h-0" 
+      id={previewId}
+      dir="ltr"
+      style={{ direction: 'ltr', textAlign: 'left' }}
+    >
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>

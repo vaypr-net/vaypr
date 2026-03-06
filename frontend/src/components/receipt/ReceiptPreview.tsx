@@ -20,6 +20,8 @@ export function ReceiptPreview({ data, previewId = "receipt-preview", compact = 
     <div
       className={`bg-card rounded-xl shadow-card mx-auto print:shadow-none print:max-w-full print:p-3 ${compact ? 'p-5 max-w-[300px]' : 'p-6 max-w-md'}`}
       id={previewId}
+      dir="ltr"
+      style={{ direction: 'ltr', textAlign: 'left' }}
     >
       {/* Header */}
       <div className={`text-center print:mb-1.5 ${compact ? 'mb-3' : 'mb-4'}`}>
