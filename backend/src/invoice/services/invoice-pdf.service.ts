@@ -72,7 +72,8 @@ export class InvoicePdfService {
           .company-info h1 {
             margin: 0;
             font-size: 28px;
-            color: #111827;
+            color: #6b7280;
+            font-weight: normal;
           }
           .company-details {
             font-size: 12px;

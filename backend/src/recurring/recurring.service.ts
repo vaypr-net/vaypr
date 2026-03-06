@@ -14,6 +14,7 @@ import { Invoice } from '../invoice/entities/invoice.entity';
 import { InvoiceStatus } from '../invoice/enums/invoice-status.enum';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
 import { PlanLimitService } from '../common/services/plan-limit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class RecurringService {
@@ -23,6 +24,7 @@ export class RecurringService {
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @Inject(NotificationPreferencesHelper) private notificationHelper: NotificationPreferencesHelper,
     private planLimitService: PlanLimitService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async create(
@@ -56,7 +58,21 @@ export class RecurringService {
       clientId: new Types.ObjectId(createRecurringDto.clientId),
     });
 
-    return recurring.save();
+    const savedRecurring = await recurring.save();
+
+    // Create notification for recurring billing creation
+    try {
+      await this.notificationsService.create({
+        userId: userId,
+        title: 'Recurring Billing Created',
+        message: `New ${createRecurringDto.frequency} recurring billing created for ${client.name}.`,
+        relatedId: savedRecurring._id?.toString(),
+      });
+    } catch (err) {
+      console.error('[Recurring] Failed to create notification:', err);
+    }
+
+    return savedRecurring;
   }
 
   async findAll(userId: string): Promise<Recurring[]> {
@@ -142,11 +158,62 @@ export class RecurringService {
       throw new NotFoundException(`Recurring with ID ${id} not found`);
     }
 
+    // Create notification for recurring billing update with change details
+    try {
+      const clientName = typeof updatedRecurring.clientId === 'object' && updatedRecurring.clientId
+        ? (updatedRecurring.clientId as any).name
+        : 'client';
+      
+      // Detect what changed
+      const changes: string[] = [];
+      
+      if (updateRecurringDto.frequency && updateRecurringDto.frequency !== existingRecurring.frequency) {
+        changes.push(`frequency to ${updateRecurringDto.frequency}`);
+      }
+      if (updateRecurringDto.total !== undefined && updateRecurringDto.total !== existingRecurring.total) {
+        changes.push(`total amount to ${updateRecurringDto.total}`);
+      }
+      if (updateRecurringDto.billTo) {
+        const oldBillTo = existingRecurring.billTo || {};
+        const newBillTo = updateRecurringDto.billTo;
+        
+        if (newBillTo.name && newBillTo.name !== oldBillTo.name) changes.push('bill to name');
+        if (newBillTo.phone !== oldBillTo.phone) changes.push('phone number');
+        if (newBillTo.area !== oldBillTo.area) changes.push('area');
+        if (newBillTo.block !== oldBillTo.block) changes.push('block');
+        if (newBillTo.street !== oldBillTo.street) changes.push('street');
+        if (newBillTo.house !== oldBillTo.house) changes.push('house');
+        if (newBillTo.other !== oldBillTo.other) changes.push('address details');
+      }
+      if (updateRecurringDto.nextBillingDate && updateRecurringDto.nextBillingDate !== existingRecurring.nextBillingDate?.toISOString().split('T')[0]) {
+        changes.push('next billing date');
+      }
+      if (updateRecurringDto.paymentType && updateRecurringDto.paymentType !== existingRecurring.paymentType) {
+        changes.push('payment method');
+      }
+      if (updateRecurringDto.paymentTerms !== undefined && updateRecurringDto.paymentTerms !== existingRecurring.paymentTerms) {
+        changes.push('payment terms');
+      }
+      
+      const changesText = changes.length > 0 
+        ? ` Changed: ${changes.join(', ')}.`
+        : '';
+      
+      await this.notificationsService.create({
+        userId: userId,
+        title: 'Recurring Billing Updated',
+        message: `Recurring billing for ${clientName} has been updated.${changesText}`,
+        relatedId: updatedRecurring._id?.toString(),
+      });
+    } catch (err) {
+      console.error('[Recurring] Failed to create notification:', err);
+    }
+
     return updatedRecurring;
   }
 
   async remove(id: string, userId: string): Promise<Recurring> {
-    await this.findOne(id, userId);
+    const existing = await this.findOne(id, userId);
 
     const deletedRecurring = await this.recurringModel
       .findByIdAndUpdate(id, { isDeleted: true }, { new: true })
@@ -154,6 +221,21 @@ export class RecurringService {
 
     if (!deletedRecurring) {
       throw new NotFoundException(`Recurring with ID ${id} not found`);
+    }
+
+    // Create notification for recurring billing deletion
+    try {
+      const clientName = typeof existing.clientId === 'object' && existing.clientId
+        ? (existing.clientId as any).name
+        : 'client';
+      await this.notificationsService.create({
+        userId: userId,
+        title: 'Recurring Billing Deleted',
+        message: `Recurring billing for ${clientName} has been deleted.`,
+        relatedId: deletedRecurring._id?.toString(),
+      });
+    } catch (err) {
+      console.error('[Recurring] Failed to create notification:', err);
     }
 
     return deletedRecurring;
@@ -173,6 +255,22 @@ export class RecurringService {
 
     if (!updatedRecurring) {
       throw new NotFoundException(`Recurring with ID ${id} not found`);
+    }
+
+    // Create notification for recurring billing toggle
+    try {
+      const clientName = typeof updatedRecurring.clientId === 'object' && updatedRecurring.clientId
+        ? (updatedRecurring.clientId as any).name
+        : 'client';
+      const statusText = updatedRecurring.isActive ? 'activated' : 'paused';
+      await this.notificationsService.create({
+        userId: userId,
+        title: `Recurring Billing ${updatedRecurring.isActive ? 'Activated' : 'Paused'}`,
+        message: `Recurring billing for ${clientName} has been ${statusText}.`,
+        relatedId: updatedRecurring._id?.toString(),
+      });
+    } catch (err) {
+      console.error('[Recurring] Failed to create notification:', err);
     }
 
     return updatedRecurring;
@@ -272,14 +370,15 @@ export class RecurringService {
       hideSubTotal: false,
       useManualGrandTotal: false,
       manualGrandTotal: 0,
-      billTo: {
+      // Use billTo from recurring if exists, otherwise use client name only
+      billTo: recurring.billTo || {
         name: client?.name || 'N/A',
-        phone: client?.phone || '',
-        area: client?.area || '',
-        block: client?.block || '',
-        street: client?.street || '',
-        house: client?.house || '',
-        other: client?.other || '',
+        phone: '',
+        area: '',
+        block: '',
+        street: '',
+        house: '',
+        other: '',
       },
     });
 
@@ -290,6 +389,18 @@ export class RecurringService {
       nextBillingDate: nextDate,
       lastGeneratedAt: new Date(),
     });
+
+    // Create notification for invoice generation from recurring
+    try {
+      await this.notificationsService.create({
+        userId: userId,
+        title: 'Invoice Generated',
+        message: `Invoice ${invoiceNumber} generated from recurring billing for ${client?.name || 'client'}.`,
+        relatedId: savedInvoice._id?.toString(),
+      });
+    } catch (err) {
+      console.error('[Recurring] Failed to create notification:', err);
+    }
 
     return savedInvoice.populate('clientId', 'name email phone clientType');
   }

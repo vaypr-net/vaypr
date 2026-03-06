@@ -534,6 +534,7 @@ export class BrevoService {
       brevo_code: this.mapBrevoStatus(dnsRecords?.brevo_code?.status),
       dkim: dkimStatus,
       dmarc: this.mapBrevoStatus(dnsRecords?.dmarc_record?.status),
+      spf: this.mapBrevoStatus(dnsRecords?.spf_record?.status),
     };
 
     return checks;
@@ -640,19 +641,38 @@ export class BrevoService {
       let errorMessage: string | null = null;
 
       // Check if domain is authenticated/verified in Brevo
-      // Brevo API returns "verified" and "authenticated" boolean properties
+      // ONLY trust Brevo's official verified/authenticated flags
       if (brevoData.verified === true || brevoData.authenticated === true) {
         status = 'VERIFIED';
         console.log(`[Brevo] ✓ Domain ${domainName} is VERIFIED/AUTHENTICATED (verified=${brevoData.verified}, authenticated=${brevoData.authenticated})`);
-      } else if (checks.brevo_code === 'OK' && checks.dkim === 'OK') {
-        status = 'VERIFIED';
-        console.log(`[Brevo] ✓ Domain ${domainName} is VERIFIED (via checks)`);
-      } else if (checks.brevo_code === 'FAIL' || checks.dkim === 'FAIL') {
-        status = 'FAILED';
+      } else {
+        // Domain not yet verified by Brevo (even if DNS records are OK)
+        status = 'DNS_PENDING';
+        
+        // Provide detailed error message about what's missing/failed
         const failedChecks: string[] = [];
+        const pendingChecks: string[] = [];
+        
         if (checks.brevo_code === 'FAIL') failedChecks.push('Brevo Code');
         if (checks.dkim === 'FAIL') failedChecks.push('DKIM');
-        errorMessage = `Failed to verify: ${failedChecks.join(', ')}. Please check your DNS records in your provider.`;
+        if (checks.dmarc === 'FAIL') failedChecks.push('DMARC');
+        if (checks.spf === 'FAIL') failedChecks.push('SPF');
+        
+        if (checks.brevo_code === 'PENDING') pendingChecks.push('Brevo Code');
+        if (checks.dkim === 'PENDING') pendingChecks.push('DKIM');
+        if (checks.dmarc === 'PENDING' || checks.dmarc === 'MISSING') pendingChecks.push('DMARC');
+        if (checks.spf === 'PENDING' || checks.spf === 'MISSING') pendingChecks.push('SPF');
+        
+        if (failedChecks.length > 0) {
+          status = 'FAILED';
+          errorMessage = `DNS verification failed: ${failedChecks.join(', ')}. Please check your DNS records.`;
+        } else if (checks.brevo_code === 'OK' && checks.dkim === 'OK') {
+          errorMessage = `DNS records configured correctly. Waiting for Brevo to authenticate domain (this can take a few minutes to 48 hours). Pending: ${pendingChecks.join(', ')}.`;
+        } else {
+          errorMessage = `Some DNS records not configured: ${pendingChecks.join(', ')}. Please add them to your DNS provider.`;
+        }
+        
+        console.log(`[Brevo] ⏳ Domain ${domainName} is ${status}: verified=${brevoData.verified}, authenticated=${brevoData.authenticated}. ${errorMessage}`);
       }
 
       // Find or create domain in local database

@@ -34,6 +34,9 @@ export class DomainChecks {
 
   @Prop({ type: String, enum: ['PENDING', 'OK', 'FAIL', 'MISSING'], default: 'MISSING' })
   dmarc: BrevoCheckStatus;
+
+  @Prop({ type: String, enum: ['PENDING', 'OK', 'FAIL', 'MISSING'], default: 'MISSING' })
+  spf: BrevoCheckStatus;
 }
 
 @Schema({ timestamps: true })
@@ -47,7 +50,7 @@ export class BrevoDomain extends Document {
   @Prop({ type: String, enum: ['NOT_STARTED', 'DNS_PENDING', 'VERIFIED', 'FAILED'], default: 'NOT_STARTED' })
   status: BrevoStatus;
 
-  @Prop({ type: DomainChecks, default: () => ({ brevo_code: 'PENDING', dkim: 'PENDING', dmarc: 'MISSING' }) })
+  @Prop({ type: DomainChecks, default: () => ({ brevo_code: 'PENDING', dkim: 'PENDING', dmarc: 'MISSING', spf: 'MISSING' }) })
   checks: DomainChecks;
 
   @Prop({ type: [DNSRecord], default: [] })

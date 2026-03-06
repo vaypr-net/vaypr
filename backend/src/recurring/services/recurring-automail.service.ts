@@ -201,14 +201,15 @@ export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
         total: recurring.total,
         currency: recurring.currency,
         status: 'draft',
-        billTo: {
+        // Use billTo from recurring if exists, otherwise use client name only
+        billTo: recurring.billTo || {
           name: client.name || 'Client',
-          phone: client.phone,
-          area: client.area,
-          block: client.block,
-          street: client.street,
-          house: client.house,
-          other: client.other,
+          phone: '',
+          area: '',
+          block: '',
+          street: '',
+          house: '',
+          other: '',
         },
         companyFooter: recurring.companyFooter,
         paymentMethodType: recurring.paymentType,

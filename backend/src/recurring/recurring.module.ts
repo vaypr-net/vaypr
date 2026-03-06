@@ -16,6 +16,7 @@ import { UserprofileModule } from '../userprofile/userprofile.module';
 import { CommonModule } from '../common/common.module';
 import { EmailModule } from '../email/email.module';
 import { BrevoModule } from '../brevo/brevo.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { BrevoModule } from '../brevo/brevo.module';
     CommonModule,  // Import to access PlanLimitService
     EmailModule,  // Import for email sending
     BrevoModule,  // Import for Brevo email service
+    NotificationsModule,  // Import for in-app notifications
   ],
   controllers: [RecurringController],
   providers: [RecurringService, RecurringAutomailService, JwtAuthGuard],

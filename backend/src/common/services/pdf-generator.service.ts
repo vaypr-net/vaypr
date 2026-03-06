@@ -132,12 +132,12 @@ export class PdfGeneratorService {
           `[PDF Generator] Skipping invalid logo image for ${invoice?.invoiceNumber}: ${error?.message || error}`,
         );
         if (cf.companyName) {
-          doc.font('Helvetica-Bold').fontSize(18).fillColor('#111827')
+          doc.font('Helvetica').fontSize(18).fillColor('#6b7280')
             .text(cf.companyName, MARGIN, y + 4, { width: 200 });
         }
       }
     } else if (cf.companyName) {
-      doc.font('Helvetica-Bold').fontSize(18).fillColor('#111827')
+      doc.font('Helvetica').fontSize(18).fillColor('#6b7280')
         .text(cf.companyName, MARGIN, y + 4, { width: 200 });
     }
 

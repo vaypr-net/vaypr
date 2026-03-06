@@ -6,6 +6,7 @@ import { PaymentMethodType } from '../../invoice/enums/payment-method.enum';
 import { RecurringItem } from '../schemas/recurring-item.schema';
 import { CompanyFooter } from '../../invoice/schemas/company-footer.schema';
 import { BankAccount } from '../../invoice/schemas/bank-account.schema';
+import { BillTo } from '../../invoice/schemas/bill-to.schema';
 
 @Schema({ timestamps: true })
 export class Recurring extends BaseEntity {
@@ -75,6 +76,9 @@ export class Recurring extends BaseEntity {
 
   @Prop()
   autoEmailMessage: string;
+
+  @Prop({ type: BillTo })
+  billTo: BillTo;
 }
 
 export const RecurringSchema = SchemaFactory.createForClass(Recurring);

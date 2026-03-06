@@ -17,6 +17,7 @@ import { PaymentMethodType } from '../../invoice/enums/payment-method.enum';
 import { RecurringItemDto } from './recurring-item.dto';
 import { CompanyFooterDto } from '../../invoice/dto/company-footer.dto';
 import { BankAccountDto } from '../../invoice/dto/bank-account.dto';
+import { BillToDto } from '../../invoice/dto/bill-to.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateRecurringDto {
@@ -133,4 +134,15 @@ export class CreateRecurringDto {
   @IsString()
   @IsOptional()
   autoEmailMessage?: string;
+
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return plainToInstance(BillToDto, JSON.parse(value));
+    }
+    return value;
+  })
+  @ValidateNested()
+  @Type(() => BillToDto)
+  @IsOptional()
+  billTo?: BillToDto;
 }

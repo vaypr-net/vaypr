@@ -153,20 +153,38 @@ export class EmailRouterService {
     const brandingDomain = user.brandingDomain?.trim().toLowerCase() || '';
     const verifiedDomains = (user.verifiedDomains || []).map((d) => d.trim().toLowerCase());
 
-    const shouldTryBrevo =
-      !!brandingDomain ||
-      (!!emailDomain && verifiedDomains.includes(emailDomain)) ||
-      !!emailDomain;
+    // Smart domain resolution:
+    // 1. If user's email domain is verified, use it
+    // 2. Otherwise use first verified domain (if any)
+    // 3. Otherwise try Gmail
+    let brevoFromEmail = fromEmail;
+    let shouldTryBrevo = false;
+
+    if (emailDomain && verifiedDomains.includes(emailDomain)) {
+      // User's email domain is verified - use it
+      shouldTryBrevo = true;
+      brevoFromEmail = fromEmail;
+    } else if (brandingDomain && verifiedDomains.includes(brandingDomain)) {
+      // Use brandingDomain if verified
+      shouldTryBrevo = true;
+      const localPart = fromEmail.split('@')[0] || 'noreply';
+      brevoFromEmail = `${localPart}@${brandingDomain}`;
+    } else if (verifiedDomains.length > 0) {
+      // Use first verified domain (construct email from it)
+      shouldTryBrevo = true;
+      const localPart = fromEmail.split('@')[0] || 'noreply';
+      brevoFromEmail = `${localPart}@${verifiedDomains[0]}`;
+    }
 
     console.log(
-      `[EmailRouter] User email: ${fromEmail || user.email}, brandingDomain: ${brandingDomain || 'NONE'}, emailDomain: ${emailDomain || 'NONE'}`,
+      `[EmailRouter] User email: ${fromEmail}, brandingDomain: ${brandingDomain || 'NONE'}, emailDomain: ${emailDomain || 'NONE'}, verifiedDomains: ${verifiedDomains.join(', ') || 'NONE'}, shouldTryBrevo: ${shouldTryBrevo}, brevoFromEmail: ${brevoFromEmail}`,
     );
 
-    // Try Brevo with user's primary domain
+    // Try Brevo with user's verified domain
     if (shouldTryBrevo) {
       try {
         const result = await this.brevoService.sendEmail(
-          fromEmail,
+          brevoFromEmail,
           toEmail,
           subject,
           htmlBody,
@@ -175,37 +193,41 @@ export class EmailRouterService {
           { replyTo: effectiveReplyTo },
         );
 
+        console.log(`[EmailRouter] Email sent successfully via Brevo from ${brevoFromEmail}`);
         return {
           ...result,
           sentVia: 'brevo',
         };
       } catch (error) {
-        console.error(`[EmailRouter] Brevo send failed for ${fromEmail}:`, error.message);
-        // If Brevo fails but user has Gmail connected, fallback to Gmail.
-        if (!user.googleAccessToken) {
-          throw new BadRequestException(
-            'Failed to send via custom domain. Verify your Brevo domain DNS/authentication or connect Google account.',
-          );
-        }
+        console.error(`[EmailRouter] Brevo send failed for ${brevoFromEmail}:`, error.message);
+        console.log('[EmailRouter] Will try Gmail fallback...');
+        // Continue to Gmail fallback below (don't throw immediately)
       }
     }
 
-    // Final fallback: Gmail
-    console.log(`[EmailRouter] Sending via Gmail final fallback`);
+    // Final fallback: Gmail (if user has Google account connected)
+    if (user.googleAccessToken) {
+      console.log(`[EmailRouter] Sending via Gmail fallback`);
 
-    const result = await this.gmailService.sendEmailFromUser(
-      userId,
-      toEmail,
-      subject,
-      htmlBody,
-      attachmentData,
-      attachmentFilename,
-      effectiveReplyTo,
+      const result = await this.gmailService.sendEmailFromUser(
+        userId,
+        toEmail,
+        subject,
+        htmlBody,
+        attachmentData,
+        attachmentFilename,
+        effectiveReplyTo,
+      );
+
+      return {
+        ...result,
+        sentVia: 'gmail',
+      };
+    }
+
+    // No valid email sending method available
+    throw new BadRequestException(
+      'Unable to send email. Please either verify a custom domain in Brevo or connect your Google account in Settings.',
     );
-
-    return {
-      ...result,
-      sentVia: 'gmail',
-    };
   }
 }
