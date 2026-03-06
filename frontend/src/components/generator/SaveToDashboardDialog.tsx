@@ -170,9 +170,7 @@ export function SaveToDashboardDialog({
           clientId: selectedClientId || defaultClientId || undefined,
           billTo: {
             name: invoiceData.billTo.name,
-            phone: isEditingInvoice
-              ? (invoiceData.billTo.phone || '')
-              : (invoiceData.billTo.phone || selectedClient?.phone || ''),
+            phone: invoiceData.billTo.phone ?? '',
             area: invoiceData.billTo.area || '',
             block: invoiceData.billTo.block || '',
             street: invoiceData.billTo.street || '',
@@ -273,9 +271,7 @@ export function SaveToDashboardDialog({
           clientId: selectedClientId || defaultClientId || undefined,
           billTo: {
             name: quoteData.billTo.name,
-            phone: isEditingQuote
-              ? (quoteData.billTo.phone ?? '')
-              : (quoteData.billTo.phone || selectedClient?.phone || ''),
+            phone: quoteData.billTo.phone ?? '',
             area: quoteData.billTo.area || '',
             block: quoteData.billTo.block || '',
             street: quoteData.billTo.street || '',
@@ -355,9 +351,7 @@ export function SaveToDashboardDialog({
           receiptNumber: receiptData.receiptNumber || `REC-${Date.now()}`,
           clientId: selectedClientId || defaultClientId || undefined,
           receiptDate: normalizedReceiptDate,
-          receivedFrom: isEditingReceipt
-            ? (receiptData.receivedFrom ?? '')
-            : (receiptData.receivedFrom || selectedClient?.name || ''),
+          receivedFrom: receiptData.receivedFrom ?? '',
           amount: receiptData.amount || 0,
           currency: receiptData.currency || 'KWD',
           currencySymbol: receiptData.currencySymbol || 'KD',
