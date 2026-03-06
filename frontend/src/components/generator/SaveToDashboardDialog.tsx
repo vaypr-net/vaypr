@@ -273,7 +273,9 @@ export function SaveToDashboardDialog({
           clientId: selectedClientId || defaultClientId || undefined,
           billTo: {
             name: quoteData.billTo.name,
-            phone: quoteData.billTo.phone || selectedClient?.phone || '',
+            phone: isEditingQuote
+              ? (quoteData.billTo.phone ?? '')
+              : (quoteData.billTo.phone || selectedClient?.phone || ''),
             area: quoteData.billTo.area || '',
             block: quoteData.billTo.block || '',
             street: quoteData.billTo.street || '',
@@ -353,7 +355,9 @@ export function SaveToDashboardDialog({
           receiptNumber: receiptData.receiptNumber || `REC-${Date.now()}`,
           clientId: selectedClientId || defaultClientId || undefined,
           receiptDate: normalizedReceiptDate,
-          receivedFrom: receiptData.receivedFrom || selectedClient?.name || '',
+          receivedFrom: isEditingReceipt
+            ? (receiptData.receivedFrom ?? '')
+            : (receiptData.receivedFrom || selectedClient?.name || ''),
           amount: receiptData.amount || 0,
           currency: receiptData.currency || 'KWD',
           currencySymbol: receiptData.currencySymbol || 'KD',
