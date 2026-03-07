@@ -71,15 +71,20 @@ export default function QuoteView() {
 
       setQuote(fetchedQuote as unknown as Quote);
       
-      // Check if quote was updated after modification request
-      // If status is now SENT/VIEWED but clientResponse exists, allow responding again
-      const isQuoteUpdatedAfterModificationRequest = 
-        fetchedQuote.clientResponse?.action === 'modification_requested' &&
-        (fetchedQuote.status === 'sent' || fetchedQuote.status === 'viewed');
+      // Check if quote was edited after modification request
+      // Look for an 'edited' event in timeline that occurred after the clientResponse
+      let isQuoteEditedAfterModificationRequest = false;
+      if (fetchedQuote.clientResponse?.action === 'modification_requested') {
+        const responseTime = new Date(fetchedQuote.clientResponse.respondedAt).getTime();
+        const hasEditedEventAfterResponse = (fetchedQuote.timeline || []).some(
+          event => event.type === 'edited' && new Date(event.timestamp).getTime() > responseTime
+        );
+        isQuoteEditedAfterModificationRequest = hasEditedEventAfterResponse;
+      }
       
       if (fetchedQuote.clientResponse) {
-        // Only mark as responded if quote wasn't updated after the response
-        if (!isQuoteUpdatedAfterModificationRequest) {
+        // Only mark as responded if quote wasn't edited after the modification request
+        if (!isQuoteEditedAfterModificationRequest) {
           setHasResponded(true);
         }
       }
@@ -105,14 +110,20 @@ export default function QuoteView() {
         if (foundQuote && storageKey) {
           setQuote(foundQuote);
           
-          // Check if quote was updated after modification request
-          const isQuoteUpdatedAfterModificationRequest = 
-            foundQuote.clientResponse?.action === 'modification_requested' &&
-            (foundQuote.status === 'sent' || foundQuote.status === 'viewed');
+          // Check if quote was edited after modification request
+          // Look for an 'edited' event in timeline that occurred after the clientResponse
+          let isQuoteEditedAfterModificationRequest = false;
+          if (foundQuote.clientResponse?.action === 'modification_requested') {
+            const responseTime = new Date(foundQuote.clientResponse.respondedAt).getTime();
+            const hasEditedEventAfterResponse = (foundQuote.timeline || []).some(
+              event => event.type === 'edited' && new Date(event.timestamp).getTime() > responseTime
+            );
+            isQuoteEditedAfterModificationRequest = hasEditedEventAfterResponse;
+          }
           
           if (foundQuote.clientResponse) {
-            // Only mark as responded if quote wasn't updated after the response
-            if (!isQuoteUpdatedAfterModificationRequest) {
+            // Only mark as responded if quote wasn't edited after the modification request
+            if (!isQuoteEditedAfterModificationRequest) {
               setHasResponded(true);
             }
           }

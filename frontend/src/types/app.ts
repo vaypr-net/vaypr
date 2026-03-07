@@ -133,7 +133,7 @@ export interface Invoice {
 
 export interface QuoteTimelineEvent {
   id: string;
-  type: 'created' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'modification_requested';
+  type: 'created' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'modification_requested' | 'edited';
   timestamp: string;
   message?: string;
   metadata?: Record<string, unknown>;
