@@ -12,6 +12,7 @@ import { Client, ClientSchema } from '../clients/entities/client.entity';
 import { Receipt, ReceiptSchema } from '../reciept/entities/reciept.entity';
 import { Recurring, RecurringSchema } from '../recurring/entities/recurring.entity';
 import { Transaction, TransactionSchema } from '../transcations/entities/transcation.entity';
+import { CurrencyService } from '../common/services/currency.service';
 
 @Module({
   imports: [
@@ -37,7 +38,7 @@ import { Transaction, TransactionSchema } from '../transcations/entities/transca
     }),
   ],
   controllers: [SubscribersController],
-  providers: [SubscribersService],
+  providers: [SubscribersService, CurrencyService],
   exports: [SubscribersService],
 })
 export class SubscribersModule {}

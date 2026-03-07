@@ -98,6 +98,38 @@ export class StripeService {
     };
   }
 
+  /**
+   * Resolve subscription amount in major currency units.
+   * Stripe may omit `unit_amount` on some expanded price objects; in that case
+   * we fall back to `unit_amount_decimal`, then checkout session amount_total.
+   */
+  private resolveSubscriptionAmount(
+    subscription: any,
+    fallbackAmountMinor?: number,
+  ): number {
+    const unitAmount = subscription?.items?.data?.[0]?.price?.unit_amount;
+    if (typeof unitAmount === 'number' && unitAmount > 0) {
+      return unitAmount / 100;
+    }
+
+    const unitAmountDecimal = Number(
+      subscription?.items?.data?.[0]?.price?.unit_amount_decimal,
+    );
+    if (Number.isFinite(unitAmountDecimal) && unitAmountDecimal > 0) {
+      return unitAmountDecimal / 100;
+    }
+
+    if (
+      typeof fallbackAmountMinor === 'number' &&
+      Number.isFinite(fallbackAmountMinor) &&
+      fallbackAmountMinor > 0
+    ) {
+      return fallbackAmountMinor / 100;
+    }
+
+    return 0;
+  }
+
   private async processReferralAttribution(
     user: any,
     planId: string,
@@ -136,6 +168,39 @@ export class StripeService {
     });
 
     if (existingReferral) {
+      const existingCommission = Number(existingReferral.commission || 0);
+      const canRepairExistingReferral =
+        existingCommission <= 0 &&
+        subscriptionAmount > 0 &&
+        ['pending', 'approved'].includes(existingReferral.status);
+
+      if (canRepairExistingReferral) {
+        const plan = await this.billingPlanModel.findById(planId);
+        const repairedCommission = await this.calculateReferralCommission(
+          plan,
+          subscriptionAmount,
+        );
+
+        if (repairedCommission > 0) {
+          await this.referralModel.findByIdAndUpdate(existingReferral._id, {
+            amount: subscriptionAmount,
+            amountCurrency: sourceCurrency,
+            commission: repairedCommission,
+            commissionCurrency: sourceCurrency,
+          });
+
+          if (existingReferral.status === 'approved') {
+            await this.affiliateModel.findByIdAndUpdate(affiliate._id, {
+              $inc: { pending: repairedCommission - existingCommission },
+            });
+          }
+
+          this.logger.log(
+            `${source}: Repaired existing referral ${existingReferral._id} commission ${existingCommission} -> ${repairedCommission}`,
+          );
+        }
+      }
+
       this.logger.log(
         `${source}: Referral already exists for user ${user._id} and affiliate ${affiliate._id}, skipping duplicate creation`,
       );
@@ -146,6 +211,10 @@ export class StripeService {
     const commission = await this.calculateReferralCommission(
       plan,
       subscriptionAmount,
+    );
+
+    this.logger.log(
+      `Commission calculated: ${commission} ${sourceCurrency} for subscription amount ${subscriptionAmount} ${sourceCurrency}`,
     );
 
     const referralRecord = await this.referralModel.create({
@@ -189,27 +258,39 @@ export class StripeService {
     const planId = billingPlan._id?.toString?.();
     const planName = (billingPlan.name || '').trim();
 
-    const filters: any[] = [];
+    let commissionPlan: any = null;
+
+    // Priority 1: exact plan-specific commission rules.
+    const exactFilters: any[] = [];
     if (planId) {
-      filters.push({ subscriptionPlan: planId });
+      exactFilters.push({ subscriptionPlan: planId });
     }
     if (planName) {
-      filters.push({ subscriptionPlan: new RegExp(`^${this.escapeRegex(planName)}$`, 'i') });
-    }
-    // Backward compatibility: allow generic commission plans to apply to every plan
-    filters.push({ subscriptionPlan: new RegExp('^(all\\s*plans|all|\\*)$', 'i') });
-
-    if (filters.length === 0) {
-      return 0;
+      exactFilters.push({
+        subscriptionPlan: new RegExp(`^${this.escapeRegex(planName)}$`, 'i'),
+      });
     }
 
-    const commissionPlan = await this.commissionPlanModel
-      .findOne({
-        isActive: true,
-        $or: filters,
-      })
-      .sort({ createdAt: -1 })
-      .lean();
+    if (exactFilters.length > 0) {
+      commissionPlan = await this.commissionPlanModel
+        .findOne({
+          isActive: true,
+          $or: exactFilters,
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+    }
+
+    // Priority 2 (fallback): generic commission rules for all plans.
+    if (!commissionPlan) {
+      commissionPlan = await this.commissionPlanModel
+        .findOne({
+          isActive: true,
+          subscriptionPlan: new RegExp('^(all\\s*plans|all|\\*)$', 'i'),
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+    }
 
     if (!commissionPlan) {
       return 0;
@@ -585,10 +666,10 @@ export class StripeService {
         user.cancellationFeedback = undefined;
         await user.save();
 
-        const subscriptionAmount =
-          subscription?.items?.data?.[0]?.price?.unit_amount
-            ? subscription.items.data[0].price.unit_amount / 100
-            : (session.amount_total || 0) / 100;
+        const subscriptionAmount = this.resolveSubscriptionAmount(
+          subscription,
+          session.amount_total || 0,
+        );
         await this.processReferralAttribution(
           user,
           session.metadata?.planId,
@@ -1053,10 +1134,11 @@ export class StripeService {
       // Calculate refund if applicable
       let refundAmount = 0;
       let refundStatus = 'pending';
+      let plan: any = null;
 
       if (cancellationMethod === 'immediate' && refundStrategy === 'full_prorated') {
         // Fetch the plan details to get the price
-        const plan = user.planId ? await this.billingPlanModel.findById(user.planId) : null;
+        plan = user.planId ? await this.billingPlanModel.findById(user.planId) : null;
         
         if (plan) {
           refundAmount = this.calculateProRatedRefund(
@@ -1075,6 +1157,9 @@ export class StripeService {
           );
           refundStatus = 'processing';
         }
+      } else if (!plan) {
+        // Fetch plan name even if not refunding, for the transaction record
+        plan = user.planId ? await this.billingPlanModel.findById(user.planId) : null;
       }
 
       // Get period end date using the helper method
@@ -1128,8 +1213,8 @@ export class StripeService {
             currency: subscription.currency?.toUpperCase() || 'KWD',
             type: 'refund',
             provider: 'Stripe',
-            status: 'pending', // Will be updated when refund completes
-            plan: user.planId?.toString() || 'Unknown',
+            status: 'refunded', // Set to refunded since credit note is created immediately
+            plan: plan?.name || 'Unknown',
             transactionDate: new Date(),
             stripeSubscriptionId: user.stripeSubscriptionId,
           });
@@ -1301,14 +1386,14 @@ export class StripeService {
       )) as any;
     }
 
-    // Get the actual subscription amount from Stripe
-    let subscriptionAmount = 0;
-    if (subscription.items?.data?.[0]?.price?.unit_amount) {
-      subscriptionAmount = subscription.items.data[0].price.unit_amount / 100;
-      this.logger.log(
-        `Webhook: Subscription amount calculated - ${subscriptionAmount} ${subscription.currency}`,
-      );
-    }
+    // Get subscription amount from Stripe price (fallback to checkout session total)
+    const subscriptionAmount = this.resolveSubscriptionAmount(
+      subscription,
+      session.amount_total || 0,
+    );
+    this.logger.log(
+      `Webhook: Subscription amount resolved - ${subscriptionAmount} ${subscription.currency}`,
+    );
 
     // Prepare update data with proper date handling
     const updateData: any = {

@@ -10,6 +10,7 @@ import { Receipt } from '../reciept/entities/reciept.entity';
 import { Recurring } from '../recurring/entities/recurring.entity';
 import { Transaction } from '../transcations/entities/transcation.entity';
 import { UpdateSubscriberDto } from './dto/update-subscriber.dto';
+import { CurrencyService } from '../common/services/currency.service';
 
 type UiStatus = 'active' | 'inactive' | 'free' | 'canceled';
 type UiBillingCycle = 'monthly' | 'yearly';
@@ -73,6 +74,7 @@ export class SubscribersService {
     @InjectModel(Receipt.name) private receiptModel: Model<Receipt>,
     @InjectModel(Recurring.name) private recurringModel: Model<Recurring>,
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
+    private currencyService: CurrencyService,
   ) {}
 
   private mapStatus(status: string | undefined): UiStatus {
@@ -216,6 +218,9 @@ export class SubscribersService {
     const subscribers: SubscriberResponse[] = users.map((user: any) => {
       const tx = txMap.get(user._id.toString());
       const uiStatus = this.mapStatus(user.subscriptionStatus);
+      // Convert lifetime spend from AED to display currency (KWD)
+      const lifetimeSpendAED = tx?.lifetimeSpend || 0;
+      const lifetimeSpendConverted = this.currencyService.convertToDisplayCurrency(lifetimeSpendAED);
 
       return {
         _id: user._id.toString(),
@@ -226,7 +231,7 @@ export class SubscribersService {
         subscriptionType: (user.billingCycle as UiBillingCycle) || 'monthly',
         subscriptionDate: (user.subscriptionStartedAt || user.createdAt || new Date()).toISOString(),
         status: uiStatus,
-        lifetimeSpend: tx?.lifetimeSpend || 0,
+        lifetimeSpend: Math.round(lifetimeSpendConverted * 100) / 100,
         lastPaymentDate: tx?.lastPaymentDate ? new Date(tx.lastPaymentDate).toISOString() : '-',
         nextRenewalDate: user.currentPeriodEnd ? new Date(user.currentPeriodEnd).toISOString() : null,
         internalNotes: user.internalNotes || '',
@@ -280,10 +285,48 @@ export class SubscribersService {
       .limit(5)
       .lean();
 
-    const paymentMethod = recentTransactions[0]?.provider || 'Not available';
+    // Get payment method details from Stripe if available
+    let paymentMethod = 'Stripe';
+    let paymentMethodDetails = '-';
+    
+    if (user.stripeCustomerId) {
+      try {
+        // Fetch default payment method from Stripe customer
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        const customer = await stripe.customers.retrieve(user.stripeCustomerId, {
+          expand: ['invoice_settings.default_payment_method'],
+        });
+        
+        if (customer.invoice_settings?.default_payment_method) {
+          const pm = customer.invoice_settings.default_payment_method as any;
+          if (pm.type === 'card' && pm.card) {
+            paymentMethod = 'Credit/Debit Card';
+            paymentMethodDetails = `${pm.card.brand.toUpperCase()} •••• ${pm.card.last4} (Exp: ${pm.card.exp_month}/${pm.card.exp_year})`;
+          } else {
+            paymentMethod = pm.type ? pm.type.charAt(0).toUpperCase() + pm.type.slice(1) : 'Stripe';
+            paymentMethodDetails = 'Payment method on file';
+          }
+        } else {
+          paymentMethod = 'Stripe';
+          paymentMethodDetails = 'No card on file yet';
+        }
+      } catch (error) {
+        console.error('Error fetching payment method from Stripe:', error);
+        paymentMethod = 'Stripe';
+        paymentMethodDetails = 'Unable to fetch payment details';
+      }
+    } else {
+      // No Stripe customer ID yet - user hasn't subscribed
+      paymentMethod = 'Stripe';
+      paymentMethodDetails = recentTransactions.length > 0 ? 'Card details not available' : 'No subscription yet';
+    }
 
     const planDoc: any = user.planId || null;
     const usage = await this.buildUsage(new Types.ObjectId(id), planDoc?.limits || {});
+
+    // Convert lifetime spend from AED to display currency (KWD)
+    const lifetimeSpendAED = txAgg?.lifetimeSpend || 0;
+    const lifetimeSpendConverted = this.currencyService.convertToDisplayCurrency(lifetimeSpendAED);
 
     return {
       _id: user._id.toString(),
@@ -294,21 +337,26 @@ export class SubscribersService {
       subscriptionType: (user.billingCycle as UiBillingCycle) || 'monthly',
       subscriptionDate: (user.subscriptionStartedAt || user.createdAt || new Date()).toISOString(),
       status: this.mapStatus(user.subscriptionStatus),
-      lifetimeSpend: txAgg?.lifetimeSpend || 0,
+      lifetimeSpend: Math.round(lifetimeSpendConverted * 100) / 100,
       lastPaymentDate: txAgg?.lastPaymentDate ? new Date(txAgg.lastPaymentDate).toISOString() : '-',
       nextRenewalDate: user.currentPeriodEnd ? new Date(user.currentPeriodEnd).toISOString() : null,
       internalNotes: user.internalNotes || '',
       usage,
       billing: {
         paymentMethod,
-        paymentMethodDetails: paymentMethod === 'Stripe' ? 'Card details not available in current transaction payload' : '-',
-        recentInvoices: recentTransactions.map((tx: any) => ({
-          id: tx.transactionId || tx._id.toString(),
-          date: tx.transactionDate ? new Date(tx.transactionDate).toISOString() : new Date().toISOString(),
-          amount: tx.amount || 0,
-          currency: tx.currency || 'KWD',
-          status: tx.status || 'pending',
-        })),
+        paymentMethodDetails,
+        recentInvoices: recentTransactions.map((tx: any) => {
+          // Convert transaction amount from AED to display currency (KWD)
+          const amountAED = tx.amount || 0;
+          const amountConverted = this.currencyService.convertToDisplayCurrency(amountAED);
+          return {
+            id: tx.transactionId || tx._id.toString(),
+            date: tx.transactionDate ? new Date(tx.transactionDate).toISOString() : new Date().toISOString(),
+            amount: Math.round(amountConverted * 100) / 100,
+            currency: tx.currency || 'KWD',
+            status: tx.status || 'pending',
+          };
+        }),
       },
       createdAt: (user.createdAt || new Date()).toISOString(),
     };
@@ -408,14 +456,20 @@ export class SubscribersService {
         ]),
       ]);
 
+    // Convert revenue from AED to display currency (KWD)
+    const totalRevenueAED = revenueAgg[0]?.total || 0;
+    const monthlyRevenueAED = monthlyRevenueAgg[0]?.total || 0;
+    const totalRevenueConverted = this.currencyService.convertToDisplayCurrency(totalRevenueAED);
+    const monthlyRevenueConverted = this.currencyService.convertToDisplayCurrency(monthlyRevenueAED);
+
     return {
       total,
       active,
       free,
       canceled,
       inactive: incomplete,
-      totalRevenue: revenueAgg[0]?.total || 0,
-      monthlyRevenue: monthlyRevenueAgg[0]?.total || 0,
+      totalRevenue: Math.round(totalRevenueConverted * 100) / 100,
+      monthlyRevenue: Math.round(monthlyRevenueConverted * 100) / 100,
     };
   }
 }
