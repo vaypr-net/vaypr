@@ -63,7 +63,7 @@ export default function Reports() {
     const rows = (mrrChartData || []).map((r) => ({ month: r.month, mrr: r.mrr }));
     const header = ['Month', 'MRR', 'MRRFormatted'];
     const lines = rows.map((row) =>
-      [row.month, String(row.mrr), formatCurrency(row.mrr)]
+      [row.month, String(row.mrr), formatCurrency(row.mrr, { decimals: 2 })]
         .map((c) => `"${String(c).replace(/"/g, '""')}"`)
         .join(',')
     );
@@ -151,7 +151,7 @@ export default function Reports() {
                   <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
                   <YAxis stroke="#94A3B8" fontSize={12} tickFormatter={(v) => `${(v/1000)}k KD`} />
                   <Tooltip 
-                    formatter={(value: number) => [formatCurrency(value), "Revenue"]}
+                    formatter={(value: number) => [formatCurrency(value, { decimals: 2 }), "Revenue"]}
                     contentStyle={{ borderRadius: 8, border: '1px solid #E2E8F0' }}
                   />
                   <Bar dataKey="mrr" fill="hsl(262, 83%, 58%)" radius={[4, 4, 0, 0]} />

@@ -643,7 +643,7 @@ Support Team`
                         Email
                       </Button>
                       <div>
-                      <p className="font-medium">{formatCurrency(ref.commission)}</p>
+                      <p className="font-medium">{formatCurrency(ref.commission, { decimals: 2 })}</p>
                       <StatusBadge status={ref.status === "approved" ? "active" : ref.status === "paid" ? "succeeded" : "pending"} />
                       </div>
                     </div>

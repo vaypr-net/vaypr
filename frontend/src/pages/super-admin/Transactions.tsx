@@ -51,7 +51,7 @@ function exportToCSV(data: Transaction[], filename: string = 'transactions.csv')
       'Status',
       'Plan',
       'Billing Cycle',
-      'Payment Provider',
+      'Payment Method',
       'Provider Transaction ID',
       'Transaction Date',
       'Created Date'
@@ -283,7 +283,7 @@ export default function Transactions() {
       header: "Amount",
       accessor: (row: Transaction) => (
         <span className={`font-medium ${row.type === "refund" ? "text-orange-600" : ""}`}>
-          {row.type === "refund" ? "-" : ""}{formatCurrency(row.amount)}
+          {row.type === "refund" ? "-" : ""}{formatCurrency(row.amount, { decimals: 2 })}
         </span>
       ),
     },
@@ -296,7 +296,7 @@ export default function Transactions() {
       ),
     },
     { header: "Plan", accessor: "plan" as keyof Transaction },
-    { header: "Provider", accessor: "provider" as keyof Transaction },
+    { header: "Payment Method", accessor: "provider" as keyof Transaction },
     {
       header: "Status",
       accessor: (row: Transaction) => <StatusBadge status={row.status} />,
@@ -331,7 +331,7 @@ export default function Transactions() {
         {[
           { 
             label: "Total Revenue", 
-            value: stats ? formatCurrency(stats.totalRevenue) : "—", 
+            value: stats ? formatCurrency(stats.totalRevenue, { decimals: 2 }) : "—", 
             change: stats ? `${stats.successfulCount} transactions` : "—" 
           },
           { 
@@ -347,7 +347,7 @@ export default function Transactions() {
           },
           { 
             label: "Refunds", 
-            value: stats ? formatCurrency(stats.refundsTotal) : "—", 
+            value: stats ? formatCurrency(stats.refundsTotal, { decimals: 2 }) : "—", 
             change: stats?.refundsTotal ? `Total refunded` : "—" 
           },
         ].map((stat, i) => (
@@ -442,7 +442,7 @@ export default function Transactions() {
               <div className="mt-6 space-y-6">
                 <div className="text-center p-6 bg-muted rounded-lg">
                   <p className={`text-3xl font-bold ${selectedTransaction.type === "refund" ? "text-orange-600" : ""}`}>
-                    {selectedTransaction.type === "refund" ? "-" : ""}{formatCurrency(selectedTransaction.amount)}
+                    {selectedTransaction.type === "refund" ? "-" : ""}{formatCurrency(selectedTransaction.amount, { decimals: 2 })}
                   </p>
                   <div className="mt-2">
                     <StatusBadge status={selectedTransaction.status} />
@@ -585,7 +585,7 @@ export default function Transactions() {
                               <Calendar className="w-3 h-3" />
                               {formatDateDMYShort(invoice.dueDate || invoice.issueDate)}
                             </div>
-                            <span className="font-semibold">{formatCurrency(invoice.total)}</span>
+                            <span className="font-semibold">{formatCurrency(invoice.total, { decimals: 2 })}</span>
                           </div>
                           <div className="mt-3 flex gap-2">
                             <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewInvoice(invoice)}>
@@ -632,7 +632,7 @@ export default function Transactions() {
                                   day: 'numeric'
                                 })}
                               </div>
-                              <span className="font-semibold">{formatCurrency(invoice.total)}</span>
+                              <span className="font-semibold">{formatCurrency(invoice.total, { decimals: 2 })}</span>
                             </div>
                             <div className="mt-3 flex gap-2">
                               <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewInvoice(invoice)}>
@@ -678,7 +678,7 @@ export default function Transactions() {
                                   day: 'numeric'
                                 })}
                               </div>
-                              <span className="font-semibold">{formatCurrency(invoice.total)}</span>
+                              <span className="font-semibold">{formatCurrency(invoice.total, { decimals: 2 })}</span>
                             </div>
                             <div className="mt-3 flex gap-2">
                               <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewInvoice(invoice)}>

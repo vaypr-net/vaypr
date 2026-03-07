@@ -102,7 +102,7 @@ export default function Overview() {
         />
         <KPICard 
           title="Total Revenue" 
-          value={formatCurrency(kpis?.totalRevenue || 0)} 
+          value={formatCurrency(kpis?.totalRevenue || 0, { decimals: 2 })} 
           change="Succeeded subscription payments"
           changeType="positive"
           icon={DollarSign}
@@ -191,7 +191,7 @@ export default function Overview() {
               <YAxis type="category" dataKey="plan" stroke="#94A3B8" fontSize={12} width={80} />
               <Tooltip 
                 formatter={(value: number, name: string) => [
-                  name === "revenue" ? formatCurrency(value) : value.toLocaleString(),
+                  name === "revenue" ? formatCurrency(value, { decimals: 2 }) : value.toLocaleString(),
                   name === "revenue" ? "Revenue" : "Subscribers"
                 ]}
                 contentStyle={{ borderRadius: 8, border: '1px solid #E2E8F0' }}

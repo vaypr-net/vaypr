@@ -272,7 +272,7 @@ export default function Subscribers() {
     },
     {
       header: "Lifetime Spend",
-      accessor: (row: Subscriber) => formatCurrency(row.lifetimeSpend),
+      accessor: (row: Subscriber) => formatCurrency(row.lifetimeSpend, { decimals: 2 }),
     },
     { 
       header: "Last Payment", 
@@ -401,7 +401,7 @@ export default function Subscribers() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Lifetime Spend</p>
-                      <p className="font-medium">{formatCurrency(selectedSubscriber.lifetimeSpend)}</p>
+                      <p className="font-medium">{formatCurrency(selectedSubscriber.lifetimeSpend, { decimals: 2 })}</p>
                     </div>
                   </div>
                   <div>
@@ -479,6 +479,23 @@ export default function Subscribers() {
                 </TabsContent>
 
                 <TabsContent value="billing" className="space-y-4 mt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-600 font-medium">Lifetime Spend</p>
+                      <p className="text-2xl font-bold text-green-900 mt-1">
+                        {formatCurrency(selectedSubscriber.lifetimeSpend, { decimals: 2 })}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-600 font-medium">Last Payment</p>
+                      <p className="text-lg font-semibold text-blue-900 mt-1">
+                        {selectedSubscriber.lastPaymentDate && selectedSubscriber.lastPaymentDate !== '-'
+                          ? safeFormatDate(selectedSubscriber.lastPaymentDate)
+                          : 'No payments yet'}
+                      </p>
+                    </div>
+                  </div>
+                  
                   <div className="p-4 bg-muted rounded-lg">
                     <p className="text-sm text-muted-foreground">Payment Method</p>
                     <p className="font-medium">{selectedSubscriber.billing?.paymentMethod || "Not available"}</p>
@@ -504,7 +521,7 @@ export default function Subscribers() {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-medium">
-                                {invoice.amount} {invoice.currency}
+                                {formatCurrency(invoice.amount, { decimals: 2 })}
                               </p>
                               <StatusBadge status={invoice.status} />
                             </div>
