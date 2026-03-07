@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Mail, Copy, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, Mail, Copy, Trash2, RefreshCw, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -33,6 +33,7 @@ export function BrevoDomainsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [domainToDelete, setDomainToDelete] = useState<BrevoD | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [authenticatingDomainId, setAuthenticatingDomainId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Load domains
@@ -91,6 +92,47 @@ export function BrevoDomainsPage() {
         description: 'Could not verify domain. Check DNS records and try again.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleAuthenticate = async (domain: BrevoD) => {
+    const domainId = domain._id || domain.id;
+    if (!domainId) {
+      toast({
+        title: 'Error',
+        description: 'Domain ID not found',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setAuthenticatingDomainId(domainId);
+      const updated = await BrevoService.authenticateDomain(domainId);
+      
+      // Update the domain in the list
+      setDomains(domains.map(d => ((d._id || d.id) === domainId ? updated : d)));
+      
+      if (updated.status === 'VERIFIED') {
+        toast({
+          title: 'Domain authenticated!',
+          description: `${domain.domain} is now authenticated and ready to send emails.`,
+        });
+      } else {
+        toast({
+          title: 'Authentication in progress',
+          description: 'Domain authentication initiated. It may take a few moments to complete.',
+        });
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Authentication failed';
+      toast({
+        title: 'Authentication failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setAuthenticatingDomainId(null);
     }
   };
 
@@ -228,6 +270,24 @@ export function BrevoDomainsPage() {
                               <RefreshCw className="h-4 w-4" />
                               Verify
                             </Button>
+                            {domain.status === 'DNS_PENDING' && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  const domainId = domain._id || domain.id;
+                                  if (domainId) {
+                                    const fullDomain = { ...domain, id: domainId, _id: domainId };
+                                    handleAuthenticate(fullDomain);
+                                  }
+                                }}
+                                disabled={authenticatingDomainId === (domain._id || domain.id)}
+                                className="gap-1"
+                              >
+                                <Shield className="h-4 w-4" />
+                                {authenticatingDomainId === (domain._id || domain.id) ? 'Authenticating...' : 'Authenticate'}
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"

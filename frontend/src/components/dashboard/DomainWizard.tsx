@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, Copy, Check, ChevronRight, ChevronLeft, Loader2, CheckCircle2, FileText, AlertTriangle } from 'lucide-react';
+import { AlertCircle, Copy, Check, ChevronRight, ChevronLeft, Loader2, CheckCircle2, FileText, AlertTriangle, Shield } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -53,6 +53,7 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
   const [currentDomain, setCurrentDomain] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [authenticating, setAuthenticating] = useState(false);
   const [copied, setCopied] = useState<string>('');
   const [domainError, setDomainError] = useState('');
   const { toast } = useToast();
@@ -128,6 +129,40 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
       });
     } finally {
       setVerifying(false);
+    }
+  };
+
+  // Step 2: Authenticate domain
+  const handleAuthenticateDomain = async () => {
+    if (!currentDomain?._id) return;
+
+    try {
+      setAuthenticating(true);
+      const res = await axiosInstance.post(`/brevo/domains/${currentDomain._id}/authenticate`);
+      const updated = res.data;
+      setCurrentDomain(updated);
+
+      if ((updated?.status || '').toUpperCase() === 'VERIFIED') {
+        setStep(3);
+        toast({
+          title: 'Domain Authenticated!',
+          description: 'Your domain is now authenticated and ready to use.',
+        });
+      } else {
+        toast({
+          title: 'Authentication initiated',
+          description:
+            'Domain authentication request sent. This may take a few moments to complete.',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Authentication failed',
+        description: error.response?.data?.message || 'Failed to authenticate domain. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAuthenticating(false);
     }
   };
 
@@ -728,19 +763,35 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
                 </Button>
-                <Button onClick={handleVerifyDomain} disabled={verifying}>
-                  {verifying ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    <>
-                      Verify DNS
-                      <ChevronRight className="w-4 h-4 ml-2" />
-                    </>
+                <div className="flex gap-2">
+                  <Button onClick={handleVerifyDomain} disabled={verifying || authenticating} variant="outline">
+                    {verifying ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      <>
+                        Verify DNS
+                      </>
+                    )}
+                  </Button>
+                  {currentDomain?.status === 'DNS_PENDING' && (
+                    <Button onClick={handleAuthenticateDomain} disabled={verifying || authenticating}>
+                      {authenticating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Authenticating...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-4 h-4 mr-2" />
+                          Authenticate
+                        </>
+                      )}
+                    </Button>
                   )}
-                </Button>
+                </div>
               </div>
             </div>
           )}

@@ -332,6 +332,21 @@ export default function Clients() {
       return;
     }
 
+    // Helper to format dates for CSV as YYYY-MM-DD
+    const formatDateForCsv = (dateValue: string | undefined): string => {
+      if (!dateValue) return '';
+      try {
+        const date = new Date(dateValue);
+        if (isNaN(date.getTime())) return '';
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      } catch {
+        return '';
+      }
+    };
+
     // Prepare export data with stats
     const exportData = clientsArray.map(client => {
       const stats = getClientStats(client);
@@ -343,15 +358,15 @@ export default function Clients() {
         Company: client.company || '',
         Address: client.address || '',
         Notes: client.notes || '',
-        'Created At': format === 'csv' ? client.createdAt : new Date(client.createdAt),
+        'Created At': format === 'csv' ? formatDateForCsv(client.createdAt) : new Date(client.createdAt),
         'Total Invoices': stats.totalInvoices,
         'Paid Invoices': stats.paidInvoices,
         'Overdue Invoices': stats.overdueInvoices,
         'Total Quotes': stats.totalQuotes,
         'Accepted Quotes': stats.acceptedQuotes,
         'Active Subscriptions': stats.activeRecurring,
-        'Total Revenue (KD)': stats.totalRevenue.toFixed(3),
-        'Pending Amount (KD)': stats.pendingAmount.toFixed(3),
+        'Total Revenue (KD)': format === 'csv' ? stats.totalRevenue : stats.totalRevenue.toFixed(3),
+        'Pending Amount (KD)': format === 'csv' ? stats.pendingAmount : stats.pendingAmount.toFixed(3),
       };
     });
 

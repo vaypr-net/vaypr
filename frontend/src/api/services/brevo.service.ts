@@ -74,6 +74,17 @@ class BrevoDomainService {
     }
   }
 
+  // Authenticate domain with Brevo
+  async authenticateDomain(id: string): Promise<BrevoD> {
+    try {
+      const response = await axios.post(`/api/superadmin/brevo/domains/${id}/authenticate`);
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to authenticate domain ${id}:`, error);
+      throw error;
+    }
+  }
+
   // Delete domain
   async deleteDomain(id: string): Promise<void> {
     try {

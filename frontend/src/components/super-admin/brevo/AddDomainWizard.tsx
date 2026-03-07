@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, Copy, Check, ChevronRight, ChevronLeft, Loader2, AlertTriangle, CheckCircle2, Clock, FileText, Zap } from 'lucide-react';
+import { AlertCircle, Copy, Check, ChevronRight, ChevronLeft, Loader2, AlertTriangle, CheckCircle2, Clock, FileText, Zap, Shield } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,7 @@ export function AddDomainWizard({ open, onOpenChange, onDomainAdded }: AddDomain
   const [currentDomain, setCurrentDomain] = useState<BrevoD | null>(null);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [authenticating, setAuthenticating] = useState(false);
   const [copied, setCopied] = useState<string>('');
   const [domainError, setDomainError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
@@ -121,6 +122,42 @@ export function AddDomainWizard({ open, onOpenChange, onDomainAdded }: AddDomain
       });
     } finally {
       setVerifying(false);
+    }
+  };
+
+  // Step 2: Authenticate domain
+  const handleAuthenticateDomain = async () => {
+    if (!currentDomain) return;
+
+    try {
+      setAuthenticating(true);
+      const domainId = currentDomain._id || currentDomain.id;
+      if (!domainId) {
+        throw new Error('Domain ID not found');
+      }
+      const updated = await BrevoService.authenticateDomain(domainId);
+      setCurrentDomain(updated);
+      
+      if (updated.status === 'VERIFIED') {
+        setStep(3);
+        toast({
+          title: 'Domain Authenticated!',
+          description: 'Your domain is now authenticated and ready to use.',
+        });
+      } else {
+        toast({
+          title: 'Authentication initiated',
+          description: 'Domain authentication request sent. This may take a few moments.',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Authentication failed',
+        description: error.response?.data?.message || 'Could not authenticate domain.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAuthenticating(false);
     }
   };
 
@@ -744,23 +781,44 @@ export function AddDomainWizard({ open, onOpenChange, onDomainAdded }: AddDomain
           )}
 
           {step === 2 && (
-            <Button
-              onClick={handleVerifyDomain}
-              disabled={verifying || !currentDomain}
-              className="gap-1"
-            >
-              {verifying ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                <>
-                  I added records → Verify
-                  <ChevronRight className="h-4 w-4" />
-                </>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleVerifyDomain}
+                disabled={verifying || authenticating || !currentDomain}
+                variant="outline"
+                className="gap-1"
+              >
+                {verifying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    Verify DNS
+                  </>
+                )}
+              </Button>
+              {currentDomain?.status === 'DNS_PENDING' && (
+                <Button
+                  onClick={handleAuthenticateDomain}
+                  disabled={verifying || authenticating || !currentDomain}
+                  className="gap-1"
+                >
+                  {authenticating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Authenticating...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="h-4 w-4" />
+                      Authenticate
+                    </>
+                  )}
+                </Button>
               )}
-            </Button>
+            </div>
           )}
 
           {step === 3 && (
