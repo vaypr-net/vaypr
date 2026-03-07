@@ -98,47 +98,39 @@ export class BrevoService {
     }
 
     // 3. Check if user reached domain limit
-    const verifiedCount = (user.verifiedDomains || []).length;
-    const pendingCount = (user.pendingDomains || []).length;
-    const totalCount = verifiedCount + pendingCount;
+    const existingUserDomains = await this.brevioDomainModel.countDocuments({
+      userId: new Types.ObjectId(userId),
+    });
 
-    const alreadyLinkedToUser =
-      (user.verifiedDomains || []).includes(normalizedDomain) ||
-      (user.pendingDomains || []).includes(normalizedDomain);
-
-    if (domainLimit > 0 && totalCount >= domainLimit && !alreadyLinkedToUser) {
+    if (domainLimit > 0 && existingUserDomains >= domainLimit) {
       throw new BadRequestException(
         `You have reached your domain limit (${domainLimit}). Upgrade your plan to add more domains.`
       );
     }
 
-    // 4. If domain already exists globally, reuse it (multi-account support)
-    const existingDomain = await this.brevioDomainModel.findOne({ domain: normalizedDomain }).exec();
+    // 4. Check if this user already has this exact domain
+    const existingDomain = await this.brevioDomainModel.findOne({ 
+      domain: normalizedDomain,
+      userId: new Types.ObjectId(userId)
+    }).exec();
+    
     if (existingDomain) {
-      if (!alreadyLinkedToUser) {
-        if (existingDomain.status === 'VERIFIED') {
-          await this.userModel.findByIdAndUpdate(userId, {
-            $addToSet: { verifiedDomains: normalizedDomain },
-            $pull: { pendingDomains: normalizedDomain },
-          });
-        } else {
-          await this.userModel.findByIdAndUpdate(userId, {
-            $addToSet: { pendingDomains: normalizedDomain },
-            $pull: { verifiedDomains: normalizedDomain },
-          });
-        }
-      }
-
-      return existingDomain;
+      throw new ConflictException(`You already have the domain ${normalizedDomain} in your account`);
     }
 
     // 5. Create domain via Brevo API
     const domain = await this.createDomainCore(createDto, userId);
 
     // 6. Track domain as pending for user
-    await this.userModel.findByIdAndUpdate(userId, {
-      $push: { pendingDomains: domain.domain }
-    });
+    try {
+      await this.userModel.findByIdAndUpdate(userId, {
+        $addToSet: { pendingDomains: domain.domain }
+      });
+      console.log(`[Brevo] ✓ Domain ${domain.domain} added to user ${userId} pendingDomains`);
+    } catch (error) {
+      console.error(`[Brevo] Failed to add domain to user's pendingDomains, but domain was created. Domain userId is set.`, error);
+      // Don't throw - domain was created successfully and has userId field
+    }
 
     // 7. Log activity
     await this.activityService.create({
@@ -267,25 +259,12 @@ export class BrevoService {
 
   /**
    * Get all domains for a user
+   * Only returns domains that were created by this specific user
    */
   async getUserDomains(userId: string): Promise<BrevoDomain[]> {
-    const user = await this.userModel
-      .findById(userId)
-      .select('verifiedDomains pendingDomains')
-      .lean()
-      .exec();
-
-    const userDomains = [
-      ...((user as any)?.verifiedDomains || []),
-      ...((user as any)?.pendingDomains || []),
-    ];
-
     return this.brevioDomainModel
       .find({
-        $or: [
-          { userId: new Types.ObjectId(userId) },
-          { domain: { $in: userDomains } },
-        ],
+        userId: new Types.ObjectId(userId),
       })
       .sort({ createdAt: -1 })
       .exec();
@@ -303,6 +282,8 @@ export class BrevoService {
     }
 
     // Step 2: Verify user has access to this domain
+    // Check if domain belongs to user via userId field OR is in user's domain lists
+    // (We check both because domains can be linked via either method)
     const user = await this.userModel
       .findById(userId)
       .select('verifiedDomains pendingDomains')
@@ -314,11 +295,21 @@ export class BrevoService {
       ...((user as any)?.pendingDomains || []),
     ];
 
-    if (!userDomains.includes(domain.domain)) {
+    const hasAccessViaArrays = userDomains.includes(domain.domain);
+    const hasAccessViaUserId = domain.userId && domain.userId.toString() === userId;
+
+    console.log(`[Brevo] Checking access for domain ${domain.domain}:`, {
+      hasAccessViaArrays,
+      hasAccessViaUserId,
+      domainUserId: domain.userId?.toString(),
+      requestingUserId: userId,
+    });
+
+    if (!hasAccessViaArrays && !hasAccessViaUserId) {
       throw new NotFoundException('Domain not found in your account');
     }
 
-    // Step 3: Remove domain from current user's lists
+    // Step 3: Remove domain from current user's lists (if present)
     await this.userModel.findByIdAndUpdate(userId, {
       $pull: {
         verifiedDomains: domain.domain,
@@ -328,47 +319,34 @@ export class BrevoService {
 
     console.log(`[Brevo] ✓ Domain ${domain.domain} removed from user ${userId} domain lists`);
 
-    // Step 4: Check if any other users are using this domain
-    const otherUsersWithDomain = await this.userModel.countDocuments({
-      _id: { $ne: userId },
-      $or: [
-        { verifiedDomains: domain.domain },
-        { pendingDomains: domain.domain }
-      ]
-    });
-
-    // Step 5: If no other users have this domain, delete it from Brevo and database
-    if (otherUsersWithDomain === 0) {
-      try {
-        console.log(`[Brevo] No other users have ${domain.domain}, deleting from Brevo API`);
-        
-        await firstValueFrom(
-          this.httpService.delete(
-            `${this.brevoApiUrl}/senders/domains/${domain.domain}`,
-            {
-              headers: {
-                'api-key': this.brevoApiKey,
-              },
-            }
-          )
-        );
-        
-        console.log(`[Brevo] ✓ Domain ${domain.domain} deleted from Brevo API`);
-      } catch (error: any) {
-        // Log the error but continue with database deletion
-        console.warn(`[Brevo] Warning: Could not delete domain from Brevo API: ${error.message}`);
-        if (error.response?.status !== 404) {
-          // Don't throw error, just log it - we still want to clean up the database
-          console.error(`[Brevo] Error deleting from Brevo: ${error.response?.data?.message || error.message}`);
-        }
+    // Step 4: Delete domain from Brevo API
+    try {
+      console.log(`[Brevo] Deleting ${domain.domain} from Brevo API`);
+      
+      await firstValueFrom(
+        this.httpService.delete(
+          `${this.brevoApiUrl}/senders/domains/${domain.domain}`,
+          {
+            headers: {
+              'api-key': this.brevoApiKey,
+            },
+          }
+        )
+      );
+      
+      console.log(`[Brevo] ✓ Domain ${domain.domain} deleted from Brevo API`);
+    } catch (error: any) {
+      // Log the error but continue with database deletion
+      console.warn(`[Brevo] Warning: Could not delete domain from Brevo API: ${error.message}`);
+      if (error.response?.status !== 404) {
+        // Don't throw error, just log it - we still want to clean up the database
+        console.error(`[Brevo] Error deleting from Brevo: ${error.response?.data?.message || error.message}`);
       }
-
-      // Delete from local database
-      await this.brevioDomainModel.findByIdAndDelete(domainId).exec();
-      console.log(`[Brevo] ✓ Domain ${domain.domain} deleted from database`);
-    } else {
-      console.log(`[Brevo] Domain ${domain.domain} is still used by ${otherUsersWithDomain} other user(s), keeping in database`);
     }
+
+    // Step 5: Delete from local database
+    await this.brevioDomainModel.findByIdAndDelete(domainId).exec();
+    console.log(`[Brevo] ✓ Domain ${domain.domain} deleted from database`);
   }
 
   /**

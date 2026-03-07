@@ -461,7 +461,7 @@ export class AffiliateService {
         payoutDate: new Date(),
       });
 
-      // Update affiliate: move from pending to earnings
+      // Update affiliate: move from pending to earnings and update last payment date
       await this.affiliateModel.findByIdAndUpdate(
         referral.affiliateId,
         {
@@ -469,6 +469,7 @@ export class AffiliateService {
             pending: -referral.commission,
             earnings: referral.commission,
           },
+          lastPaymentDate: new Date(),
         },
       );
     }

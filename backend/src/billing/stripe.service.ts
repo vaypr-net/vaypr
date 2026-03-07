@@ -1391,8 +1391,13 @@ export class StripeService {
     } else {
       this.logger.log(`Webhook: No existing transaction found. Creating new transaction...`);
       try {
+        // Extract payment intent ID from session
+        const paymentIntentId = typeof session.payment_intent === 'string' 
+          ? session.payment_intent 
+          : session.payment_intent?.id;
+          
         this.logger.log(
-          `Webhook: Transaction data - userId: ${userId}, amount: ${transactionAmount}, currency: ${session.currency?.toUpperCase() || 'KWD'}, plan: ${plan?.name || 'Unknown'}`
+          `Webhook: Transaction data - userId: ${userId}, amount: ${transactionAmount}, currency: ${session.currency?.toUpperCase() || 'KWD'}, plan: ${plan?.name || 'Unknown'}, paymentIntent: ${paymentIntentId || 'N/A'}`
         );
         
         const newTransaction = await this.transactionModel.create({
@@ -1411,6 +1416,7 @@ export class StripeService {
           stripeEventId: session.id,
           stripeCheckoutSessionId: session.id,
           stripeSubscriptionId: subscription.id,
+          stripePaymentIntentId: paymentIntentId || undefined,
           billingCycle: billingCycle,
         });
 
@@ -1650,6 +1656,12 @@ export class StripeService {
 
     // Create transaction record for failed payment
     try {
+      // Extract payment intent ID from invoice
+      const paymentIntent = (invoice as any).payment_intent;
+      const paymentIntentId = typeof paymentIntent === 'string'
+        ? paymentIntent
+        : paymentIntent?.id;
+        
       await this.transactionModel.create({
         transactionId: `stripe_invoice_${invoice.id}`,
         userId: user._id,
@@ -1666,6 +1678,7 @@ export class StripeService {
         stripeEventId: invoice.id,
         stripeInvoiceId: invoice.id,
         stripeSubscriptionId: ((invoice as any).subscription as string) || '',
+        stripePaymentIntentId: paymentIntentId || undefined,
       });
 
       this.logger.log(
