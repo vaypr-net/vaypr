@@ -367,6 +367,7 @@ export default function Receipts() {
           invoiceId: formData.invoiceId || undefined,
         },
       });
+      setSearchQuery(""); // Clear search to show newly created receipt
       setIsCreateDialogOpen(false);
       resetForm();
     } catch (error) {

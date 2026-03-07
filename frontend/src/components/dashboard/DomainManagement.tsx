@@ -185,7 +185,7 @@ export function DomainManagement() {
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {new Date(domain.createdAt).toLocaleDateString()}
+                        {new Date(domain.createdAt).toLocaleDateString('en-GB')}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button

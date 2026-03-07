@@ -166,6 +166,21 @@ export default function Subscribers() {
         return str;
       };
 
+      const formatDateForCsv = (dateValue: string | null | undefined): string => {
+        if (!dateValue) return "";
+        try {
+          const date = new Date(dateValue);
+          if (isNaN(date.getTime())) return "";
+          // Format as YYYY-MM-DD for clean CSV output
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        } catch {
+          return "";
+        }
+      };
+
       const headers = [
         "Name",
         "Email",
@@ -185,11 +200,11 @@ export default function Subscribers() {
         sub.company,
         sub.plan,
         sub.subscriptionType,
-        sub.subscriptionDate,
+        formatDateForCsv(sub.subscriptionDate),
         sub.status,
         sub.lifetimeSpend,
-        sub.lastPaymentDate,
-        sub.nextRenewalDate || "",
+        formatDateForCsv(sub.lastPaymentDate),
+        formatDateForCsv(sub.nextRenewalDate),
       ]);
 
       const csvContent = [
@@ -427,7 +442,7 @@ export default function Subscribers() {
                         <p className="text-muted-foreground">Next Renewal</p>
                         <p className="font-medium">
                           {selectedSubscriber.nextRenewalDate
-                            ? new Date(selectedSubscriber.nextRenewalDate).toLocaleDateString()
+                            ? new Date(selectedSubscriber.nextRenewalDate).toLocaleDateString('en-GB')
                             : "-"}
                         </p>
                       </div>
@@ -484,7 +499,7 @@ export default function Subscribers() {
                             <div>
                               <p className="text-sm font-medium">{invoice.id}</p>
                               <p className="text-xs text-muted-foreground">
-                                {new Date(invoice.date).toLocaleDateString()}
+                                {new Date(invoice.date).toLocaleDateString('en-GB')}
                               </p>
                             </div>
                             <div className="text-right">

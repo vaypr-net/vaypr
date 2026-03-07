@@ -208,7 +208,7 @@ export function BrevoDomainsPage() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {domain.lastCheckedAt
-                            ? new Date(domain.lastCheckedAt).toLocaleDateString()
+                            ? new Date(domain.lastCheckedAt).toLocaleDateString('en-GB')
                             : '—'}
                         </TableCell>
                         <TableCell className="text-right">

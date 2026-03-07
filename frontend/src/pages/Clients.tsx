@@ -136,17 +136,17 @@ export default function Clients() {
         paidInvoices: client.stats.invoices.paid,
         sentInvoices: client.stats.invoices.sent,
         overdueInvoices: client.stats.invoices.overdue,
-        draftInvoices: 0, // Not included in summary stats
-        cancelledInvoices: 0, // Not included in summary stats
+        draftInvoices: client.stats.invoices.draft || 0,
+        cancelledInvoices: client.stats.invoices.cancelled || 0,
         totalQuotes: client.stats.quotes.total,
         acceptedQuotes: client.stats.quotes.accepted,
         sentQuotes: client.stats.quotes.sent,
         viewedQuotes: client.stats.quotes.viewed,
         convertedQuotes: client.stats.quotes.converted,
         rejectedQuotes: client.stats.quotes.rejected,
-        expiredQuotes: 0, // Not included in summary stats
-        draftQuotes: 0, // Not included in summary stats
-        modificationRequestedQuotes: 0, // Not included in summary stats
+        expiredQuotes: client.stats.quotes.expired || 0,
+        draftQuotes: client.stats.quotes.draft || 0,
+        modificationRequestedQuotes: client.stats.quotes.modification_requested || 0,
         activeRecurring: client.stats.recurring.active,
         totalRecurring: client.stats.recurring.total,
         totalRevenue: client.stats.revenue.total,
@@ -269,6 +269,7 @@ export default function Clients() {
         await createMutation.mutateAsync(formData);
       }
 
+      setSearchQuery(""); // Clear search to show newly created client
       setIsDialogOpen(false);
       setEditingClient(null);
       setEditingClientId(null);

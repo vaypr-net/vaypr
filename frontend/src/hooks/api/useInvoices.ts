@@ -54,6 +54,7 @@ export function useCreateInvoice() {
       InvoiceService.create(data, logo),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Invoice created',
         description: 'The invoice has been created successfully.',
@@ -78,6 +79,7 @@ export function useUpdateInvoice() {
       InvoiceService.update(id, data, logo),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Invoice updated',
         description: 'The invoice has been updated successfully.',
@@ -101,6 +103,7 @@ export function useDeleteInvoice() {
     mutationFn: (id: string) => InvoiceService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Invoice deleted',
         description: 'The invoice has been removed successfully.',

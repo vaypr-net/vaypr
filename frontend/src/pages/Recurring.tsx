@@ -369,6 +369,7 @@ ${companyName}`;
       }
 
       await createRecurringMutation.mutateAsync({ data: recurringData, logo: logoFile });
+      setSearchQuery(""); // Clear search to show newly created recurring billing
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {

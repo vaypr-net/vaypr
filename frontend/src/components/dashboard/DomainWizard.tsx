@@ -771,7 +771,7 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Added:</span>
-                    <span>{new Date(currentDomain.createdAt).toLocaleDateString()}</span>
+                    <span>{new Date(currentDomain.createdAt).toLocaleDateString('en-GB')}</span>
                   </div>
                 </CardContent>
               </Card>

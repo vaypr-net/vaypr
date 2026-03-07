@@ -14,9 +14,10 @@ import {
   useGetSuperadminSettings,
   useUpsertSuperadminSettings,
 } from "@/hooks/api/useSuperadminSettings";
+import { formatDateTimeDMY } from "@/lib/document-date";
 
 function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return formatDateTimeDMY(dateString);
 }
 
 export default function Settings() {

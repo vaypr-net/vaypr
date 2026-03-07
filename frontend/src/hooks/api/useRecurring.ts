@@ -45,6 +45,7 @@ export function useCreateRecurring() {
       RecurringService.create(data, logo),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Recurring Billing Created',
         description: 'The recurring billing has been created successfully.',
@@ -69,6 +70,7 @@ export function useUpdateRecurring() {
       RecurringService.update(id, data, logo),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Recurring Billing Updated',
         description: 'The recurring billing has been updated successfully.',
@@ -92,6 +94,7 @@ export function useToggleRecurring() {
     mutationFn: (id: string) => RecurringService.toggleActive(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Status Updated',
         description: 'The recurring billing status has been toggled.',
@@ -115,6 +118,7 @@ export function useGenerateInvoice() {
     mutationFn: (id: string) => RecurringService.generateInvoice(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Invoice Generated',
         description: 'A new invoice has been generated from recurring billing.',
@@ -138,6 +142,7 @@ export function useDeleteRecurring() {
     mutationFn: (id: string) => RecurringService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Recurring Billing Deleted',
         description: 'The recurring billing has been deleted successfully.',

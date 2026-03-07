@@ -221,6 +221,7 @@ export default function Expenses() {
         });
       }
 
+      setSearchQuery(""); // Clear search to show newly created expense
       setIsDialogOpen(false);
       setEditingExpense(null);
       setReceiptFile(null);

@@ -61,7 +61,7 @@ export function BillingStatus() {
   const displayPlanName = isCanceledStatus ? 'Free' : (currentPlan?.name || 'Free');
   
   const renewalDate = subscription?.currentPeriodEnd
-    ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
+    ? new Date(subscription.currentPeriodEnd).toLocaleDateString('en-GB')
     : null;
 
   // Generate plan features dynamically from API data
@@ -195,7 +195,7 @@ export function BillingStatus() {
             )}
             {hasScheduledCancellation && subscription?.accessUntilDate && (
               <p className="text-sm text-red-600 mt-1">
-                Access until: {new Date(subscription.accessUntilDate).toLocaleDateString()}
+                Access until: {new Date(subscription.accessUntilDate).toLocaleDateString('en-GB')}
               </p>
             )}
             {subscription?.status === 'past_due' && (

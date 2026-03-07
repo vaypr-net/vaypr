@@ -56,3 +56,45 @@ export const toISODateTimeString = (value: unknown): string | null => {
   if (!isoDate) return null;
   return new Date(`${isoDate}T00:00:00.000Z`).toISOString();
 };
+
+/**
+ * Format date as DD/MM/YYYY
+ */
+export const formatDateDMYShort = (dateString: string | undefined): string => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'N/A';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+/**
+ * Format date with time as DD/MM/YYYY, HH:MM
+ */
+export const formatDateTimeDMY = (dateString: string): string => {
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'N/A';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}/${month}/${year}, ${hours}:${minutes}`;
+};
+
+/**
+ * Format date in long format: DD Month YYYY
+ */
+export const formatDateDMYLong = (dateString: string | undefined): string => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'N/A';
+  const day = date.getDate();
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  const month = monthNames[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+};

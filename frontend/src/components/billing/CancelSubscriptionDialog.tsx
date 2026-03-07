@@ -390,7 +390,7 @@ export default function CancelSubscriptionDialog({
                   <div className="flex justify-between items-center">
                     <span className="text-gray-700">Access Until:</span>
                     <span className="font-semibold text-blue-600">
-                      {new Date(preview.periodEndDate).toLocaleDateString()}
+                      {new Date(preview.periodEndDate).toLocaleDateString('en-GB')}
                     </span>
                   </div>
                 </div>
@@ -533,7 +533,7 @@ export default function CancelSubscriptionDialog({
                 <p>
                   {cancellationMethod === 'immediate'
                     ? 'Your access has ended immediately.'
-                    : `You will have access until ${confirmation.accessUntilDate ? new Date(confirmation.accessUntilDate).toLocaleDateString() : 'the end of your billing period'}.`}
+                    : `You will have access until ${confirmation.accessUntilDate ? new Date(confirmation.accessUntilDate).toLocaleDateString('en-GB') : 'the end of your billing period'}.`}
                 </p>
                 {typeof confirmation.refundAmount === 'number' && confirmation.refundAmount > 0 && (
                   <p>

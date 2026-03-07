@@ -380,6 +380,7 @@ ${companyName}`;
     console.log('📤 Sending invoice data:', JSON.stringify(invoiceData, null, 2));
 
     await createInvoice.mutateAsync({ data: invoiceData });
+    setSearchQuery(""); // Clear search to show newly created invoice
     setIsCreateOpen(false);
     resetForm();
   };

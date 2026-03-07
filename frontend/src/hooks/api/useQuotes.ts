@@ -43,6 +43,7 @@ export const useCreateQuote = () => {
       QuoteService.create(data, logo),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Success',
         description: 'Quote created successfully',
@@ -67,6 +68,7 @@ export const useUpdateQuote = () => {
       QuoteService.update(id, data, logo),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Success',
         description: 'Quote updated successfully',
@@ -90,6 +92,7 @@ export const useDeleteQuote = () => {
     mutationFn: (id: string) => QuoteService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] }); // Refresh client stats
       toast({
         title: 'Success',
         description: 'Quote deleted successfully',

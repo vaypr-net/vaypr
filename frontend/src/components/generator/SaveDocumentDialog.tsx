@@ -31,7 +31,7 @@ export function SaveDocumentDialog({
   const [title, setTitle] = useState("");
 
   const getDefaultTitle = () => {
-    const date = new Date().toLocaleDateString();
+    const date = new Date().toLocaleDateString('en-GB');
     const typeLabel = documentType.charAt(0).toUpperCase() + documentType.slice(1);
     return `${typeLabel} - ${date}`;
   };

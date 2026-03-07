@@ -26,13 +26,10 @@ import { toast } from "sonner";
 import { useDocumentActions } from "@/hooks/useDocumentActions";
 import { InvoicePreview } from "@/components/invoice/InvoicePreview";
 import { InvoiceData } from "@/types/invoice";
+import { formatDateDMYShort } from "@/lib/document-date";
 
 function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  return formatDateDMYShort(dateString);
 }
 
 // CSV Export utility
@@ -570,11 +567,7 @@ export default function Transactions() {
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-1 text-muted-foreground">
                               <Calendar className="w-3 h-3" />
-                              {new Date(invoice.dueDate || invoice.issueDate).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })}
+                              {formatDateDMYShort(invoice.dueDate || invoice.issueDate)}
                             </div>
                             <span className="font-semibold">{formatCurrency(invoice.total)}</span>
                           </div>

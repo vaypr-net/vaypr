@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/currency";
 import { AddAffiliateDialog } from "@/components/super-admin/affiliates/AddAffiliateDialog";
 import { CommissionPlanDialog } from "@/components/super-admin/affiliates/CommissionPlanDialog";
 import { CouponDialog } from "@/components/super-admin/affiliates/CouponDialog";
+import { ViewAffiliateDialog } from "@/components/super-admin/affiliates/ViewAffiliateDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -88,6 +89,8 @@ export default function Affiliates() {
   // Dialog states
   const [affiliateDialogOpen, setAffiliateDialogOpen] = useState(false);
   const [editingAffiliate, setEditingAffiliate] = useState<Affiliate | null>(null);
+  const [viewingAffiliate, setViewingAffiliate] = useState<Affiliate | null>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
 
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<CommissionPlan | null>(null);
@@ -115,6 +118,8 @@ export default function Affiliates() {
         });
       } else {
         await createAffiliateMutation.mutateAsync(data);
+        // Clear search value to show the newly created affiliate
+        setSearchValue("");
       }
       setAffiliateDialogOpen(false);
       setEditingAffiliate(null);
@@ -126,6 +131,11 @@ export default function Affiliates() {
   const handleEditAffiliate = (affiliate: Affiliate) => {
     setEditingAffiliate(affiliate);
     setAffiliateDialogOpen(true);
+  };
+
+  const handleViewAffiliate = (affiliate: Affiliate) => {
+    setViewingAffiliate(affiliate);
+    setViewDialogOpen(true);
   };
 
   const handleDeleteAffiliate = async () => {
@@ -311,6 +321,9 @@ Support Team`
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleViewAffiliate(row)}>
+              <Eye className="w-4 h-4 mr-2" /> View Details
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEditAffiliate(row)}>
               <Pencil className="w-4 h-4 mr-2" /> Edit
             </DropdownMenuItem>
@@ -367,8 +380,20 @@ Support Team`
       ),
     },
     { header: "Usage", accessor: (row: Coupon) => `${row.usedCount} / ${row.usageLimit}` },
-    { header: "Valid From", accessor: (row: Coupon) => new Date(row.validFrom).toLocaleDateString() },
-    { header: "Valid Until", accessor: (row: Coupon) => new Date(row.validUntil).toLocaleDateString() },
+    { header: "Valid From", accessor: (row: Coupon) => {
+      const date = new Date(row.validFrom);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }},
+    { header: "Valid Until", accessor: (row: Coupon) => {
+      const date = new Date(row.validUntil);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }},
     { header: "Status", accessor: (row: Coupon) => <StatusBadge status={row.status === "active" ? "active" : row.status === "expired" ? "inactive" : "canceled"} /> },
     {
       header: "Actions",
@@ -442,6 +467,18 @@ Support Team`
         return str;
       };
 
+      const formatDateForCsv = (dateValue: string | undefined): string => {
+        if (!dateValue) return "";
+        try {
+          const date = new Date(dateValue);
+          if (isNaN(date.getTime())) return "";
+          // Format as YYYY-MM-DD for better CSV compatibility
+          return date.toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD format
+        } catch {
+          return "";
+        }
+      };
+
       const headers = [
         "Name",
         "Email",
@@ -466,10 +503,9 @@ Support Team`
         affiliate.referrals,
         affiliate.earnings,
         affiliate.pending,
-        affiliate.joinDate ? new Date(affiliate.joinDate).toLocaleDateString() : "",
-        affiliate.lastPaymentDate
-          ? new Date(affiliate.lastPaymentDate).toLocaleDateString()
-          : "",
+        // Use createdAt as fallback if joinDate is missing or invalid
+        formatDateForCsv(affiliate.joinDate || affiliate.createdAt),
+        formatDateForCsv(affiliate.lastPaymentDate),
       ]);
 
       const csvContent = [
@@ -545,12 +581,7 @@ Support Team`
             </div>
             <DataTable 
               columns={affiliateColumns} 
-              data={
-                (affiliatesData?.items || []).filter(a => 
-                  a.name.toLowerCase().includes(searchValue.toLowerCase()) || 
-                  a.email.toLowerCase().includes(searchValue.toLowerCase())
-                )
-              } 
+              data={affiliatesData?.items || []} 
               emptyMessage="No affiliates found" 
               emptyIcon={<Users2 className="w-12 h-12" />}
               isLoading={affiliatesLoading}
@@ -683,6 +714,12 @@ Support Team`
         coupon={editingCoupon}
         affiliates={(affiliatesData?.items || []).map(a => ({ id: a._id, name: a.name }))}
         onSave={handleSaveCoupon}
+      />
+
+      <ViewAffiliateDialog
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+        affiliate={viewingAffiliate}
       />
 
       {/* Delete Confirmations */}

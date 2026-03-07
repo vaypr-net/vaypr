@@ -27,15 +27,10 @@ import {
 import { Ticket } from "@/api/services/ticket.service";
 import { toast } from "sonner";
 import axiosInstance from "@/api/axios";
+import { formatDateTimeDMY } from "@/lib/document-date";
 
 function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  return formatDateTimeDMY(dateString);
 }
 
 function formatTimeAgo(dateString: string) {

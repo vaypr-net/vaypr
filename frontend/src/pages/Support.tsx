@@ -22,6 +22,7 @@ import {
 } from '@/hooks/api/useTickets';
 import type { Ticket } from '@/api/services/ticket.service';
 import { AlertTriangle, CheckCircle, Clock, Eye, Loader2, MessageSquare, Plus, User } from 'lucide-react';
+import { formatDateTimeDMY } from '@/lib/document-date';
 
 const priorityStyles: Record<string, string> = {
   low: 'bg-gray-100 text-gray-600',
@@ -33,13 +34,7 @@ const priorityStyles: Record<string, string> = {
 const teams = ['Support Team', 'Billing Team', 'Tech Support', 'Admin'];
 
 function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTimeDMY(dateString);
 }
 
 function formatTimeAgo(dateString: string) {
@@ -145,6 +140,7 @@ export default function Support() {
       assignedTo: ticketData.assignedTo,
       status: ticketData.status,
     });
+    setSearchValue(""); // Clear search to show newly created ticket
     setCreateDialogOpen(false);
   };
 
