@@ -48,8 +48,22 @@ export class AffiliateService {
 
   async createAffiliate(createAffiliateDto: CreateAffiliateDto): Promise<Affiliate> {
     try {
-      const affiliate = new this.affiliateModel(createAffiliateDto);
-      return await affiliate.save();
+      const now = new Date();
+      const affiliate = new this.affiliateModel({
+        ...createAffiliateDto,
+        joinDate: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const saved = await affiliate.save();
+      
+      const doc = saved.toObject ? saved.toObject() : saved;
+      return {
+        ...doc,
+        earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
+        pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
+        joinDate: doc.joinDate || doc.createdAt,
+      } as any;
     } catch (error) {
       if (error.code === 11000) {
         throw new BadRequestException('Email or code already exists');
@@ -97,6 +111,8 @@ export class AffiliateService {
         // Affiliate balances are generated from Stripe referral commission values (AED).
         earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
         pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
+        // Use createdAt as fallback for joinDate if not set
+        joinDate: doc.joinDate || doc.createdAt,
       };
     });
 
@@ -112,17 +128,35 @@ export class AffiliateService {
     if (!affiliate) {
       throw new NotFoundException('Affiliate not found');
     }
-    return affiliate;
+    
+    const doc = affiliate.toObject ? affiliate.toObject() : affiliate;
+    return {
+      ...doc,
+      earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
+      pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
+      // Use createdAt as fallback for joinDate if not set
+      joinDate: doc.joinDate || doc.createdAt,
+    } as any;
   }
 
   async updateAffiliate(id: string, updateAffiliateDto: UpdateAffiliateDto): Promise<Affiliate> {
-    const affiliate = await this.affiliateModel.findByIdAndUpdate(id, updateAffiliateDto, {
-      new: true,
-    });
+    const affiliate = await this.affiliateModel.findByIdAndUpdate(
+      id,
+      { ...updateAffiliateDto, updatedAt: new Date() },
+      { new: true }
+    );
     if (!affiliate) {
       throw new NotFoundException('Affiliate not found');
     }
-    return affiliate;
+    
+    const doc = affiliate.toObject ? affiliate.toObject() : affiliate;
+    return {
+      ...doc,
+      earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
+      pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
+      // Use createdAt as fallback for joinDate if not set
+      joinDate: doc.joinDate || doc.createdAt,
+    } as any;
   }
 
   async deleteAffiliate(id: string): Promise<{ success: boolean; message: string }> {
@@ -134,11 +168,23 @@ export class AffiliateService {
   }
 
   async updateAffiliateStatus(id: string, status: 'active' | 'inactive'): Promise<Affiliate> {
-    const affiliate = await this.affiliateModel.findByIdAndUpdate(id, { status }, { new: true });
+    const affiliate = await this.affiliateModel.findByIdAndUpdate(
+      id, 
+      { status, updatedAt: new Date() }, 
+      { new: true }
+    );
     if (!affiliate) {
       throw new NotFoundException('Affiliate not found');
     }
-    return affiliate;
+    
+    const doc = affiliate.toObject ? affiliate.toObject() : affiliate;
+    return {
+      ...doc,
+      earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
+      pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
+      // Use createdAt as fallback for joinDate if not set
+      joinDate: doc.joinDate || doc.createdAt,
+    } as any;
   }
 
   async getAffiliateStats(): Promise<{
@@ -535,6 +581,14 @@ export class AffiliateService {
     if (!affiliate) {
       throw new NotFoundException('Affiliate code not found');
     }
-    return affiliate;
+    
+    const doc = affiliate.toObject ? affiliate.toObject() : affiliate;
+    return {
+      ...doc,
+      earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
+      pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
+      // Use createdAt as fallback for joinDate if not set
+      joinDate: doc.joinDate || doc.createdAt,
+    } as any;
   }
 }

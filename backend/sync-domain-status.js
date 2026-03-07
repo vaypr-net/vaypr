@@ -44,9 +44,16 @@ async function syncDomainStatus() {
         let realStatus = 'DNS_PENDING';
         let errorMessage = null;
 
-        if (brevoData.verified === true || brevoData.authenticated === true) {
+        // ONLY mark as VERIFIED when authenticated=true (final state for email sending)
+        // verified=true just means DNS records are OK, but authenticated=true means ready to send
+        if (brevoData.authenticated === true) {
           realStatus = 'VERIFIED';
-          console.log(`   ✅ Domain is ACTUALLY VERIFIED by Brevo`);
+          console.log(`   ✅ Domain is AUTHENTICATED and ready for email sending`);
+        } else if (brevoData.verified === true && brevoData.authenticated === false) {
+          // DNS records verified but not yet authenticated by Brevo
+          realStatus = 'DNS_PENDING';
+          errorMessage = 'DNS records verified. Brevo is processing authentication (usually takes a few minutes to 48 hours).';
+          console.log(`   ⏳ DNS verified but awaiting authentication (verified=true, authenticated=false)`);
         } else {
           // Check DNS records
           const dnsRecords = brevoData.dns_records || {};

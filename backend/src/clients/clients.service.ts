@@ -177,6 +177,7 @@ export class ClientsService {
         .find({
           userId: userIdObj,
           clientId: { $in: clientIds },
+          isDeleted: false,
         })
         .select('clientId status total')
         .exec(),
@@ -184,6 +185,7 @@ export class ClientsService {
         .find({
           userId: userIdObj,
           clientId: { $in: clientIds },
+          isDeleted: false,
         })
         .select('clientId status total')
         .exec(),
@@ -212,6 +214,8 @@ export class ClientsService {
       const paidInvoices = clientInvoices.filter((i) => i.status === 'paid').length;
       const sentInvoices = clientInvoices.filter((i) => i.status === 'sent').length;
       const overdueInvoices = clientInvoices.filter((i) => i.status === 'overdue').length;
+      const draftInvoices = clientInvoices.filter((i) => i.status === 'draft').length;
+      const cancelledInvoices = clientInvoices.filter((i) => i.status === 'cancelled').length;
 
       // Calculate quote stats
       const acceptedQuotes = clientQuotes.filter((q) => q.status === 'accepted').length;
@@ -219,6 +223,9 @@ export class ClientsService {
       const viewedQuotes = clientQuotes.filter((q) => q.status === 'viewed').length;
       const convertedQuotes = clientQuotes.filter((q) => q.status === 'converted').length;
       const rejectedQuotes = clientQuotes.filter((q) => q.status === 'rejected').length;
+      const draftQuotes = clientQuotes.filter((q) => q.status === 'draft').length;
+      const expiredQuotes = clientQuotes.filter((q) => q.status === 'expired').length;
+      const modificationRequestedQuotes = clientQuotes.filter((q) => q.status === 'modification_requested').length;
 
       // Calculate recurring stats
       const activeRecurring = clientRecurring.filter((r) => r.isActive).length;
@@ -240,6 +247,8 @@ export class ClientsService {
             paid: paidInvoices,
             sent: sentInvoices,
             overdue: overdueInvoices,
+            draft: draftInvoices,
+            cancelled: cancelledInvoices,
           },
           quotes: {
             total: clientQuotes.length,
@@ -248,6 +257,9 @@ export class ClientsService {
             viewed: viewedQuotes,
             converted: convertedQuotes,
             rejected: rejectedQuotes,
+            draft: draftQuotes,
+            expired: expiredQuotes,
+            modification_requested: modificationRequestedQuotes,
           },
           recurring: {
             total: clientRecurring.length,

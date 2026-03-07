@@ -149,8 +149,11 @@ export class BrevoUserController {
   @ApiOperation({ summary: 'Delete your domain' })
   @ApiResponse({ status: 200, description: 'Domain deleted' })
   @ApiResponse({ status: 404, description: 'Domain not found' })
-  async deleteUserDomain(@Param('id') id: string): Promise<{ success: boolean; message: string }> {
-    await this.brevoService.deleteDomain(id);
+  async deleteUserDomain(
+    @Param('id') id: string,
+    @Request() req: any
+  ): Promise<{ success: boolean; message: string }> {
+    await this.brevoService.deleteUserDomain(req.user.userId, id);
     return { success: true, message: 'Domain deleted successfully' };
   }
 

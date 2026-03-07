@@ -292,6 +292,86 @@ export class BrevoService {
   }
 
   /**
+   * Delete domain for a specific user
+   * Removes domain from user's lists and only deletes the domain document if no other users have it
+   */
+  async deleteUserDomain(userId: string, domainId: string): Promise<void> {
+    // Step 1: Get domain details first
+    const domain = await this.brevioDomainModel.findById(domainId).exec();
+    if (!domain) {
+      throw new NotFoundException(`Domain with ID ${domainId} not found`);
+    }
+
+    // Step 2: Verify user has access to this domain
+    const user = await this.userModel
+      .findById(userId)
+      .select('verifiedDomains pendingDomains')
+      .lean()
+      .exec();
+
+    const userDomains = [
+      ...((user as any)?.verifiedDomains || []),
+      ...((user as any)?.pendingDomains || []),
+    ];
+
+    if (!userDomains.includes(domain.domain)) {
+      throw new NotFoundException('Domain not found in your account');
+    }
+
+    // Step 3: Remove domain from current user's lists
+    await this.userModel.findByIdAndUpdate(userId, {
+      $pull: {
+        verifiedDomains: domain.domain,
+        pendingDomains: domain.domain
+      }
+    });
+
+    console.log(`[Brevo] ✓ Domain ${domain.domain} removed from user ${userId} domain lists`);
+
+    // Step 4: Check if any other users are using this domain
+    const otherUsersWithDomain = await this.userModel.countDocuments({
+      _id: { $ne: userId },
+      $or: [
+        { verifiedDomains: domain.domain },
+        { pendingDomains: domain.domain }
+      ]
+    });
+
+    // Step 5: If no other users have this domain, delete it from Brevo and database
+    if (otherUsersWithDomain === 0) {
+      try {
+        console.log(`[Brevo] No other users have ${domain.domain}, deleting from Brevo API`);
+        
+        await firstValueFrom(
+          this.httpService.delete(
+            `${this.brevoApiUrl}/senders/domains/${domain.domain}`,
+            {
+              headers: {
+                'api-key': this.brevoApiKey,
+              },
+            }
+          )
+        );
+        
+        console.log(`[Brevo] ✓ Domain ${domain.domain} deleted from Brevo API`);
+      } catch (error: any) {
+        // Log the error but continue with database deletion
+        console.warn(`[Brevo] Warning: Could not delete domain from Brevo API: ${error.message}`);
+        if (error.response?.status !== 404) {
+          // Don't throw error, just log it - we still want to clean up the database
+          console.error(`[Brevo] Error deleting from Brevo: ${error.response?.data?.message || error.message}`);
+        }
+      }
+
+      // Delete from local database
+      await this.brevioDomainModel.findByIdAndDelete(domainId).exec();
+      console.log(`[Brevo] ✓ Domain ${domain.domain} deleted from database`);
+    } else {
+      console.log(`[Brevo] Domain ${domain.domain} is still used by ${otherUsersWithDomain} other user(s), keeping in database`);
+    }
+  }
+
+  /**
    * Verify domain and move from pending to verified
    */
   async verifyDomainAndMoveToVerified(userId: string, domainId: string): Promise<void> {
@@ -640,11 +720,17 @@ export class BrevoService {
       let status: 'VERIFIED' | 'DNS_PENDING' | 'FAILED' = 'DNS_PENDING';
       let errorMessage: string | null = null;
 
-      // Check if domain is authenticated/verified in Brevo
-      // ONLY trust Brevo's official verified/authenticated flags
-      if (brevoData.verified === true || brevoData.authenticated === true) {
+      // Check if domain is authenticated in Brevo
+      // ONLY mark as VERIFIED when authenticated=true (final state for email sending)
+      // verified=true just means DNS records are OK, but authenticated=true means Brevo completed authentication
+      if (brevoData.authenticated === true) {
         status = 'VERIFIED';
-        console.log(`[Brevo] ✓ Domain ${domainName} is VERIFIED/AUTHENTICATED (verified=${brevoData.verified}, authenticated=${brevoData.authenticated})`);
+        console.log(`[Brevo] ✓ Domain ${domainName} is AUTHENTICATED and ready for email sending (authenticated=true)`);
+      } else if (brevoData.verified === true && brevoData.authenticated === false) {
+        // DNS records verified but not yet authenticated by Brevo
+        status = 'DNS_PENDING';
+        console.log(`[Brevo] ⏳ Domain ${domainName} DNS verified but awaiting authentication (verified=true, authenticated=false)`);
+        errorMessage = 'DNS records verified. Brevo is processing authentication (usually takes a few minutes to 48 hours).';
       } else {
         // Domain not yet verified by Brevo (even if DNS records are OK)
         status = 'DNS_PENDING';

@@ -30,7 +30,7 @@ export class Affiliate extends Document {
   @Prop({ enum: ['active', 'inactive'], default: 'active' })
   status: string;
 
-  @Prop()
+  @Prop({ default: Date.now })
   joinDate: Date;
 
   @Prop()
