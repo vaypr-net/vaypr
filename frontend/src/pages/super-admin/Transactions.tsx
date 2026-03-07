@@ -43,31 +43,35 @@ function exportToCSV(data: Transaction[], filename: string = 'transactions.csv')
     // Define CSV headers
     const headers = [
       'Transaction ID',
-      'Type',
-      'Status',
+      'Subscriber Name',
+      'Subscriber Email',
       'Amount',
       'Currency',
-      'Subscriber Email',
-      'Plan Name',
-      'Payment Method',
+      'Type',
+      'Status',
+      'Plan',
+      'Billing Cycle',
+      'Payment Provider',
       'Provider Transaction ID',
-      'Created Date',
-      'Updated Date'
+      'Transaction Date',
+      'Created Date'
     ];
 
     // Map data to CSV rows
     const rows = data.map((transaction: Transaction) => [
       transaction.transactionId || '',
-      transaction.type || '',
-      transaction.status || '',
+      transaction.subscriberName || '',
+      transaction.subscriberEmail || '',
       transaction.amount || '',
       transaction.currency || '',
-      transaction.subscriberEmail || '',
-      transaction.planName || '',
-      transaction.paymentMethod || '',
-      transaction.providerTransactionId || '',
-      formatDate(transaction.createdAt),
-      formatDate(transaction.updatedAt)
+      transaction.type || '',
+      transaction.status || '',
+      transaction.plan || '',
+      transaction.billingCycle || 'N/A',
+      transaction.provider || '',
+      transaction.stripePaymentIntentId || transaction.stripeCheckoutSessionId || 'N/A',
+      formatDate(transaction.transactionDate),
+      formatDate(transaction.createdAt)
     ]);
 
     // Create CSV content
@@ -466,6 +470,18 @@ export default function Transactions() {
                     <span className="text-muted-foreground">Plan</span>
                     <span className="font-medium">{selectedTransaction.plan}</span>
                   </div>
+                  {selectedTransaction.billingCycle && (
+                    <div className="flex justify-between py-2 border-b border-border">
+                      <span className="text-muted-foreground">Billing Cycle</span>
+                      <span className="font-medium capitalize">{selectedTransaction.billingCycle}</span>
+                    </div>
+                  )}
+                  {selectedTransaction.stripePaymentIntentId && (
+                    <div className="flex justify-between py-2 border-b border-border">
+                      <span className="text-muted-foreground">Provider Transaction ID</span>
+                      <span className="font-medium text-xs">{selectedTransaction.stripePaymentIntentId}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-4 bg-muted rounded-lg">

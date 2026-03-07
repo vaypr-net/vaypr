@@ -15,10 +15,13 @@ export interface Transaction {
   plan: string;
   transactionDate: string;
   createdAt?: string;
+  updatedAt?: string;
   stripeEventId?: string;
   stripeSubscriptionId?: string;
   stripeCheckoutSessionId?: string;
   stripeInvoiceId?: string;
+  stripePaymentIntentId?: string;
+  billingCycle?: string;
 }
 
 export interface TransactionFilters {
