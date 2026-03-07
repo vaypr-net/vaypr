@@ -584,6 +584,68 @@ export class BrevoService {
   }
 
   /**
+   * Authenticate domain via Brevo API
+   * Call this after DNS records are configured to trigger final authentication
+   */
+  async authenticateDomain(id: string): Promise<BrevoDomain> {
+    const domain = await this.getDomainById(id);
+    const previousStatus = domain.status;
+
+    try {
+      console.log(`[Brevo] Authenticating domain via Brevo API: ${domain.domain}`);
+
+      // Call Brevo API to authenticate domain
+      await firstValueFrom(
+        this.httpService.put(
+          `${this.brevoApiUrl}/senders/domains/${domain.domain}/authenticate`,
+          {},
+          {
+            headers: {
+              'api-key': this.brevoApiKey,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      );
+
+      console.log(`[Brevo] ✓ Authentication request sent for ${domain.domain}`);
+
+      // Fetch updated status from Brevo after authentication
+      const updatedDomain = await this.syncDomainStatusFromBrevo(domain.domain);
+
+      // Sync user domain lists
+      if (updatedDomain.userId) {
+        await this.syncUserDomainLists(
+          updatedDomain.userId,
+          updatedDomain.domain,
+          updatedDomain.status === 'VERIFIED',
+        );
+      }
+
+      // Create activity only on first transition to verified
+      if (updatedDomain.status === 'VERIFIED' && previousStatus !== 'VERIFIED') {
+        try {
+          await this.activityService.create({
+            type: 'domain_verified',
+            title: 'Domain authenticated',
+            description: `Domain ${updatedDomain.domain} has been successfully authenticated`,
+            relatedEntityId: updatedDomain._id.toString(),
+          });
+        } catch (error) {
+          console.error('Failed to create activity:', error);
+        }
+      }
+
+      return updatedDomain;
+    } catch (error) {
+      console.error(`[Brevo] Error authenticating domain ${domain.domain}:`, error.response?.data || error.message);
+      throw new BadRequestException(
+        `Failed to authenticate domain: ${error.response?.data?.message || error.message}`
+      );
+    }
+  }
+
+  /**
    * Map Brevo API response to our check status format
    */
   private mapBrevoChecks(brevoData: any): DomainChecks {

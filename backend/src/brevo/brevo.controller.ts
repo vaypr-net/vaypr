@@ -71,6 +71,18 @@ export class BrevoController {
   }
 
   /**
+   * Authenticate domain with Brevo
+   */
+  @Post('domains/:id/authenticate')
+  @ApiOperation({ summary: 'Authenticate domain with Brevo after DNS records are configured' })
+  @ApiResponse({ status: 200, description: 'Authentication completed', type: BrevoDomain })
+  @ApiResponse({ status: 404, description: 'Domain not found' })
+  @ApiResponse({ status: 400, description: 'Authentication failed' })
+  async authenticateDomain(@Param('id') id: string): Promise<BrevoDomain> {
+    return this.brevoService.authenticateDomain(id);
+  }
+
+  /**
    * Delete domain
    */
   @Delete('domains/:id')
@@ -167,5 +179,17 @@ export class BrevoUserController {
   @ApiResponse({ status: 400, description: 'DNS verification failed' })
   async verifyUserDomain(@Param('id') id: string): Promise<BrevoDomain> {
     return this.brevoService.verifyDomain(id);
+  }
+
+  /**
+   * Authenticate user's domain with Brevo
+   */
+  @Post('domains/:id/authenticate')
+  @ApiOperation({ summary: 'Authenticate your domain with Brevo after DNS records are configured' })
+  @ApiResponse({ status: 200, description: 'Authentication completed', type: BrevoDomain })
+  @ApiResponse({ status: 404, description: 'Domain not found' })
+  @ApiResponse({ status: 400, description: 'Authentication failed' })
+  async authenticateUserDomain(@Param('id') id: string): Promise<BrevoDomain> {
+    return this.brevoService.authenticateDomain(id);
   }
 }
