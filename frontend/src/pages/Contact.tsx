@@ -39,10 +39,6 @@ const defaultContent = {
 
 export default function Contact() {
   const { data: apiContent, isLoading } = useSupportPageBySlug("contact");
-  if (isLoading) {
-    return <div className="min-h-screen bg-background" />;
-  }
-  const content = (apiContent as any)?.content ?? defaultContent;
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -52,6 +48,11 @@ export default function Contact() {
     subject: "",
     message: ""
   });
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-background" />;
+  }
+  const content = (apiContent as any)?.content ?? defaultContent;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
