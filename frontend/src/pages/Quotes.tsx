@@ -97,6 +97,34 @@ const CURRENCIES = [
 ];
 
 const toBool = (value: unknown): boolean => value === true || value === 'true' || value === 1 || value === '1';
+const safeParseObject = (value: unknown): Record<string, any> | null => {
+  if (!value) return null;
+  if (typeof value === 'object') return value as Record<string, any>;
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const safeParseArray = (value: unknown): any[] => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const sanitizeLogoScale = (value: unknown, fallback = 1): number => {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return fallback;
+  return Math.min(2, Math.max(0.5, num));
+};
 
 export default function Quotes() {
   const { user } = useAuth();
@@ -146,81 +174,94 @@ export default function Quotes() {
   const apiQuotesArray = Array.isArray(apiQuotes) ? apiQuotes : [];
   const clientsArray = Array.isArray(clients) ? clients : [];
   
-  const mapApiQuoteToLocal = (q: any): Quote => ({
-    billTo: q.billTo
+  const mapApiQuoteToLocal = (q: any): Quote => {
+    const billToSource = safeParseObject(q.billTo) || {};
+    const companyFooterSource = safeParseObject(q.companyFooter) || {};
+    const bankAccountSource = safeParseObject(q.bankAccount) || {};
+    const itemsSource = safeParseArray(q.items);
+    const normalizedClientName =
+      billToSource.name || q.clientName || q.customerName || q.billToName || '';
+
+    return {
+      billTo: Object.keys(billToSource).length > 0
       ? {
-          name: q.billTo?.name || '',
-          phone: q.billTo?.phone || '',
-          area: q.billTo?.area || '',
-          block: q.billTo?.block || '',
-          street: q.billTo?.street || '',
-          house: q.billTo?.house || '',
-          other: q.billTo?.other || '',
+          name: billToSource.name || normalizedClientName || '',
+          phone: billToSource.phone || q.clientPhone || '',
+          area: billToSource.area || q.clientArea || '',
+          block: billToSource.block || q.clientBlock || '',
+          street: billToSource.street || q.clientStreet || '',
+          house: billToSource.house || q.clientHouse || '',
+          other: billToSource.other || '',
         }
       : undefined,
-    id: q._id,
-    quoteNumber: q.quoteNumber,
-    clientId: (typeof q.clientId === 'string' ? q.clientId : q.clientId?._id) || '',
-    clientName: q.billTo?.name || '',
-    clientPhone: q.billTo ? (q.billTo?.phone || '') : (q.clientPhone || ''),
-    clientEmail: q.billTo?.email || '',
-    clientArea: q.billTo ? (q.billTo?.area || '') : (q.clientArea || ''),
-    clientBlock: q.billTo ? (q.billTo?.block || '') : (q.clientBlock || ''),
-    clientStreet: q.billTo ? (q.billTo?.street || '') : (q.clientStreet || ''),
-    clientHouse: q.billTo ? (q.billTo?.house || '') : (q.clientHouse || ''),
-    status: q.status,
-    quoteDate: q.quoteDate,
-    validUntil: q.validUntil,
-    items: q.items?.map((item: any) => ({
-      id: item._id || crypto.randomUUID(),
-      description: item.description,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-    })) || [],
-    subtotal: q.subtotal || 0,
-    discount: q.discount || 0,
-    deliveryFee: q.deliveryFee || 0,
-    total: q.total || 0,
-    currency: q.currency || 'KWD',
-    currencySymbol: q.currencySymbol || 'KD',
-    notes: q.notes || '',
-    companyName: q.companyFooter?.companyName || '',
-    companyAddress: q.companyFooter?.address || '',
-    companyPhone: q.companyFooter?.officePhone || '',
-    companyEmail: q.companyFooter?.websiteEmail || '',
-    logo: q.logo || null,
-    logoScale: q.logoScale || 1.0,
-    paymentDetails: q.paymentDetails || '',
-    showPaymentMethod: q.showPaymentMethod || false,
-    paymentMethodType: q.paymentMethodType || 'cash',
-    showBankAccount: q.showBankAccount || false,
-    bankAccount: q.bankAccount || { bankName: '', accountName: '', iban: '' },
-    showPaymentTerms: q.showPaymentTerms || false,
-    paymentTerms: q.paymentTerms || '',
-    hideQuantity: toBool(q.hideQuantity),
-    hideUnitPrice: toBool(q.hideUnitPrice),
-    hideTotalCost: toBool(q.hideTotalCost),
-    hideSubTotal: toBool(q.hideSubTotal),
-    useManualGrandTotal: toBool(q.useManualGrandTotal),
-    manualGrandTotal: q.manualGrandTotal || 0,
-    tableHeaderColor: q.tableHeaderColor || '#000000',
-    shareToken: q.shareToken,
-    createdAt: q.createdAt || new Date().toISOString(),
-    viewedAt: q.viewedAt,
-    sentAt: q.sentAt,
-    acceptedAt: q.acceptedAt,
-    rejectedAt: q.rejectedAt,
-    convertedAt: q.convertedAt,
-    convertedToInvoiceId: q.convertedToInvoiceId,
-    timeline: q.timeline || [],
-    clientResponse: q.clientResponse
-      ? {
-          respondedAt: q.clientResponse.respondedAt,
-          action: q.clientResponse.action,
-          message: q.clientResponse.message || '',
-        }
-      : undefined,
-  });
+      id: q._id,
+      quoteNumber: q.quoteNumber || q.quoteNo || '',
+      clientId: (typeof q.clientId === 'string' ? q.clientId : q.clientId?._id) || '',
+      clientName: normalizedClientName,
+      clientPhone: billToSource.phone || q.clientPhone || '',
+      clientEmail: billToSource.email || q.clientEmail || '',
+      clientArea: billToSource.area || q.clientArea || '',
+      clientBlock: billToSource.block || q.clientBlock || '',
+      clientStreet: billToSource.street || q.clientStreet || '',
+      clientHouse: billToSource.house || q.clientHouse || '',
+      status: q.status,
+      quoteDate: q.quoteDate || q.issueDate || q.createdAt,
+      validUntil: q.validUntil || q.expiryDate || q.dueDate || '',
+      items: itemsSource.map((item: any) => ({
+        id: item._id || item.id || crypto.randomUUID(),
+        description: item.description || '',
+        quantity: Number(item.quantity) || 0,
+        unitPrice: Number(item.unitPrice ?? item.price ?? 0) || 0,
+      })),
+      subtotal: Number(q.subtotal) || 0,
+      discount: Number(q.discount) || 0,
+      deliveryFee: Number(q.deliveryFee) || 0,
+      total: Number(q.total) || 0,
+      currency: q.currency || 'KWD',
+      currencySymbol: q.currencySymbol || 'KD',
+      notes: q.notes || '',
+      companyName: companyFooterSource.companyName || companyFooterSource.name || q.companyName || '',
+      companyAddress: companyFooterSource.address || q.companyAddress || '',
+      companyPhone: companyFooterSource.officePhone || companyFooterSource.phone || q.companyPhone || '',
+      companyEmail: companyFooterSource.websiteEmail || companyFooterSource.email || q.companyEmail || '',
+      logo: q.logo || null,
+      logoScale: sanitizeLogoScale(q.logoScale, 1.0),
+      paymentDetails: q.paymentDetails || '',
+      showPaymentMethod: toBool(q.showPaymentMethod),
+      paymentMethodType: q.paymentMethodType || 'cash',
+      showBankAccount: toBool(q.showBankAccount),
+      bankAccount: {
+        bankName: bankAccountSource.bankName || '',
+        accountName: bankAccountSource.accountName || '',
+        iban: bankAccountSource.iban || '',
+      },
+      showPaymentTerms: toBool(q.showPaymentTerms),
+      paymentTerms: q.paymentTerms || '',
+      hideQuantity: toBool(q.hideQuantity),
+      hideUnitPrice: toBool(q.hideUnitPrice),
+      hideTotalCost: toBool(q.hideTotalCost),
+      hideSubTotal: toBool(q.hideSubTotal),
+      useManualGrandTotal: toBool(q.useManualGrandTotal),
+      manualGrandTotal: Number(q.manualGrandTotal) || 0,
+      tableHeaderColor: q.tableHeaderColor || '#000000',
+      shareToken: q.shareToken,
+      createdAt: q.createdAt || new Date().toISOString(),
+      viewedAt: q.viewedAt,
+      sentAt: q.sentAt,
+      acceptedAt: q.acceptedAt,
+      rejectedAt: q.rejectedAt,
+      convertedAt: q.convertedAt,
+      convertedToInvoiceId: q.convertedToInvoiceId,
+      timeline: q.timeline || [],
+      clientResponse: q.clientResponse
+        ? {
+            respondedAt: q.clientResponse.respondedAt,
+            action: q.clientResponse.action,
+            message: q.clientResponse.message || '',
+          }
+        : undefined,
+    };
+  };
 
   // Map API quotes to local Quote type
   const quotes: Quote[] = apiQuotesArray.map(mapApiQuoteToLocal);
@@ -391,11 +432,24 @@ export default function Quotes() {
       let waited = 0;
       while (waited < timeout) {
         const el = document.getElementById(elementId);
-        if (el && el.offsetWidth > 0 && el.offsetHeight > 0) break;
+        const isSized = !!(el && el.offsetWidth > 0 && el.offsetHeight > 0);
+        const hasPopulatedData =
+          !!el &&
+          ((latestQuote.quoteNumber && el.textContent?.includes(latestQuote.quoteNumber)) ||
+            (latestQuote.clientName && el.textContent?.includes(latestQuote.clientName)));
+        if (isSized && hasPopulatedData) {
+          downloadPDF(elementId, filename, onComplete);
+          return;
+        }
         await new Promise((r) => setTimeout(r, interval));
         waited += interval;
       }
-      downloadPDF(elementId, filename, onComplete);
+      toast({
+        title: 'Download Failed',
+        description: 'Quote preview was not ready. Please try again.',
+        variant: 'destructive',
+      });
+      onComplete?.();
     };
 
     waitForElementAndDownload('quote-preview-download', filename, () => setQuoteForDownload(null));

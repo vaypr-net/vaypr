@@ -237,6 +237,7 @@ ${companyName}`;
   const waitForElementAndDownload = async (
     elementId: string,
     filename: string,
+    expectedText?: string,
     onComplete?: () => void,
   ) => {
     const timeout = 3000; // ms
@@ -244,13 +245,23 @@ ${companyName}`;
     let waited = 0;
     while (waited < timeout) {
       const el = document.getElementById(elementId);
-      if (el && el.offsetWidth > 0 && el.offsetHeight > 0) break;
+      const isSized = !!(el && el.offsetWidth > 0 && el.offsetHeight > 0);
+      const hasExpectedData =
+        !expectedText || (el?.textContent || '').includes(expectedText);
+      if (isSized && hasExpectedData) {
+        downloadPDF(elementId, filename, onComplete);
+        return;
+      }
       // element not ready yet
       await new Promise((r) => setTimeout(r, interval));
       waited += interval;
     }
-    // attempt download whether or not the element reached visible size
-    downloadPDF(elementId, filename, onComplete);
+    toast({
+      title: 'Download Failed',
+      description: 'Invoice preview was not ready. Please try again.',
+      variant: 'destructive',
+    });
+    onComplete?.();
   };
 
   const handleQuickDownload = async (invoice: Invoice) => {
@@ -265,6 +276,7 @@ ${companyName}`;
     await waitForElementAndDownload(
       'invoice-preview-download',
       `Invoice-${latestInvoice.invoiceNumber}`,
+      latestInvoice.invoiceNumber,
       () => setInvoiceForDownload(null),
     );
   };

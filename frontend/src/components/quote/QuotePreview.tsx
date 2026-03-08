@@ -57,6 +57,7 @@ export function QuotePreview({ data, previewId = "quote-preview" }: QuotePreview
             <img 
               src={data.logo} 
               alt="Company Logo" 
+              crossOrigin="anonymous"
               className="max-w-[200px] w-auto h-auto object-contain transition-transform origin-top-left"
               style={{ 
                 maxHeight: `${6 * (data.logoScale || 1)}rem`,

@@ -1063,20 +1063,9 @@ Best regards,
                     <Label className="text-sm font-medium">Bill To Information</Label>
                   </div>
                   <p className="text-xs text-muted-foreground mb-4">
-                    Customize what client information appears on generated invoices. Only name is required.
+                    Customize what client information appears on generated invoices. All fields are optional.
                   </p>
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Client Name *</Label>
-                      <Input
-                        placeholder="Client name"
-                        value={formData.billTo.name}
-                        onChange={(e) => setFormData({ 
-                          ...formData, 
-                          billTo: { ...formData.billTo, name: e.target.value }
-                        })}
-                      />
-                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Phone Number (Optional)</Label>
