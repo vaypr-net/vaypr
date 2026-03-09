@@ -121,9 +121,17 @@ export function Footer() {
   const supportLinksFromPages = mapPageLinks(supportPages, '/support');
   const corporateLinksFromPages = mapPageLinks(corporatePages, '/corporate');
 
-  const supportLinks = supportLinksFromPages.length > 0
-    ? supportLinksFromPages
-    : mapLandingLinks(landingPage?.footerSection?.supportLinks);
+  // Ensure FAQs always appears in the Support section
+  const faqLink: FooterLinkItem = { label: 'FAQs', href: '/faqs' };
+  const hasFaqLink = (links: FooterLinkItem[]) =>
+    links.some((l) => l.href === '/faqs' || l.label.toLowerCase() === 'faqs');
+
+  const supportLinks = (() => {
+    const base = supportLinksFromPages.length > 0
+      ? supportLinksFromPages
+      : mapLandingLinks(landingPage?.footerSection?.supportLinks);
+    return hasFaqLink(base) ? base : [...base, faqLink];
+  })();
   const corporateLinks = FORCE_STATIC_PAGES
     ? STATIC_CORPORATE_LINKS
     : corporateLinksFromPages.length > 0
