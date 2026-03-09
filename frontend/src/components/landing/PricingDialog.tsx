@@ -82,11 +82,18 @@ export function PricingDialog({ children }: PricingDialogProps) {
           }
         });
 
-        // Convert to PlanCard format
-        const mappedPlans: PlanCard[] = Object.values(plansByName).map((planPair) => {
-          const plan = planPair.monthly || planPair.yearly!;
-          return mapBillingPlanToCard(plan, planPair.yearly);
-        });
+        // Convert to PlanCard format, excluding Enterprise/Custom plans (we render those statically)
+        const mappedPlans: PlanCard[] = Object.values(plansByName)
+          .map((planPair) => {
+            const plan = planPair.monthly || planPair.yearly!;
+            return mapBillingPlanToCard(plan, planPair.yearly);
+          })
+          .filter(
+            (p) =>
+              !p.name.toLowerCase().includes('enterprise') &&
+              !p.name.toLowerCase().includes('custom') &&
+              p.monthlyPrice !== 'Custom'
+          );
 
         setPlans(mappedPlans);
       } catch (error) {
@@ -209,64 +216,115 @@ export function PricingDialog({ children }: PricingDialogProps) {
               <div className="col-span-3 flex justify-center items-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
-            ) : plans.length === 0 ? (
-              <div className="col-span-3 py-16 text-center">
-                <svg className="w-16 h-16 mx-auto text-muted-foreground mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
-                </svg>
-                <p className="text-muted-foreground mb-2">No plans exist yet</p>
-                <p className="text-xs text-muted-foreground">Pricing plans will be available soon.</p>
-              </div>
             ) : (
-              plans.map((plan) => (
-                <div
-                  key={plan.name}
-                  className={cn(
-                    "relative p-5 rounded-2xl transition-all duration-300 hover:scale-[1.02]",
-                    plan.highlighted
-                      ? "bg-card border-2 border-primary shadow-lg shadow-primary/10"
-                      : "bg-card/50 border border-border hover:border-primary/30"
-                  )}
-                >
+              <>
+                {plans.map((plan) => (
+                  <div
+                    key={plan.name}
+                    className={cn(
+                      "relative p-5 rounded-2xl transition-all duration-300 hover:scale-[1.02]",
+                      plan.highlighted
+                        ? "bg-card border-2 border-primary shadow-lg shadow-primary/10"
+                        : "bg-card/50 border border-border hover:border-primary/30"
+                    )}
+                  >
+                    {/* Badge */}
+                    <div className="mb-3">
+                      <span
+                        className={cn(
+                          "inline-block px-3 py-1 rounded-lg text-xs font-semibold",
+                          plan.highlighted
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-foreground"
+                        )}
+                      >
+                        {plan.badge}
+                      </span>
+                    </div>
+
+                    {/* Price */}
+                    <div className="mb-3">
+                      {plan.monthlyPrice === "Free" ? (
+                        <span className="text-3xl font-bold text-foreground">
+                          {plan.monthlyPrice}
+                        </span>
+                      ) : (
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl font-bold text-foreground">
+                            {isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                          </span>
+                          <span className="text-muted-foreground text-sm">
+                            /{isYearly ? "yr" : "mo"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-muted-foreground text-xs mb-4">
+                      {plan.description}
+                    </p>
+
+                    {/* Features */}
+                    <ul className="space-y-2 mb-5">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-2">
+                          <Check className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                          <span className="text-foreground text-xs">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* CTA Button */}
+                    <Button
+                      asChild
+                      size="sm"
+                      className={cn(
+                        "w-full",
+                        plan.highlighted
+                          ? "bg-primary hover:bg-primary/90 shadow-glow"
+                          : ""
+                      )}
+                      variant={plan.highlighted ? "default" : "outline"}
+                      onClick={() => setOpen(false)}
+                    >
+                      <Link to="/signup">
+                        {plan.cta}
+                        {plan.highlighted && <ArrowRight className="w-3 h-3 ml-1" />}
+                      </Link>
+                    </Button>
+                  </div>
+                ))}
+
+                {/* Static Enterprise / Let's Talk card - always shown */}
+                <div className="relative p-5 rounded-2xl transition-all duration-300 hover:scale-[1.02] bg-card/50 border border-border hover:border-primary/30">
                   {/* Badge */}
                   <div className="mb-3">
-                    <span
-                      className={cn(
-                        "inline-block px-3 py-1 rounded-lg text-xs font-semibold",
-                        plan.highlighted
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
-                      )}
-                    >
-                      {plan.badge}
+                    <span className="inline-block px-3 py-1 rounded-lg text-xs font-semibold bg-muted text-foreground">
+                      Enterprise
                     </span>
                   </div>
 
                   {/* Price */}
                   <div className="mb-3">
-                    {plan.monthlyPrice === "Free" || plan.monthlyPrice === "Custom" ? (
-                      <span className="text-3xl font-bold text-foreground">
-                        {plan.monthlyPrice}
-                      </span>
-                    ) : (
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-bold text-foreground">
-                          {isYearly ? plan.yearlyPrice : plan.monthlyPrice}
-                        </span>
-                        <span className="text-muted-foreground text-sm">
-                          /{isYearly ? "yr" : "mo"}
-                        </span>
-                      </div>
-                    )}
+                    <span className="text-3xl font-bold text-foreground">Let's Talk!</span>
                   </div>
 
                   <p className="text-muted-foreground text-xs mb-4">
-                    {plan.description}
+                    For larger organizations needing custom solutions, dedicated support, and advanced features.
                   </p>
 
                   {/* Features */}
                   <ul className="space-y-2 mb-5">
-                    {plan.features.map((feature) => (
+                    {[
+                      "Everything in Business",
+                      "Graphic Designer For Templates",
+                      "Ai Integration System",
+                      "API Access",
+                      "Dedicated Account Manager",
+                      "Smart Financial Analytics",
+                      "Advanced Expense Tracking",
+                      "White-label Options",
+                    ].map((feature) => (
                       <li key={feature} className="flex items-start gap-2">
                         <Check className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
                         <span className="text-foreground text-xs">{feature}</span>
@@ -278,24 +336,16 @@ export function PricingDialog({ children }: PricingDialogProps) {
                   <Button
                     asChild
                     size="sm"
-                    className={cn(
-                      "w-full",
-                      plan.highlighted
-                        ? "bg-primary hover:bg-primary/90 shadow-glow"
-                        : plan.name === "Enterprise" || plan.monthlyPrice === "Custom"
-                        ? "bg-foreground text-background hover:bg-foreground/90"
-                        : ""
-                    )}
-                    variant={plan.highlighted ? "default" : "outline"}
+                    className="w-full bg-foreground text-background hover:bg-foreground/90"
+                    variant="outline"
                     onClick={() => setOpen(false)}
                   >
-                    <Link to={plan.monthlyPrice === "Custom" || plan.name === "Enterprise" ? "/contact" : "/signup"}>
-                      {plan.cta}
-                      {plan.highlighted && <ArrowRight className="w-3 h-3 ml-1" />}
+                    <Link to="/contact">
+                      Book a Call
                     </Link>
                   </Button>
                 </div>
-              ))
+              </>
             )}
           </div>
 
