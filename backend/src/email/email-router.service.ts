@@ -1,10 +1,13 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { GmailService } from '../gmail/gmail.service';
 import { BrevoService } from '../brevo/brevo.service';
 import { UserService } from '../user/user.service';
 import { SenderService } from '../sender/sender.service';
 import { EmailSettingsService } from '../email-settings/email-settings.service';
 import { UserSender } from '../sender/entities/user-sender.entity';
+import { BrevoDomain } from '../brevo/entities/brevo.entity';
 
 /**
  * Email Router Service
@@ -22,6 +25,7 @@ import { UserSender } from '../sender/entities/user-sender.entity';
 @Injectable()
 export class EmailRouterService {
   constructor(
+    @InjectModel(BrevoDomain.name) private readonly brevoDomainModel: Model<BrevoDomain>,
     private readonly gmailService: GmailService,
     private readonly brevoService: BrevoService,
     private readonly userService: UserService,
@@ -63,6 +67,7 @@ export class EmailRouterService {
     senderId?: string,
     useLoginEmailAsSender: boolean = false,
     fromEmailOverride?: string,
+    senderNameOverride?: string,
   ): Promise<{ success: boolean; message: string; messageId?: string; sentVia: 'gmail' | 'brevo' }> {
     const user = await this.userService.findOne(userId);
 
@@ -97,8 +102,8 @@ export class EmailRouterService {
                   attachmentData,
                   attachmentFilename,
                   {
-                    senderName: sender.displayName,
-                    replyTo: sender.replyToEmail || effectiveReplyTo,
+                    senderName: senderNameOverride || sender.displayName,
+                    replyTo: replyTo || sender.replyToEmail || effectiveReplyTo,
                   },
                 );
 
@@ -118,7 +123,7 @@ export class EmailRouterService {
                   htmlBody,
                   attachmentData,
                   attachmentFilename,
-                  sender.replyToEmail || effectiveReplyTo,
+                  replyTo || sender.replyToEmail || effectiveReplyTo,
                 );
 
                 console.log(`[EmailRouter] Email sent via Gmail sender: ${sender.displayName}`);
@@ -151,7 +156,20 @@ export class EmailRouterService {
     const fromEmail = (fromEmailOverride || user.email || '').trim().toLowerCase();
     const emailDomain = this.getDomainFromEmail(fromEmail);
     const brandingDomain = user.brandingDomain?.trim().toLowerCase() || '';
-    const verifiedDomains = (user.verifiedDomains || []).map((d) => d.trim().toLowerCase());
+    let verifiedDomains = (user.verifiedDomains || []).map((d) => d.trim().toLowerCase());
+
+    // If the user has no verifiedDomains on their record, fall back to any globally
+    // verified Brevo domain (e.g. when the SuperAdmin account hasn't stored domains locally)
+    if (verifiedDomains.length === 0) {
+      const globalDomain = await this.brevoDomainModel
+        .findOne({ status: 'VERIFIED' })
+        .sort({ createdAt: 1 })
+        .lean();
+      if (globalDomain) {
+        verifiedDomains = [globalDomain.domain.trim().toLowerCase()];
+        console.log(`[EmailRouter] Using global verified Brevo domain: ${globalDomain.domain}`);
+      }
+    }
 
     // Smart domain resolution:
     // 1. If user's email domain is verified, use it
@@ -190,7 +208,7 @@ export class EmailRouterService {
           htmlBody,
           attachmentData,
           attachmentFilename,
-          { replyTo: effectiveReplyTo },
+          { replyTo: effectiveReplyTo, senderName: senderNameOverride || undefined },
         );
 
         console.log(`[EmailRouter] Email sent successfully via Brevo from ${brevoFromEmail}`);

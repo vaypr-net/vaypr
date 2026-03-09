@@ -73,34 +73,30 @@ export class ContactController {
     }
 
     try {
-      // Determine which user/tenant to send to
-      let targetOwnerId = ownerId;
-
-      if (!targetOwnerId) {
-        // If no owner specified, try to get from config or SuperAdmin
-        // For now, require ownerId to be specified for proper email routing
+      // Always load SuperAdmin settings — needed for userId AND support email fallback
+      const superAdminSettings = await this.superAdminSettingsModel.findOne().sort({ createdAt: 1 }).lean();
+      if (!superAdminSettings) {
         return {
           success: false,
           message: 'Contact form configuration error. Please contact support directly.',
         };
       }
 
-      // Load email settings for target owner
+      // Determine which user/tenant to use for email routing
+      const targetOwnerId = ownerId || superAdminSettings.userId.toString();
+
+      // Load email settings — may be null if never configured via Email Settings page
       const emailSettings = await this.emailSettingsService.getSettingsByUserId(targetOwnerId);
 
-      if (!emailSettings) {
-        return {
-          success: false,
-          message: 'Support inbox not configured. Please try again later.',
-        };
-      }
-
-      const supportInboxEmail = emailSettings.supportInboxEmail;
+      // Support inbox: prefer EmailSettings.supportInboxEmail, fall back to SuperAdminSettings.supportEmail
+      const supportInboxEmail =
+        emailSettings?.supportInboxEmail ||
+        superAdminSettings.supportEmail;
 
       if (!supportInboxEmail) {
         return {
           success: false,
-          message: 'Support inbox email not configured. Please contact support directly.',
+          message: 'Support inbox email not configured. Please set a Support Email in Super Admin Settings.',
         };
       }
 
@@ -146,10 +142,13 @@ export class ContactController {
         supportInboxEmail,
         `[${subject.toUpperCase()}] ${name} - ${email}`,
         emailToSupport,
-        undefined, // attachmentData
-        undefined, // attachmentFilename
-        email, // ✅ Reply-To: form submitter's email
-        undefined, // senderId: use defaults from settings
+        undefined,   // attachmentData
+        undefined,   // attachmentFilename
+        email,       // ✅ Reply-To: form submitter's email
+        undefined,   // senderId: use defaults from settings
+        false,       // useLoginEmailAsSender
+        undefined,   // fromEmailOverride
+        `${name} via VAYPR`, // ✅ senderNameOverride: show submitter's name
       );
       console.log(`[CONTACT] Support email response:`, supportEmailResponse);
 
