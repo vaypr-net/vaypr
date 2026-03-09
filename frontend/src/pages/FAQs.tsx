@@ -17,25 +17,7 @@ export default function FAQs() {
   );
   const { data: categories = [] } = usePublicFaqCategories();
 
-  // Group FAQs by category
-  const groupedFaqs = faqs.reduce(
-    (acc, faq) => {
-      if (!acc[faq.category]) {
-        acc[faq.category] = [];
-      }
-      acc[faq.category].push(faq);
-      return acc;
-    },
-    {} as Record<string, typeof faqs>,
-  );
 
-  const orderedCategories = Object.keys(groupedFaqs).sort((a, b) => {
-    if (selectedCategory !== 'all') {
-      if (a === selectedCategory) return -1;
-      if (b === selectedCategory) return 1;
-    }
-    return a.localeCompare(b);
-  });
 
   return (
     <div>
@@ -115,33 +97,25 @@ export default function FAQs() {
             </div>
           )}
 
-          {/* Grouped FAQs */}
+          {/* FAQs */}
           {!isLoading && faqs.length > 0 && (
-            <div className="max-w-4xl mx-auto space-y-12">
-              {orderedCategories.map((category) => (
-                <div key={category}>
-                  <h2 className="text-2xl font-display font-semibold text-foreground mb-6 flex items-center gap-3">
-                    <span className="w-1 h-6 bg-primary rounded-full" />
-                    {category}
-                  </h2>
-                  <Accordion type="single" collapsible className="space-y-3">
-                    {groupedFaqs[category].map((faq) => (
-                      <AccordionItem
-                        key={faq._id}
-                        value={faq._id}
-                        className="border border-border rounded-lg px-6 data-[state=open]:bg-muted/30 transition-colors"
-                      >
-                        <AccordionTrigger className="text-left font-medium hover:no-underline py-4">
-                          <span className="text-foreground">{faq.question}</span>
-                        </AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground pb-4">
-                          {faq.answer}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </div>
-              ))}
+            <div className="max-w-4xl mx-auto">
+              <Accordion type="single" collapsible className="space-y-3">
+                {faqs.map((faq) => (
+                  <AccordionItem
+                    key={faq._id}
+                    value={faq._id}
+                    className="border border-border rounded-lg px-6 data-[state=open]:bg-muted/30 transition-colors"
+                  >
+                    <AccordionTrigger className="text-left font-medium hover:no-underline py-4">
+                      <span className="text-foreground">{faq.question}</span>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-muted-foreground pb-4">
+                      {faq.answer}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
           )}
         </div>
