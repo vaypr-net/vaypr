@@ -1387,10 +1387,10 @@ const Index = () => {
 
           {/* Offscreen export targets for jsPDF/html2canvas */}
           <div 
-            className="absolute -left-[100000px] top-0 pointer-events-none" 
+            className="light absolute -left-[100000px] top-0 pointer-events-none" 
             aria-hidden="true"
             dir="ltr"
-            style={{ direction: 'ltr', textAlign: 'left' }}
+            style={{ direction: 'ltr', textAlign: 'left', colorScheme: 'light' }}
           >
             {activeTab === "invoice" && (
               <InvoicePreview data={invoiceData} previewId="generator-invoice-export-preview" />

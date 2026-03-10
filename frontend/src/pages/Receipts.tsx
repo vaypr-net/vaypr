@@ -1170,7 +1170,15 @@ ${getReceiptCompanyName(receipt)}`);
 
           {/* Hidden receipt preview for PDF generation */}
           {selectedReceipt && (
-            <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+            <div
+              className="light"
+              style={{
+                position: 'absolute',
+                left: '-9999px',
+                top: '-9999px',
+                colorScheme: 'light',
+              }}
+            >
               <ReceiptPreview
                 previewId="receipt-preview-email"
                 data={mapReceiptToPreviewData(selectedReceipt)}
@@ -1214,7 +1222,16 @@ ${getReceiptCompanyName(receipt)}`);
 
       {/* Hidden receipt preview used by Download PDF action */}
       {receiptForDownload && (
-        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} aria-hidden="true">
+        <div
+          className="light"
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            top: '-9999px',
+            colorScheme: 'light',
+          }}
+          aria-hidden="true"
+        >
           <ReceiptPreview
             previewId="receipt-preview-download"
             data={mapReceiptToPreviewData(receiptForDownload)}

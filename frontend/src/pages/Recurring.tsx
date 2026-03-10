@@ -467,8 +467,20 @@ Best regards,
       const createdInvoice = await generateInvoiceMutation.mutateAsync(selectedRecurring.id);
       setGeneratedInvoiceForEmail(createdInvoice as Invoice);
 
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      const pdfBase64 = await generatePdfBase64('recurring-invoice-preview-email');
+      // Poll until the hidden preview element is mounted and has dimensions.
+      // React needs at least one render cycle after setGeneratedInvoiceForEmail
+      // before the <InvoicePreview> is in the DOM.
+      const previewElementId = 'recurring-invoice-preview-email';
+      const pollInterval = 100; // ms
+      const pollTimeout = 3000; // ms
+      let pollWaited = 0;
+      while (pollWaited < pollTimeout) {
+        const el = document.getElementById(previewElementId);
+        if (el && el.offsetWidth > 0 && el.offsetHeight > 0) break;
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        pollWaited += pollInterval;
+      }
+      const pdfBase64 = await generatePdfBase64(previewElementId);
       const companyName = getCompanyNameForEmail(selectedRecurring, createdInvoice as Invoice);
 
       // SIMPLE EMAIL MODE: send plain message body only.
@@ -1490,7 +1502,15 @@ Best regards,
             </div>
 
             {generatedInvoiceForEmail && (
-              <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+              <div
+                className="light"
+                style={{
+                  position: 'absolute',
+                  left: '-9999px',
+                  top: '-9999px',
+                  colorScheme: 'light',
+                }}
+              >
                 <InvoicePreview
                   previewId="recurring-invoice-preview-email"
                   data={mapInvoiceToPreviewData(generatedInvoiceForEmail)}

@@ -240,6 +240,7 @@ ${companyName}`;
     expectedText?: string,
     onComplete?: () => void,
   ) => {
+    console.log('[PDF Debug] waitForElementAndDownload started:', { elementId, filename, expectedText });
     const timeout = 3000; // ms
     const interval = 100; // ms
     let waited = 0;
@@ -249,13 +250,34 @@ ${companyName}`;
       const hasExpectedData =
         !expectedText || (el?.textContent || '').includes(expectedText);
       if (isSized && hasExpectedData) {
+        console.log('[PDF Debug] Element ready after', waited, 'ms:', {
+          elementId,
+          offsetWidth: el?.offsetWidth,
+          offsetHeight: el?.offsetHeight,
+          textContentLength: el?.textContent?.length || 0,
+          textSnippet: el?.textContent?.substring(0, 200) || '(empty)',
+        });
         downloadPDF(elementId, filename, onComplete);
         return;
       }
       // element not ready yet
+      if (waited % 500 === 0) {
+        console.log('[PDF Debug] Waiting for element...', {
+          waited,
+          exists: !!el,
+          isSized,
+          hasExpectedData,
+          textContentLength: el?.textContent?.length || 0,
+        });
+      }
       await new Promise((r) => setTimeout(r, interval));
       waited += interval;
     }
+    console.error('[PDF Debug] TIMEOUT: Element not ready after', timeout, 'ms:', {
+      elementId,
+      exists: !!document.getElementById(elementId),
+      textContentLength: document.getElementById(elementId)?.textContent?.length || 0,
+    });
     toast({
       title: 'Download Failed',
       description: 'Invoice preview was not ready. Please try again.',
@@ -1115,7 +1137,15 @@ ${companyName}`;
 
             {/* Hidden invoice preview for PDF generation */}
             {selectedInvoice && (
-              <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+              <div
+                className="light"
+                style={{
+                  position: 'absolute',
+                  left: '-9999px',
+                  top: '-9999px',
+                  colorScheme: 'light',
+                }}
+              >
                 <InvoicePreview
                   previewId="invoice-preview-email"
                   data={mapInvoiceToPreviewData(selectedInvoice)}
@@ -1158,7 +1188,15 @@ ${companyName}`;
 
         {/* Hidden invoice preview for direct PDF download from table row */}
         {invoiceForDownload && (
-          <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+          <div
+            className="light"
+            style={{
+              position: 'absolute',
+              left: '-9999px',
+              top: '-9999px',
+              colorScheme: 'light',
+            }}
+          >
             <InvoicePreview
               previewId="invoice-preview-download"
               data={mapInvoiceToPreviewData(invoiceForDownload)}

@@ -748,7 +748,16 @@ export default function Transactions() {
       </Dialog>
 
       {invoiceForDownload && (
-        <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }} aria-hidden="true">
+        <div
+          className="light"
+          style={{
+            position: "absolute",
+            left: "-9999px",
+            top: "-9999px",
+            colorScheme: "light",
+          }}
+          aria-hidden="true"
+        >
           <InvoicePreview
             previewId="transaction-invoice-preview-download"
             data={mapInvoiceToPreviewData(invoiceForDownload)}

@@ -427,6 +427,7 @@ export default function Quotes() {
     const filename = `Quote-${latestQuote.quoteNumber}`;
     // Wait for the hidden preview element to be present and visible before capturing
     const waitForElementAndDownload = async (elementId: string, filename: string, onComplete?: () => void) => {
+      console.log('[PDF Debug] waitForElementAndDownload (Quote) started:', { elementId, filename });
       const timeout = 3000;
       const interval = 100;
       let waited = 0;
@@ -438,12 +439,29 @@ export default function Quotes() {
           ((latestQuote.quoteNumber && el.textContent?.includes(latestQuote.quoteNumber)) ||
             (latestQuote.clientName && el.textContent?.includes(latestQuote.clientName)));
         if (isSized && hasPopulatedData) {
+          console.log('[PDF Debug] Quote element ready after', waited, 'ms:', {
+            elementId,
+            offsetWidth: el?.offsetWidth,
+            offsetHeight: el?.offsetHeight,
+            textContentLength: el?.textContent?.length || 0,
+            textSnippet: el?.textContent?.substring(0, 200) || '(empty)',
+          });
           downloadPDF(elementId, filename, onComplete);
           return;
+        }
+        if (waited % 500 === 0) {
+          console.log('[PDF Debug] Waiting for quote element...', {
+            waited,
+            exists: !!el,
+            isSized,
+            hasPopulatedData,
+            lookingFor: { quoteNumber: latestQuote.quoteNumber, clientName: latestQuote.clientName },
+          });
         }
         await new Promise((r) => setTimeout(r, interval));
         waited += interval;
       }
+      console.error('[PDF Debug] TIMEOUT: Quote element not ready after', timeout, 'ms');
       toast({
         title: 'Download Failed',
         description: 'Quote preview was not ready. Please try again.',
@@ -452,7 +470,7 @@ export default function Quotes() {
       onComplete?.();
     };
 
-    waitForElementAndDownload('quote-preview-download', filename, () => setQuoteForDownload(null));
+    await waitForElementAndDownload('quote-preview-download', filename, () => setQuoteForDownload(null));
   };
 
   const filterPhoneInput = (value: string): string => {
@@ -1901,7 +1919,16 @@ ${getQuoteCompanyName(quote)}`);
 
       {/* Hidden quote preview used by Download PDF action */}
       {quoteForDownload && (
-        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} aria-hidden="true">
+        <div
+          className="light"
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            top: '-9999px',
+            colorScheme: 'light',
+          }}
+          aria-hidden="true"
+        >
           <QuotePreview
             previewId="quote-preview-download"
             data={mapQuoteToPreviewData(quoteForDownload)}
@@ -2028,7 +2055,15 @@ ${getQuoteCompanyName(quote)}`);
 
         {/* Hidden quote preview for PDF generation */}
         {selectedQuote && (
-          <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+          <div
+            className="light"
+            style={{
+              position: 'absolute',
+              left: '-9999px',
+              top: '-9999px',
+              colorScheme: 'light',
+            }}
+          >
             <QuotePreview 
               previewId="quote-preview-email"
               data={mapQuoteToPreviewData(selectedQuote)}

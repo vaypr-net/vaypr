@@ -81,8 +81,70 @@ export function useDocumentActions() {
     element.style.display = 'block';
 
     try {
-      console.log('[PDF Debug] Starting canvas rendering...');
+      console.log('[PDF Debug] ======= PDF GENERATION START =======');
+      console.log('[PDF Debug] Timestamp:', new Date().toISOString());
       console.log('[PDF Debug] User Agent:', navigator.userAgent);
+      console.log('[PDF Debug] Element ID:', element.id);
+
+      // === A. Theme / Dark Mode State ===
+      const htmlClassList = document.documentElement.className;
+      const bodyClassList = document.body.className;
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      console.log('[PDF Debug] Theme State:', {
+        htmlClasses: htmlClassList || '(none)',
+        bodyClasses: bodyClassList || '(none)',
+        prefersDarkScheme: prefersDark,
+        colorScheme: getComputedStyle(document.documentElement).colorScheme,
+      });
+
+      // === B. CSS Variable Resolution (root vs element) ===
+      const rootStyles = getComputedStyle(document.documentElement);
+      const elementStyles = getComputedStyle(element);
+      console.log('[PDF Debug] CSS Variables (root):', {
+        '--foreground': rootStyles.getPropertyValue('--foreground').trim(),
+        '--background': rootStyles.getPropertyValue('--background').trim(),
+        '--card': rootStyles.getPropertyValue('--card').trim(),
+        '--card-foreground': rootStyles.getPropertyValue('--card-foreground').trim(),
+        '--muted-foreground': rootStyles.getPropertyValue('--muted-foreground').trim(),
+      });
+      console.log('[PDF Debug] Computed Styles (element):', {
+        color: elementStyles.color,
+        backgroundColor: elementStyles.backgroundColor,
+        visibility: elementStyles.visibility,
+        display: elementStyles.display,
+        opacity: elementStyles.opacity,
+      });
+
+      // === C. DOM Content Check ===
+      const innerTextSnippet = element.innerText?.substring(0, 500) || '(empty)';
+      const childCount = element.querySelectorAll('*').length;
+      const textNodes = element.querySelectorAll('p, span, td, th, h1, h2, h3, h4, h5, h6, div');
+      const visibleTextNodes = Array.from(textNodes).filter(node => {
+        const cs = getComputedStyle(node);
+        return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
+      });
+      console.log('[PDF Debug] DOM Content:', {
+        childElementCount: childCount,
+        totalTextNodes: textNodes.length,
+        visibleTextNodes: visibleTextNodes.length,
+        innerTextLength: element.innerText?.length || 0,
+        innerTextSnippet,
+      });
+
+      // === D. Color Visibility Check ===
+      // Check if text color would be invisible on white background
+      const firstTextEl = element.querySelector('p, span, td') as HTMLElement | null;
+      if (firstTextEl) {
+        const firstTextStyles = getComputedStyle(firstTextEl);
+        console.log('[PDF Debug] First text element color check:', {
+          tagName: firstTextEl.tagName,
+          className: firstTextEl.className,
+          text: firstTextEl.textContent?.substring(0, 80),
+          color: firstTextStyles.color,
+          backgroundColor: firstTextStyles.backgroundColor,
+        });
+      }
+
       console.log('[PDF Debug] Element dimensions:', {
         scrollWidth: element.scrollWidth,
         scrollHeight: element.scrollHeight,
@@ -209,12 +271,56 @@ export function useDocumentActions() {
           // Add timeout for proxy loading
           proxy: undefined,
           onclone: (clonedDoc) => {
-            console.log('[PDF Debug] Document cloned for canvas rendering');
+            // === DEBUG: Capture clone state BEFORE our fixes ===
+            const clonedHtmlClasses = clonedDoc.documentElement.className;
+            const clonedBodyClasses = clonedDoc.body.className;
+            console.log('[PDF Debug] Clone state BEFORE fix:', {
+              htmlClasses: clonedHtmlClasses || '(none)',
+              bodyClasses: clonedBodyClasses || '(none)',
+              '--foreground (clone root)': clonedDoc.documentElement.style.getPropertyValue('--foreground') || getComputedStyle(clonedDoc.documentElement).getPropertyValue('--foreground').trim(),
+            });
+
+            // CRITICAL FIX: Force light mode on the cloned document.
+            // When the app is in dark mode, CSS custom properties (--foreground,
+            // --muted-foreground, etc.) resolve to light/white colors. Combined
+            // with a white canvas background, this makes ALL text invisible.
+            // By forcing light mode in the clone, we ensure dark text on white
+            // background regardless of the user's theme setting.
+            clonedDoc.documentElement.classList.remove('dark');
+            clonedDoc.body.classList.remove('dark');
+
+            // Also force light-mode CSS variables directly on :root as a
+            // fallback in case stylesheets don't load in the cloned document.
+            const root = clonedDoc.documentElement;
+            root.style.setProperty('--background', '220 14% 96%');
+            root.style.setProperty('--foreground', '224 71% 4%');
+            root.style.setProperty('--card', '0 0% 100%');
+            root.style.setProperty('--card-foreground', '224 71% 4%');
+            root.style.setProperty('--popover', '0 0% 100%');
+            root.style.setProperty('--popover-foreground', '224 71% 4%');
+            root.style.setProperty('--muted', '220 14% 96%');
+            root.style.setProperty('--muted-foreground', '220 9% 46%');
+            root.style.setProperty('--secondary', '220 14% 96%');
+            root.style.setProperty('--secondary-foreground', '224 71% 4%');
+            root.style.setProperty('--border', '220 13% 91%');
+            root.style.setProperty('--input', '220 13% 91%');
+
             // Ensure all computed styles are applied in the clone
             const clonedElement = clonedDoc.getElementById(element.id);
             if (clonedElement) {
               clonedElement.style.display = 'block';
               clonedElement.style.visibility = 'visible';
+
+              // === DEBUG: Verify fix was applied ===
+              const clonedComputed = clonedDoc.defaultView?.getComputedStyle(clonedElement);
+              console.log('[PDF Debug] Clone state AFTER fix:', {
+                htmlClasses: clonedDoc.documentElement.className || '(none)',
+                elementColor: clonedComputed?.color,
+                elementBg: clonedComputed?.backgroundColor,
+                '--foreground (after)': getComputedStyle(clonedDoc.documentElement).getPropertyValue('--foreground').trim(),
+                innerTextLength: clonedElement.innerText?.length || 0,
+                innerTextSnippet: clonedElement.innerText?.substring(0, 200) || '(empty)',
+              });
             }
           },
         }),
@@ -512,6 +618,11 @@ export function useDocumentActions() {
           : 'Could not generate PDF. Please try again.',
         variant: 'destructive',
       });
+
+      // Always clean up hidden preview state, even on failure.
+      // Without this, the controlling state (e.g. invoiceForDownload)
+      // is never cleared and the off-screen DOM node persists forever.
+      onComplete?.();
     }
   }, [buildPaginatedPdf, buildSinglePagePdf, toast]);
 
