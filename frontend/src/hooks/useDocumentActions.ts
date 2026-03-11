@@ -292,6 +292,19 @@ export function useDocumentActions() {
             // Also force light-mode CSS variables directly on :root as a
             // fallback in case stylesheets don't load in the cloned document.
             const root = clonedDoc.documentElement;
+
+            // CRITICAL FIX for Arabic/Kuwait devices:
+            // On devices with Arabic OS locale, the cloned document's <html>
+            // element can inherit RTL direction from the browser, flipping the
+            // layout. Force LTR so the invoice always renders left-to-right.
+            // Also force colorScheme to 'light' so the browser doesn't apply
+            // dark-mode native rendering (form fields, scrollbars, system UI)
+            // even when the OS dark mode is on — this affects the cloned iframe
+            // independently of our CSS variable overrides.
+            root.dir = 'ltr';
+            root.lang = 'en';
+            root.style.colorScheme = 'light';
+
             root.style.setProperty('--background', '220 14% 96%');
             root.style.setProperty('--foreground', '224 71% 4%');
             root.style.setProperty('--card', '0 0% 100%');
