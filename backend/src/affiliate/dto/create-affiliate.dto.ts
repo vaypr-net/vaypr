@@ -15,7 +15,11 @@ export class CreateAffiliateDto {
   code: string;
 
   @IsOptional()
-  @IsEnum(['Bronze', 'Silver', 'Gold', 'Platinum'])
+  @IsString()
+  commissionPlanId?: string;
+
+  @IsOptional()
+  @IsString()
   tier?: string;
 
   @IsOptional()

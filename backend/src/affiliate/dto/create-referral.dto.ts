@@ -16,8 +16,9 @@ export class CreateReferralDto {
   @IsNumber()
   amount: number;
 
+  @IsOptional()
   @IsNumber()
-  commission: number;
+  commission?: number;
 
   @IsOptional()
   @IsEnum(['pending', 'approved', 'paid', 'rejected'])

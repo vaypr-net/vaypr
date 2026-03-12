@@ -1,5 +1,5 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 @Schema()
 export class Affiliate extends Document {
@@ -15,7 +15,10 @@ export class Affiliate extends Document {
   @Prop({ required: true, unique: true })
   code: string;
 
-  @Prop({ enum: ['Bronze', 'Silver', 'Gold', 'Platinum'], default: 'Bronze' })
+  @Prop({ type: Types.ObjectId, ref: 'CommissionPlan', default: null })
+  commissionPlanId?: Types.ObjectId;
+
+  @Prop({ default: '' })
   tier: string;
 
   @Prop({ default: 0 })

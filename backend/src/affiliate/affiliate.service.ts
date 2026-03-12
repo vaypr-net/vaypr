@@ -100,6 +100,7 @@ export class AffiliateService {
     const total = await this.affiliateModel.countDocuments(query);
     const items = await this.affiliateModel
       .find(query)
+      .populate('commissionPlanId')
       .sort({ earnings: -1 })
       .limit(limit)
       .skip(offset);
@@ -124,7 +125,7 @@ export class AffiliateService {
   }
 
   async getAffiliateById(id: string): Promise<Affiliate> {
-    const affiliate = await this.affiliateModel.findById(id);
+    const affiliate = await this.affiliateModel.findById(id).populate('commissionPlanId');
     if (!affiliate) {
       throw new NotFoundException('Affiliate not found');
     }
@@ -144,7 +145,7 @@ export class AffiliateService {
       id,
       { ...updateAffiliateDto, updatedAt: new Date() },
       { new: true }
-    );
+    ).populate('commissionPlanId');
     if (!affiliate) {
       throw new NotFoundException('Affiliate not found');
     }
@@ -172,7 +173,7 @@ export class AffiliateService {
       id, 
       { status, updatedAt: new Date() }, 
       { new: true }
-    );
+    ).populate('commissionPlanId');
     if (!affiliate) {
       throw new NotFoundException('Affiliate not found');
     }
@@ -345,8 +346,26 @@ export class AffiliateService {
   // ==================== REFERRAL TRACKING ====================
 
   async createReferral(createReferralDto: CreateReferralDto): Promise<Referral> {
+    // Auto-calculate commission from the affiliate's linked commission plan
+    let commission = createReferralDto.commission ?? 0;
+
+    const affiliate = await this.affiliateModel
+      .findById(createReferralDto.affiliateId)
+      .populate('commissionPlanId');
+
+    if (affiliate && affiliate.commissionPlanId) {
+      const plan = affiliate.commissionPlanId as any;
+      if (plan.commissionType === 'percentage') {
+        commission = (createReferralDto.amount * plan.commissionValue) / 100;
+      } else {
+        // fixed amount
+        commission = plan.commissionValue;
+      }
+    }
+
     const referral = new this.referralModel({
       ...createReferralDto,
+      commission,
       conversionDate: new Date(),
     });
     return await referral.save();
