@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { EmailService } from '@/api/services/email.service';
 import { SenderSelector } from '@/components/settings/SenderSelector';
+import { SearchableClientSelect } from '@/components/ui/searchable-client-select';
 import {
   Dialog,
   DialogContent,
@@ -859,18 +860,12 @@ ${getReceiptCompanyName(receipt)}`);
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Select Existing Client</Label>
-                <Select onValueChange={handleClientSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a client..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientsArray.map((client) => (
-                      <SelectItem key={client._id} value={client._id}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableClientSelect
+                  value={formData.clientId ?? ''}
+                  onValueChange={handleClientSelect}
+                  clients={clientsArray}
+                  placeholder="Choose a client..."
+                />
               </div>
               <div className="space-y-2">
                 <Label>Or Enter Name</Label>

@@ -2,6 +2,7 @@ import { useState, type ChangeEvent } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRecurringAPI, useCreateRecurring, useUpdateRecurring, useDeleteRecurring, useToggleRecurring, useGenerateInvoice } from '@/hooks/api/useRecurring';
 import { useClients } from '@/hooks/api/useClients';
+import { SearchableClientSelect } from '@/components/ui/searchable-client-select';
 import { useEmailSettings } from '@/hooks/api/useEmailSettings';
 import { EmailService } from '@/api/services/email.service';
 import { Button } from '@/components/ui/button';
@@ -1001,16 +1002,12 @@ Best regards,
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Client</Label>
-                  <Select value={formData.clientId} onValueChange={handleClientChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientsArray.map((client) => (
-                        <SelectItem key={client._id} value={client._id}>{client.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableClientSelect
+                    value={formData.clientId}
+                    onValueChange={handleClientChange}
+                    clients={clientsArray}
+                    placeholder="Select client"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Frequency</Label>

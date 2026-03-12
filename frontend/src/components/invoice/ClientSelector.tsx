@@ -1,8 +1,12 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState } from "react";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useClients } from "@/hooks/api/useClients";
-import { Building2, User, Users, Loader2 } from "lucide-react";
+import { Building2, User, Users, Loader2, ChevronsUpDown, Check } from "lucide-react";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface ClientSelectorProps {
   value: string;
@@ -13,6 +17,7 @@ interface ClientSelectorProps {
 
 export function ClientSelector({ value, onChange, onClientSelect, label = "Customer Name" }: ClientSelectorProps) {
   const { data: clients = [], isLoading } = useClients();
+  const [open, setOpen] = useState(false);
 
   const companies = clients.filter(c => c.clientType === 'company');
   const individuals = clients.filter(c => c.clientType === 'individual');
@@ -21,11 +26,11 @@ export function ClientSelector({ value, onChange, onClientSelect, label = "Custo
     const client = clients.find(c => c._id === clientId);
     if (client) {
       onChange(client.name);
-      // Also call onClientSelect if provided to populate other fields
       if (onClientSelect) {
         onClientSelect(client);
       }
     }
+    setOpen(false);
   };
 
   // Find current selected client by name to show in the trigger
@@ -46,55 +51,84 @@ export function ClientSelector({ value, onChange, onClientSelect, label = "Custo
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Select value={selectedClient?._id || ""} onValueChange={handleClientSelect}>
-        <SelectTrigger className="bg-background">
-          <SelectValue placeholder="Select a client" />
-        </SelectTrigger>
-        <SelectContent className="bg-background z-50">
-          {clients.length === 0 ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">
-              <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p>No clients found</p>
-            </div>
-          ) : (
-            <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between bg-background font-normal hover:bg-background hover:text-foreground active:bg-background focus:bg-background"
+          >
+            {selectedClient ? (
+              <span className="flex items-center gap-2">
+                {selectedClient.clientType === 'company' ? (
+                  <Building2 className="w-4 h-4 text-primary shrink-0" />
+                ) : (
+                  <User className="w-4 h-4 shrink-0" />
+                )}
+                {selectedClient.name}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Select a client</span>
+            )}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50" align="start">
+          <Command>
+            <CommandInput placeholder="Search clients..." />
+            <CommandList>
+              <CommandEmpty>
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  <Users className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                  {clients.length === 0 ? "No clients found." : "No matching clients."}
+                </div>
+              </CommandEmpty>
               {companies.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
-                    <Building2 className="w-3 h-3" />
-                    Companies
-                  </div>
+                <CommandGroup heading="Companies">
                   {companies.map((client) => (
-                    <SelectItem key={client._id} value={client._id}>
-                      <span className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-primary" />
-                        {client.name}
-                      </span>
-                    </SelectItem>
+                    <CommandItem
+                      key={client._id}
+                      value={client.name}
+                      onSelect={() => handleClientSelect(client._id)}
+                    >
+                      <Building2 className="mr-2 h-4 w-4 text-primary shrink-0" />
+                      {client.name}
+                      <Check
+                        className={cn(
+                          "ml-auto h-4 w-4",
+                          selectedClient?._id === client._id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </CommandItem>
                   ))}
-                </>
+                </CommandGroup>
               )}
               {individuals.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2 mt-2">
-                    <User className="w-3 h-3" />
-                    Individuals
-                  </div>
+                <CommandGroup heading="Individuals">
                   {individuals.map((client) => (
-                    <SelectItem key={client._id} value={client._id}>
-                      <span className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-secondary-foreground" />
-                        {client.name}
-                      </span>
-                    </SelectItem>
+                    <CommandItem
+                      key={client._id}
+                      value={client.name}
+                      onSelect={() => handleClientSelect(client._id)}
+                    >
+                      <User className="mr-2 h-4 w-4 shrink-0" />
+                      {client.name}
+                      <Check
+                        className={cn(
+                          "ml-auto h-4 w-4",
+                          selectedClient?._id === client._id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </CommandItem>
                   ))}
-                </>
+                </CommandGroup>
               )}
-            </>
-          )}
-        </SelectContent>
-      </Select>
-      
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
       {clients.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No clients yet.{" "}

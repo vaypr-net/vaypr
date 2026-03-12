@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { EmailService } from '@/api/services/email.service';
 import { InvoiceService } from '@/api/services/invoice.service';
 import { SenderSelector } from '@/components/settings/SenderSelector';
+import { SearchableClientSelect } from '@/components/ui/searchable-client-select';
 import {
   Table,
   TableBody,
@@ -771,16 +772,12 @@ ${companyName}`;
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Client</Label>
-                  <Select value={formData.clientId} onValueChange={(v) => setFormData({ ...formData, clientId: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientsArray.map((client) => (
-                        <SelectItem key={client._id} value={client._id}>{client.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableClientSelect
+                    value={formData.clientId}
+                    onValueChange={(v) => setFormData({ ...formData, clientId: v })}
+                    clients={clientsArray}
+                    placeholder="Select client"
+                  />
                   {clientsArray.length === 0 && (
                     <p className="text-xs text-muted-foreground">No clients yet. Add a client first.</p>
                   )}
