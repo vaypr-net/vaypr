@@ -9,6 +9,8 @@ export interface SuperadminSettings {
   notifyPaymentAlerts: boolean;
   notifySupportTickets: boolean;
   twoFactorEnabled: boolean;
+  openaiApiKey?: string;
+  systemPrompt?: string;
 }
 
 export interface UpsertSuperadminSettingsDto {
@@ -19,6 +21,8 @@ export interface UpsertSuperadminSettingsDto {
   notifyPaymentAlerts?: boolean;
   notifySupportTickets?: boolean;
   twoFactorEnabled?: boolean;
+  openaiApiKey?: string;
+  systemPrompt?: string;
 }
 
 export interface ChangePasswordDto {
@@ -47,6 +51,14 @@ export const SuperadminSettingsService = {
 
   async changePassword(data: ChangePasswordDto): Promise<{ message: string }> {
     const response = await axios.patch<{ message: string }>(`${BASE_URL}/change-password`, data);
+    return response.data;
+  },
+
+  async aiChat(message: string, analyticsContext?: string): Promise<{ reply: string }> {
+    const response = await axios.post<{ reply: string }>(`${BASE_URL}/ai-chat`, {
+      message,
+      analyticsContext,
+    });
     return response.data;
   },
 };

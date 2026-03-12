@@ -77,3 +77,18 @@ export function useGetAuditLogs(limit: number = 50, offset: number = 0) {
     queryFn: () => AuditLogService.getAuditLogs(limit, offset),
   });
 }
+
+export function useAiChat() {
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: ({ message, analyticsContext }: { message: string; analyticsContext?: string }) =>
+      SuperadminSettingsService.aiChat(message, analyticsContext),
+    onError: (error: any) => {
+      toast({
+        title: 'AI Error',
+        description: error?.response?.data?.message || 'Failed to get AI response.',
+        variant: 'destructive',
+      });
+    },
+  });
+}

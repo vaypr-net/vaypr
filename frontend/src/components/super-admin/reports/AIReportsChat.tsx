@@ -9,12 +9,14 @@ import {
   TrendingDown,
   BarChart3,
   Lightbulb,
-  Loader2
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { useAiChat } from "@/hooks/api/useSuperadminSettings";
 
 interface Message {
   id: string;
@@ -25,6 +27,11 @@ interface Message {
     type: "positive" | "negative" | "neutral";
     metric?: string;
   };
+  error?: boolean;
+}
+
+interface AIReportsChatProps {
+  analytics?: any;
 }
 
 const suggestedQuestions = [
@@ -34,52 +41,54 @@ const suggestedQuestions = [
   "What's our affiliate performance like?",
 ];
 
-const mockResponses: Record<string, { content: string; insights?: Message["insights"] }> = {
-  "mrr": {
-    content: "Your MRR has grown by 12.4% this month, reaching 45,000 KD. The primary drivers are:\n\n• **Enterprise plan upgrades**: 23 customers upgraded from Pro\n• **New acquisitions**: 156 new paid subscribers\n• **Reduced churn**: Down 2.1% from last month\n\nRecommendation: Focus on enterprise onboarding to maintain this momentum.",
-    insights: { type: "positive", metric: "+12.4% MRR" }
-  },
-  "conversion": {
-    content: "Trial-to-paid conversion is at **38%** this month, up from 35% last month.\n\n📈 **Key factors**:\n• Improved onboarding emails (+5% open rate)\n• New feature demos during trial\n• Proactive support outreach on day 7\n\n💡 **Opportunity**: Users who engage with 3+ features convert at 52%. Consider guided feature discovery.",
-    insights: { type: "positive", metric: "38% conversion" }
-  },
-  "plan": {
-    content: "Revenue distribution by plan:\n\n• **Enterprise**: 42% (18,900 KD) - Highest LTV\n• **Pro**: 35% (15,750 KD) - Best volume\n• **Basic**: 18% (8,100 KD) - Entry point\n• **Starter**: 5% (2,250 KD) - Trial conversions\n\n🎯 **Insight**: Enterprise customers have 3x lower churn. Consider incentivizing Pro→Enterprise upgrades.",
-    insights: { type: "neutral", metric: "Enterprise leads at 42%" }
-  },
-  "affiliate": {
-    content: "Affiliate program performance this month:\n\n• **Total referrals**: 312 (+17% vs last month)\n• **Conversions**: 102 (32.7% rate)\n• **Top performer**: affiliate_jane with 45 conversions\n• **Commission paid**: 4,580 KD\n\n⚠️ **Note**: Bottom 20% of affiliates generated only 3% of referrals. Consider a tiered incentive structure.",
-    insights: { type: "positive", metric: "312 referrals" }
-  },
-  "default": {
-    content: "Based on your current analytics:\n\n• **Total revenue**: 45,000 KD (+11.4% MoM)\n• **Active subscribers**: 4,003 (+8.7%)\n• **Churn rate**: 3.2% (industry avg: 5-7%)\n• **NRR**: 108% (strong expansion)\n\nYour platform is performing above industry benchmarks. Key focus areas should be enterprise expansion and reducing trial drop-off.",
-    insights: { type: "positive", metric: "108% NRR" }
-  }
-};
+function buildAnalyticsContext(analytics: any): string {
+  if (!analytics) return "";
+  const lines: string[] = [];
 
-function getResponse(question: string): { content: string; insights?: Message["insights"] } {
-  const q = question.toLowerCase();
-  if (q.includes("mrr") || q.includes("revenue growth") || q.includes("driving")) {
-    return mockResponses.mrr;
+  if (analytics.metrics?.length) {
+    lines.push("Key Metrics:");
+    analytics.metrics.forEach((m: any) => {
+      lines.push(`  ${m.label}: ${m.value} (${m.positive ? "+" : ""}${m.changePercent}% MoM)`);
+    });
   }
-  if (q.includes("conversion") || q.includes("trial") || q.includes("trending")) {
-    return mockResponses.conversion;
+
+  if (analytics.secondaryMetrics?.length) {
+    lines.push("Secondary Metrics:");
+    analytics.secondaryMetrics.forEach((m: any) => {
+      lines.push(`  ${m.label}: ${m.value} (${m.positive ? "+" : ""}${m.changePercent}% MoM)`);
+    });
   }
-  if (q.includes("plan") || q.includes("generates") || q.includes("distribution")) {
-    return mockResponses.plan;
+
+  if (analytics.revenueByMonth?.length) {
+    lines.push("Revenue by Month (last 6 entries):");
+    analytics.revenueByMonth.slice(-6).forEach((r: any) => {
+      lines.push(`  ${r.month}: ${r.mrr} KD`);
+    });
   }
-  if (q.includes("affiliate") || q.includes("referral") || q.includes("partner")) {
-    return mockResponses.affiliate;
+
+  if (analytics.planDistributionData?.length) {
+    lines.push("Plan Distribution:");
+    analytics.planDistributionData.forEach((p: any) => {
+      lines.push(`  ${p.name}: ${p.value}%`);
+    });
   }
-  return mockResponses.default;
+
+  if (analytics.affiliatePerformance?.length) {
+    lines.push("Affiliate Performance (last 3 months):");
+    analytics.affiliatePerformance.slice(-3).forEach((a: any) => {
+      lines.push(`  ${a.month}: ${a.referrals} referrals, ${a.conversions} conversions`);
+    });
+  }
+
+  return lines.join("\n");
 }
 
-export default function AIReportsChat() {
+export default function AIReportsChat({ analytics }: AIReportsChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const aiChat = useAiChat();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -88,8 +97,8 @@ export default function AIReportsChat() {
   }, [messages]);
 
   const handleSend = async (text?: string) => {
-    const messageText = text || input;
-    if (!messageText.trim() || isTyping) return;
+    const messageText = (text || input).trim();
+    if (!messageText || aiChat.isPending) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -100,22 +109,35 @@ export default function AIReportsChat() {
 
     setMessages(prev => [...prev, userMessage]);
     setInput("");
-    setIsTyping(true);
 
-    // Simulate AI thinking
-    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
+    const analyticsContext = buildAnalyticsContext(analytics);
 
-    const response = getResponse(messageText);
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: response.content,
-      timestamp: new Date(),
-      insights: response.insights,
-    };
+    try {
+      const result = await aiChat.mutateAsync({ message: messageText, analyticsContext });
 
-    setMessages(prev => [...prev, assistantMessage]);
-    setIsTyping(false);
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: result.reply,
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error: any) {
+      const errText =
+        error?.response?.data?.message ||
+        "Failed to get AI response. Please add your OpenAI API key in the AI Provider Settings below.";
+
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: errText,
+        timestamp: new Date(),
+        error: true,
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -189,14 +211,20 @@ export default function AIReportsChat() {
                   className={`flex gap-3 ${message.role === "user" ? "justify-end" : ""}`}
                 >
                   {message.role === "assistant" && (
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-4 h-4 text-primary-foreground" />
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${message.error ? "bg-destructive/20" : "bg-gradient-to-br from-primary to-primary/60"}`}>
+                      {message.error ? (
+                        <AlertCircle className="w-4 h-4 text-destructive" />
+                      ) : (
+                        <Bot className="w-4 h-4 text-primary-foreground" />
+                      )}
                     </div>
                   )}
                   <div
                     className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                       message.role === "user"
                         ? "bg-primary text-primary-foreground rounded-br-md"
+                        : message.error
+                        ? "bg-destructive/10 border border-destructive/20 rounded-bl-md"
                         : "bg-muted/50 rounded-bl-md"
                     }`}
                   >
@@ -236,7 +264,7 @@ export default function AIReportsChat() {
               ))}
             </AnimatePresence>
             
-            {isTyping && (
+            {aiChat.isPending && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -267,11 +295,11 @@ export default function AIReportsChat() {
             onKeyDown={handleKeyPress}
             placeholder="Ask about your analytics..."
             className="flex-1"
-            disabled={isTyping}
+            disabled={aiChat.isPending}
           />
           <Button 
             onClick={() => handleSend()} 
-            disabled={!input.trim() || isTyping}
+            disabled={!input.trim() || aiChat.isPending}
             size="icon"
           >
             <Send className="w-4 h-4" />

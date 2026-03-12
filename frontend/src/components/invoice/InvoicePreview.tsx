@@ -92,7 +92,7 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
           </div>
 
           {/* Invoice Title & Meta */}
-          <div className="text-right">
+          <div className="text-right self-start">
             <h2 className="text-2xl font-bold mb-2" style={{ color: resolvedTableHeaderColor }}>Invoice</h2>
             <div className="text-sm space-y-0.5">
               <p className="text-foreground">
@@ -143,14 +143,14 @@ export function InvoicePreview({ data, previewId = "invoice-preview" }: InvoiceP
                 className="text-white"
                 style={{ backgroundColor: resolvedTableHeaderColor }}
               >
-                <th className="text-left py-3 px-4 font-semibold">Item description</th>
-                <th className={showQuantity ? "text-center py-3 px-3 font-semibold" : ""} style={!showQuantity ? { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 } : {}}>
+                <th className="text-left py-3 px-4 font-semibold" style={{ verticalAlign: 'middle' }}>Item description</th>
+                <th className={showQuantity ? "text-center py-3 px-3 font-semibold" : ""} style={!showQuantity ? { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 } : { verticalAlign: 'middle' }}>
                   {showQuantity ? 'Qty.' : ''}
                 </th>
-                <th className={showUnitPrice ? "text-right py-3 px-3 font-semibold" : ""} style={!showUnitPrice ? { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 } : {}}>
+                <th className={showUnitPrice ? "text-right py-3 px-3 font-semibold" : ""} style={!showUnitPrice ? { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 } : { verticalAlign: 'middle' }}>
                   {showUnitPrice ? 'Unit Price' : ''}
                 </th>
-                <th className={showTotalCost ? "text-right py-3 px-4 font-semibold" : ""} style={!showTotalCost ? { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 } : {}}>
+                <th className={showTotalCost ? "text-right py-3 px-4 font-semibold" : ""} style={!showTotalCost ? { padding: 0, fontSize: 0, overflow: 'hidden', border: 'none', lineHeight: 0 } : { verticalAlign: 'middle' }}>
                   {showTotalCost ? 'Total Cost' : ''}
                 </th>
               </tr>

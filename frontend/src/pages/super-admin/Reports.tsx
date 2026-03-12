@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Download, 
   Zap,
   CheckCircle,
+  XCircle,
   RotateCcw,
   MessageSquare,
   Sparkles,
-  Save
+  Save,
+  Loader2,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import AIReportsChat from "@/components/super-admin/reports/AIReportsChat";
 import { Button } from "@/components/ui/button";
@@ -24,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/currency";
 import { useReportsAnalytics } from "@/hooks/api/useReports";
+import { useGetSuperadminSettings, useUpsertSuperadminSettings } from "@/hooks/api/useSuperadminSettings";
 import { 
   XAxis, 
   YAxis, 
@@ -41,7 +46,51 @@ import {
 
 export default function Reports() {
   const [testStatus, setTestStatus] = useState<"idle" | "success" | "error">("idle");
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [systemPrompt, setSystemPrompt] = useState("");
   const { data: analytics } = useReportsAnalytics();
+  const { data: settings } = useGetSuperadminSettings();
+  const upsertSettings = useUpsertSuperadminSettings();
+
+  const DEFAULT_SYSTEM_PROMPT =
+    "You are a financial analyst assistant for VAYPR. Analyze subscription metrics with focus on MRR growth, churn reduction, and customer lifetime value. Provide actionable insights and flag any concerning trends.";
+
+  useEffect(() => {
+    if (settings) {
+      setApiKey(settings.openaiApiKey || "");
+      setSystemPrompt(settings.systemPrompt || DEFAULT_SYSTEM_PROMPT);
+    }
+  }, [settings]);
+
+  const handleSaveApiKey = () => {
+    upsertSettings.mutate({ openaiApiKey: apiKey } as any);
+  };
+
+  const handleSavePrompt = () => {
+    upsertSettings.mutate({ systemPrompt } as any);
+  };
+
+  const handleResetPrompt = () => {
+    setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
+  };
+
+  const handleTestConnection = async () => {
+    if (!apiKey.trim()) return;
+    setTestingConnection(true);
+    setTestStatus("idle");
+    try {
+      const res = await fetch("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      setTestStatus(res.ok ? "success" : "error");
+    } catch {
+      setTestStatus("error");
+    } finally {
+      setTestingConnection(false);
+    }
+  };
 
   const metrics = analytics?.metrics || [
     { label: "Affiliate Referrals", value: 0, changePercent: 0, positive: true },
@@ -271,7 +320,7 @@ export default function Reports() {
 
         <TabsContent value="api-config" className="mt-6 space-y-6">
           {/* AI Chat Section */}
-          <AIReportsChat />
+          <AIReportsChat analytics={analytics} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card-admin">
@@ -290,32 +339,50 @@ export default function Reports() {
                 </div>
                 <div>
                   <Label>API Key</Label>
-                  <Input type="password" defaultValue="sk-••••••••••••••••••••" className="mt-1" />
+                  <div className="flex gap-2 mt-1">
+                    <div className="relative flex-1">
+                      <Input
+                        type={showApiKey ? "text" : "password"}
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="sk-..."
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <Button
+                      onClick={handleSaveApiKey}
+                      disabled={upsertSettings.isPending || !apiKey.trim()}
+                      className="shrink-0"
+                    >
+                      {upsertSettings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                      Save
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <Label>Organization ID (optional)</Label>
-                  <Input placeholder="org-..." className="mt-1" />
-                </div>
-                <div>
-                  <Label>Default Model</Label>
-                  <Select defaultValue="gpt-4">
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gpt-4">GPT-4</SelectItem>
-                      <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                      <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-2 pt-4">
-                  <Button onClick={() => setTestStatus("success")}>
-                    <Zap className="w-4 h-4 mr-2" /> Test Connection
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    onClick={handleTestConnection}
+                    disabled={!apiKey.trim() || testingConnection}
+                  >
+                    {testingConnection ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                    Test Connection
                   </Button>
-                  <Button variant="outline"><RotateCcw className="w-4 h-4 mr-2" /> Rotate Key</Button>
                 </div>
                 {testStatus === "success" && (
                   <div className="flex items-center gap-2 text-green-600 text-sm">
-                    <CheckCircle className="w-4 h-4" /> Connection successful
+                    <CheckCircle className="w-4 h-4" /> Connection successful — API key is valid.
+                  </div>
+                )}
+                {testStatus === "error" && (
+                  <div className="flex items-center gap-2 text-red-600 text-sm">
+                    <XCircle className="w-4 h-4" /> Connection failed — check your API key.
                   </div>
                 )}
               </div>
@@ -337,30 +404,22 @@ export default function Reports() {
               <div className="space-y-4">
                 <textarea
                   className="w-full h-40 p-3 text-sm border border-input rounded-lg bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="You are a financial analyst assistant for VAYPR. When analyzing reports:
-
-• Focus on revenue trends, churn patterns, and subscriber growth
-• Highlight anomalies and potential concerns
-• Provide actionable recommendations
-• Use clear, concise language suitable for executive summaries
-• Compare metrics against industry benchmarks when relevant"
-                  defaultValue="You are a financial analyst assistant for VAYPR. Analyze subscription metrics with focus on MRR growth, churn reduction, and customer lifetime value. Provide actionable insights and flag any concerning trends."
+                  placeholder="You are a financial analyst assistant..."
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
                 />
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
-                      Last saved 2 hours ago
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <RotateCcw className="w-4 h-4 mr-1" /> Reset to Default
-                    </Button>
-                    <Button size="sm">
-                      <Save className="w-4 h-4 mr-1" /> Save Prompt
-                    </Button>
-                  </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={handleResetPrompt}>
+                    <RotateCcw className="w-4 h-4 mr-1" /> Reset to Default
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSavePrompt}
+                    disabled={upsertSettings.isPending || !systemPrompt.trim()}
+                  >
+                    {upsertSettings.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                    Save Prompt
+                  </Button>
                 </div>
               </div>
             </motion.div>
