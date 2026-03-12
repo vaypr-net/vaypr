@@ -30,6 +30,12 @@ export class SuperAdminSettings extends BaseEntity {
 
   @Prop({ default: false })
   twoFactorEnabled: boolean;
+
+  @Prop({ default: '' })
+  openaiApiKey: string;
+
+  @Prop({ default: 'You are a financial analyst assistant. Analyze subscription metrics, revenue trends, churn, and subscriber growth. Provide actionable insights and flag concerning trends.' })
+  systemPrompt: string;
 }
 
 export const SuperAdminSettingsSchema = SchemaFactory.createForClass(SuperAdminSettings);

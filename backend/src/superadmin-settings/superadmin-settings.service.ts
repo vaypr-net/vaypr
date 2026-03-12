@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException, 
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
+import axios from 'axios';
 import { CreateSuperadminSettingsDto } from './dto/create-superadmin-settings.dto';
 import { UpdateSuperadminSettingsDto } from './dto/update-superadmin-settings.dto';
 import { ChangePasswordDto } from '../common/dto/change-password.dto';
@@ -105,5 +106,58 @@ export class SuperadminSettingsService {
     await this.userService.update(userId, { password: hashedPassword });
 
     return { message: 'Password changed successfully' };
+  }
+
+  async aiChat(
+    userId: string,
+    userMessage: string,
+    analyticsContext?: string,
+  ): Promise<{ reply: string }> {
+    const settings = await this.findByUserId(userId);
+
+    if (!settings.openaiApiKey) {
+      throw new BadRequestException(
+        'No OpenAI API key configured. Please add your API key in the AI Provider Settings and save it.',
+      );
+    }
+
+    const defaultSystemPrompt =
+      'You are a financial analyst assistant. Analyze subscription metrics, revenue trends, churn, and subscriber growth. Provide actionable insights and flag concerning trends.';
+
+    const systemPrompt = settings.systemPrompt?.trim() || defaultSystemPrompt;
+
+    const messages: { role: string; content: string }[] = [
+      { role: 'system', content: systemPrompt },
+    ];
+
+    if (analyticsContext) {
+      messages.push({
+        role: 'system',
+        content: `Current platform analytics data:\n${analyticsContext}`,
+      });
+    }
+
+    messages.push({ role: 'user', content: userMessage });
+
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o-mini',
+        messages,
+        max_tokens: 1024,
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${settings.openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    const reply: string =
+      response.data?.choices?.[0]?.message?.content ?? 'No response from AI.';
+
+    return { reply };
   }
 }

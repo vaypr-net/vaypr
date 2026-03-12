@@ -5,6 +5,16 @@ import { CreateSuperadminSettingsDto } from './dto/create-superadmin-settings.dt
 import { UpdateSuperadminSettingsDto } from './dto/update-superadmin-settings.dto';
 import { ChangePasswordDto } from '../common/dto/change-password.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { IsString, IsOptional } from 'class-validator';
+
+class AiChatDto {
+  @IsString()
+  message: string;
+
+  @IsString()
+  @IsOptional()
+  analyticsContext?: string;
+}
 
 @ApiTags('superadmin-settings')
 @ApiBearerAuth()
@@ -31,5 +41,10 @@ export class SuperadminSettingsController {
   @Patch('change-password')
   async changePassword(@Request() req, @Body() changePasswordDto: ChangePasswordDto) {
     return this.service.changePassword(req.user.sub, changePasswordDto);
+  }
+
+  @Post('ai-chat')
+  async aiChat(@Request() req, @Body() body: AiChatDto) {
+    return this.service.aiChat(req.user.sub, body.message, body.analyticsContext);
   }
 }

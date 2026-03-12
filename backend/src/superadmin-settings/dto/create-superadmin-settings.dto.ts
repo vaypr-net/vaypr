@@ -41,4 +41,14 @@ export class CreateSuperadminSettingsDto {
   @IsBoolean()
   @IsOptional()
   twoFactorEnabled?: boolean;
+
+  @ApiProperty({ required: false, default: '' })
+  @IsString()
+  @IsOptional()
+  openaiApiKey?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  systemPrompt?: string;
 }
