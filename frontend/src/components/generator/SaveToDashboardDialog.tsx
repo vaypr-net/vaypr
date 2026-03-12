@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileText, Receipt, FileCheck, ArrowRight, Building2, User, AlertCircle, Loader2 } from "lucide-react";
+import { FileText, Receipt, FileCheck, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,13 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableClientSelect } from "@/components/ui/searchable-client-select";
 import { useCreateInvoice, useUpdateInvoice } from "@/hooks/api/useInvoices";
 import { useCreateQuote, useUpdateQuote } from "@/hooks/api/useQuotes";
 import { useCreateReceipt, useUpdateReceipt } from "@/hooks/api/useReceipts";
@@ -65,11 +59,6 @@ export function SaveToDashboardDialog({
   const [selectedClientId, setSelectedClientId] = useState("");
   const [goToDashboard, setGoToDashboard] = useState(false);
 
-  // Separate clients into companies and individuals
-  const companies = clients.filter(c => c.clientType === 'company');
-  const individuals = clients.filter(c => c.clientType === 'individual' || !c.clientType);
-
-  const selectedClient = clients.find(c => c._id === selectedClientId);
   const isEditingInvoice = documentType === "invoice" && !!editingInvoiceId;
   const isEditingReceipt = documentType === "receipt" && !!editingReceiptId;
   const isEditingQuote = documentType === "quote" && !!editingQuoteId;
@@ -424,49 +413,12 @@ export function SaveToDashboardDialog({
             </Label>
             
             {hasClients ? (
-              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a client or company..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies.length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                        <Building2 className="h-3 w-3" />
-                        Companies
-                      </div>
-                      {companies.map((client) => (
-                        <SelectItem key={client._id} value={client._id} className="text-gray-900 focus:!text-white focus:!bg-purple-600">
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4" />
-                            <span>{client.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                  
-                  {individuals.length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-1 mt-1">
-                        <User className="h-3 w-3" />
-                        Individual Clients
-                      </div>
-                      {individuals.map((client) => (
-                        <SelectItem key={client._id} value={client._id} className="text-gray-900 focus:!text-white focus:!bg-purple-600">
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4" />
-                            <span>{client.name}</span>
-                            {client.company && (
-                              <span className="text-xs">({client.company})</span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
+              <SearchableClientSelect
+                value={selectedClientId}
+                onValueChange={setSelectedClientId}
+                clients={clients}
+                placeholder="Choose a client or company..."
+              />
             ) : (
               <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
                 No clients or companies found
