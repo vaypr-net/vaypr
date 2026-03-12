@@ -24,7 +24,9 @@ export interface Affiliate {
   email: string;
   phone?: string;
   code: string;
-  tier: 'Bronze' | 'Silver' | 'Gold' | 'Platinum';
+  commissionPlanId?: string | CommissionPlan;
+  commissionPlan?: CommissionPlan;
+  tier?: string;
   referrals: number;
   earnings: number;
   pending: number;

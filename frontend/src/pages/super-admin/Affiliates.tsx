@@ -299,7 +299,23 @@ Support Team`
       ),
     },
     { header: "Code", accessor: (row: Affiliate) => <code className="px-2 py-1 bg-muted rounded text-sm">{row.code}</code> },
-    { header: "Tier", accessor: "tier" as keyof Affiliate },
+    {
+      header: "Plan",
+      accessor: (row: Affiliate) => {
+        const plan = row.commissionPlanId && typeof row.commissionPlanId === 'object'
+          ? row.commissionPlanId as any
+          : null;
+        if (!plan) return <span className="text-muted-foreground text-sm">No plan</span>;
+        return (
+          <div>
+            <p className="font-medium text-sm">{plan.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {plan.commissionValue}{plan.commissionType === 'percentage' ? '%' : ' KD'} per referral
+            </p>
+          </div>
+        );
+      },
+    },
     { header: "Referrals", accessor: "referrals" as keyof Affiliate },
     { header: "Earnings", accessor: (row: Affiliate) => formatCurrency(row.earnings) },
     { header: "Pending", accessor: (row: Affiliate) => formatCurrency(row.pending) },
@@ -484,7 +500,7 @@ Support Team`
         "Email",
         "Phone",
         "Code",
-        "Tier",
+        "Plan",
         "Status",
         "Referrals",
         "Earnings",
@@ -498,7 +514,9 @@ Support Team`
         affiliate.email,
         affiliate.phone || "",
         affiliate.code,
-        affiliate.tier,
+        typeof affiliate.commissionPlanId === 'object' && affiliate.commissionPlanId
+          ? (affiliate.commissionPlanId as any).name
+          : '',
         affiliate.status,
         affiliate.referrals,
         affiliate.earnings,
@@ -666,7 +684,7 @@ Support Team`
             </div>
             <DataTable 
               columns={planColumns} 
-              data={commissionPlansData?.items || []} 
+              data={Array.isArray(commissionPlansData) ? commissionPlansData : (commissionPlansData as any)?.items || []} 
               emptyMessage="No commission plans found" 
               emptyIcon={<DollarSign className="w-12 h-12" />}
               isLoading={commissionPlansLoading}
@@ -698,6 +716,7 @@ Support Team`
         open={affiliateDialogOpen}
         onOpenChange={setAffiliateDialogOpen}
         affiliate={editingAffiliate}
+        commissionPlans={Array.isArray(commissionPlansData) ? commissionPlansData : (commissionPlansData as any)?.items || []}
         onSave={handleSaveAffiliate}
       />
 

@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sparkles, AlertCircle } from "lucide-react";
-import { Affiliate } from "@/api/services/affiliate.service";
+import { Affiliate, CommissionPlan } from "@/api/services/affiliate.service";
 import { cn } from "@/lib/utils";
 
 interface AddAffiliateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   affiliate?: Affiliate | null;
+  commissionPlans: CommissionPlan[];
   onSave: (data: Partial<Affiliate>) => void;
 }
 
@@ -40,13 +41,20 @@ const filterPhoneInput = (value: string): string => {
   return value.replace(/[^\d+\s\-()]/g, "");
 };
 
-export function AddAffiliateDialog({ open, onOpenChange, affiliate, onSave }: AddAffiliateDialogProps) {
+export function AddAffiliateDialog({ open, onOpenChange, affiliate, commissionPlans, onSave }: AddAffiliateDialogProps) {
+  const getExistingPlanId = (a: Affiliate | null | undefined): string => {
+    if (!a) return '';
+    if (a.commissionPlanId && typeof a.commissionPlanId === 'object') return (a.commissionPlanId as CommissionPlan)._id;
+    if (typeof a.commissionPlanId === 'string') return a.commissionPlanId;
+    return '';
+  };
+
   const [formData, setFormData] = useState({
     name: affiliate?.name || "",
     email: affiliate?.email || "",
     phone: affiliate?.phone || "",
     code: affiliate?.code || "",
-    tier: affiliate?.tier || "Bronze",
+    commissionPlanId: getExistingPlanId(affiliate),
     status: affiliate?.status || "active",
   });
 
@@ -61,7 +69,7 @@ export function AddAffiliateDialog({ open, onOpenChange, affiliate, onSave }: Ad
       email: affiliate?.email || "",
       phone: affiliate?.phone || "",
       code: affiliate?.code || "",
-      tier: affiliate?.tier || "Bronze",
+      commissionPlanId: getExistingPlanId(affiliate),
       status: affiliate?.status || "active",
     });
     setPhoneError("");
@@ -102,7 +110,7 @@ export function AddAffiliateDialog({ open, onOpenChange, affiliate, onSave }: Ad
     // Backend manages referrals, earnings, pending automatically
     onSave(formData);
     onOpenChange(false);
-    setFormData({ name: "", email: "", phone: "", code: "", tier: "Bronze", status: "active" });
+    setFormData({ name: "", email: "", phone: "", code: "", commissionPlanId: "", status: "active" });
     setPhoneError("");
     setEmailError("");
   };
@@ -190,17 +198,37 @@ export function AddAffiliateDialog({ open, onOpenChange, affiliate, onSave }: Ad
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="tier">Commission Tier</Label>
-              <Select value={formData.tier} onValueChange={(value) => setFormData(prev => ({ ...prev, tier: value }))}>
+              <Label htmlFor="commissionPlanId">Commission Plan</Label>
+              <Select
+                value={formData.commissionPlanId}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, commissionPlanId: value }))}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select tier" />
+                  <SelectValue placeholder="Select a plan" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Bronze">Bronze</SelectItem>
-                  <SelectItem value="Silver">Silver</SelectItem>
-                  <SelectItem value="Gold">Gold</SelectItem>
+                  {(Array.isArray(commissionPlans) ? commissionPlans : []).filter(p => p.isActive).length === 0 && (
+                    <SelectItem value="__none" disabled>
+                      No plans yet — create one first
+                    </SelectItem>
+                  )}
+                  {(Array.isArray(commissionPlans) ? commissionPlans : []).filter(p => p.isActive).map((plan) => (
+                    <SelectItem key={plan._id} value={plan._id}>
+                      {plan.name} — {plan.commissionValue}{plan.commissionType === 'percentage' ? '%' : ' KD'}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {formData.commissionPlanId && (() => {
+                const selected = (Array.isArray(commissionPlans) ? commissionPlans : []).find(p => p._id === formData.commissionPlanId);
+                return selected ? (
+                  <p className="text-xs text-muted-foreground">
+                    {selected.commissionType === 'percentage'
+                      ? `Affiliate earns ${selected.commissionValue}% on each referral`
+                      : `Affiliate earns ${selected.commissionValue} KD fixed per referral`}
+                  </p>
+                ) : null;
+              })()}
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>

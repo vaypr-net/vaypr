@@ -82,8 +82,18 @@ export function ViewAffiliateDialog({ open, onOpenChange, affiliate }: ViewAffil
               <div className="flex items-center gap-3">
                 <Award className="w-4 h-4 text-muted-foreground" />
                 <div className="flex-1">
-                  <div className="text-xs text-muted-foreground">Commission Tier</div>
-                  <Badge variant="outline" className="text-sm">{affiliate.tier}</Badge>
+                  <div className="text-xs text-muted-foreground">Commission Plan</div>
+                  {affiliate.commissionPlanId && typeof affiliate.commissionPlanId === 'object' ? (
+                    <div>
+                      <Badge variant="outline" className="text-sm">{(affiliate.commissionPlanId as any).name}</Badge>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {(affiliate.commissionPlanId as any).commissionValue}
+                        {(affiliate.commissionPlanId as any).commissionType === 'percentage' ? '% per referral' : ' KD per referral'}
+                      </div>
+                    </div>
+                  ) : (
+                    <Badge variant="secondary" className="text-sm">No plan assigned</Badge>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
