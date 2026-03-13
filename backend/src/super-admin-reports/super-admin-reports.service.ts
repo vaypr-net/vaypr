@@ -5,6 +5,10 @@ import { User } from '../user/entities/user.entity';
 import { Transaction } from '../transcations/entities/transcation.entity';
 import { Referral } from '../affiliate/entities/referral.entity';
 import { BillingPlan } from '../billing-plan/entities/billing-plan.entity';
+import { Ticket } from '../tickets/entities/ticket.entity';
+import { Affiliate } from '../affiliate/entities/affiliate.entity';
+import { Coupon } from '../affiliate/entities/coupon.entity';
+import { CommissionPlan } from '../affiliate/entities/commission-plan.entity';
 
 type MonthRange = {
   monthKey: string;
@@ -20,6 +24,10 @@ export class SuperAdminReportsService {
     @InjectModel(Transaction.name) private readonly transactionModel: Model<Transaction>,
     @InjectModel(Referral.name) private readonly referralModel: Model<Referral>,
     @InjectModel(BillingPlan.name) private readonly billingPlanModel: Model<BillingPlan>,
+    @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
+    @InjectModel(Affiliate.name) private readonly affiliateModel: Model<Affiliate>,
+    @InjectModel(Coupon.name) private readonly couponModel: Model<Coupon>,
+    @InjectModel(CommissionPlan.name) private readonly commissionPlanModel: Model<CommissionPlan>,
   ) {}
 
   async getAnalytics() {
@@ -111,10 +119,16 @@ export class SuperAdminReportsService {
 
     const monthRanges = this.buildLastMonths(6);
 
-    const [revenueByMonth, conversionByMonth, affiliatePerformance] = await Promise.all([
+    const [revenueByMonth, conversionByMonth, affiliatePerformance, transactionStats, overviewStats, subscriberStats, ticketStats, affiliateStats, billingPlanStats] = await Promise.all([
       this.getRevenueByMonth(monthRanges),
       this.getConversionByMonth(monthRanges),
       this.getAffiliatePerformanceByMonth(monthRanges),
+      this.getTransactionStats(),
+      this.getOverviewStats(),
+      this.getSubscriberStats(),
+      this.getTicketStats(),
+      this.getAffiliateGlobalStats(),
+      this.getBillingPlanStats(),
     ]);
 
     const planColors = [
@@ -150,6 +164,12 @@ export class SuperAdminReportsService {
       conversionByMonth,
       planDistributionData,
       affiliatePerformance,
+      transactionStats,
+      overviewStats,
+      subscriberStats,
+      ticketStats,
+      affiliateStats,
+      billingPlanStats,
     };
   }
 
@@ -284,6 +304,308 @@ export class SuperAdminReportsService {
       referrals: byMonth.get(range.monthKey)?.referrals || 0,
       conversions: byMonth.get(range.monthKey)?.conversions || 0,
     }));
+  }
+
+  private async getOverviewStats() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const [totalRegistered, canceledThisMonth, newThisMonth, revenueByPlanRaw] = await Promise.all([
+      this.userModel.countDocuments({ isSuperAdmin: { $ne: true } }),
+      this.userModel.countDocuments({
+        isSuperAdmin: { $ne: true },
+        subscriptionCanceledAt: { $gte: startOfMonth, $lt: startOfNextMonth },
+      }),
+      this.userModel.countDocuments({
+        isSuperAdmin: { $ne: true },
+        createdAt: { $gte: startOfMonth, $lt: startOfNextMonth },
+      }),
+      this.transactionModel.aggregate([
+        { $match: { type: 'subscription', status: 'succeeded' } },
+        { $group: { _id: '$plan', revenue: { $sum: '$amount' }, count: { $sum: 1 } } },
+        { $sort: { revenue: -1 } },
+      ]),
+    ]);
+
+    return {
+      totalRegistered,
+      canceledThisMonth,
+      newUsersThisMonth: newThisMonth,
+      revenueByPlan: revenueByPlanRaw.map((r: any) => ({
+        plan: r._id || 'Unknown',
+        revenue: Math.round((r.revenue || 0) * 100) / 100,
+        transactionCount: r.count || 0,
+      })),
+    };
+  }
+
+  private async getSubscriberStats() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [total, active, free, canceled, inactive, revenueAgg, monthlyRevenueAgg, monthlyBilling, yearlyBilling, subscriberList] = await Promise.all([
+      this.userModel.countDocuments({ isSuperAdmin: { $ne: true } }),
+      this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, subscriptionStatus: { $in: ['active', 'trialing', 'past_due'] } }),
+      this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, subscriptionStatus: 'free' }),
+      this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, subscriptionStatus: 'canceled' }),
+      this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, subscriptionStatus: 'incomplete' }),
+      this.transactionModel.aggregate([
+        { $match: { type: 'subscription', status: 'succeeded' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      this.transactionModel.aggregate([
+        { $match: { type: 'subscription', status: 'succeeded', transactionDate: { $gte: startOfMonth } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, billingCycle: 'monthly', subscriptionStatus: { $in: ['active', 'trialing', 'past_due'] } }),
+      this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, billingCycle: 'yearly', subscriptionStatus: { $in: ['active', 'trialing', 'past_due'] } }),
+      this.userModel
+        .find({ isSuperAdmin: { $ne: true } })
+        .select('fullName email subscriptionStatus billingCycle subscriptionAmount currentPeriodEnd subscriptionStartedAt subscriptionCanceledAt createdAt')
+        .populate('planId', 'name')
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+
+    return {
+      total,
+      active,
+      free,
+      canceled,
+      inactive,
+      monthlyBillingSubscribers: monthlyBilling,
+      yearlyBillingSubscribers: yearlyBilling,
+      totalRevenue: Math.round((revenueAgg[0]?.total || 0) * 100) / 100,
+      monthlyRevenue: Math.round((monthlyRevenueAgg[0]?.total || 0) * 100) / 100,
+      subscribers: subscriberList.map((u: any) => ({
+        name: u.fullName || 'Unknown',
+        email: u.email || 'N/A',
+        plan: (u.planId as any)?.name || 'Free',
+        status: u.subscriptionStatus || 'free',
+        billingCycle: u.billingCycle || 'monthly',
+        amount: Math.round((u.subscriptionAmount || 0) * 100) / 100,
+        startedAt: u.subscriptionStartedAt ? new Date(u.subscriptionStartedAt).toLocaleDateString('en-GB') : 'N/A',
+        renewsAt: u.currentPeriodEnd ? new Date(u.currentPeriodEnd).toLocaleDateString('en-GB') : 'N/A',
+        canceledAt: u.subscriptionCanceledAt ? new Date(u.subscriptionCanceledAt).toLocaleDateString('en-GB') : null,
+        joinedAt: u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-GB') : 'N/A',
+      })),
+    };
+  }
+
+  private async getTicketStats() {
+    const [grouped, allTickets] = await Promise.all([
+      this.ticketModel.aggregate([
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+      this.ticketModel
+        .find()
+        .select('subject customerName customerEmail category status priority assignedTo resolvedAt closedAt createdAt')
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+
+    const counts: Record<string, number> = {};
+    let total = 0;
+    for (const row of grouped) {
+      counts[row._id] = row.count || 0;
+      total += row.count || 0;
+    }
+
+    const mapTicket = (t: any) => ({
+      id: t._id?.toString().slice(-8).toUpperCase(),
+      subject: t.subject || 'N/A',
+      customerName: t.customerName || 'Unknown',
+      customerEmail: t.customerEmail || 'N/A',
+      category: t.category || 'N/A',
+      priority: t.priority || 'medium',
+      assignedTo: t.assignedTo || 'Support Team',
+      createdAt: t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') : 'N/A',
+      resolvedAt: t.resolvedAt ? new Date(t.resolvedAt).toLocaleDateString('en-GB') : null,
+    });
+
+    return {
+      open: counts['open'] || 0,
+      pending: counts['pending'] || 0,
+      inProgress: counts['in_progress'] || 0,
+      resolved: counts['resolved'] || 0,
+      closed: counts['closed'] || 0,
+      total,
+      tickets: {
+        open: allTickets.filter((t: any) => t.status === 'open').map(mapTicket),
+        pending: allTickets.filter((t: any) => t.status === 'pending').map(mapTicket),
+        inProgress: allTickets.filter((t: any) => t.status === 'in_progress').map(mapTicket),
+        resolved: allTickets.filter((t: any) => t.status === 'resolved').map(mapTicket),
+        closed: allTickets.filter((t: any) => t.status === 'closed').map(mapTicket),
+      },
+    };
+  }
+
+  private async getAffiliateGlobalStats() {
+    const [totalAffiliates, totalReferrals, commissionAgg, pendingAgg, approvedAgg, affiliateList, referralList, couponList, commissionPlanList] = await Promise.all([
+      this.affiliateModel.countDocuments(),
+      this.referralModel.countDocuments(),
+      this.referralModel.aggregate([{ $group: { _id: null, total: { $sum: '$commission' } } }]),
+      this.affiliateModel.aggregate([{ $group: { _id: null, total: { $sum: '$pending' } } }]),
+      this.referralModel.countDocuments({ status: { $in: ['approved', 'paid'] } }),
+      this.affiliateModel.find().select('name email code tier status referrals earnings pending joinDate').sort({ createdAt: -1 }).lean(),
+      this.referralModel.find().select('affiliateName subscriberName plan conversionDate amount commission status').sort({ conversionDate: -1 }).lean(),
+      this.couponModel.find().select('code discountType discountValue usageLimit usedCount validFrom validUntil status').sort({ createdAt: -1 }).lean(),
+      this.commissionPlanModel.find().select('name subscriptionPlan commissionType commissionValue couponCode couponDiscount cookieWindow minPayout isActive').sort({ createdAt: -1 }).lean(),
+    ]);
+
+    return {
+      totalAffiliates,
+      totalReferrals,
+      approvedReferrals: approvedAgg,
+      totalCommissions: Math.round((commissionAgg[0]?.total || 0) * 100) / 100,
+      pendingPayouts: Math.round((pendingAgg[0]?.total || 0) * 100) / 100,
+      affiliates: affiliateList.map((a: any) => ({
+        name: a.name || 'Unknown',
+        email: a.email || 'N/A',
+        code: a.code || 'N/A',
+        tier: a.tier || 'N/A',
+        status: a.status || 'active',
+        referrals: a.referrals || 0,
+        earnings: Math.round((a.earnings || 0) * 100) / 100,
+        pending: Math.round((a.pending || 0) * 100) / 100,
+        joinDate: a.joinDate ? new Date(a.joinDate).toLocaleDateString('en-GB') : 'N/A',
+      })),
+      referrals: referralList.map((r: any) => ({
+        affiliateName: r.affiliateName || 'Unknown',
+        subscriberName: r.subscriberName || 'Unknown',
+        plan: r.plan || 'N/A',
+        amount: Math.round((r.amount || 0) * 100) / 100,
+        commission: Math.round((r.commission || 0) * 100) / 100,
+        status: r.status || 'pending',
+        date: r.conversionDate ? new Date(r.conversionDate).toLocaleDateString('en-GB') : 'N/A',
+      })),
+      coupons: couponList.map((c: any) => ({
+        code: c.code || 'N/A',
+        discountType: c.discountType || 'fixed',
+        discountValue: c.discountValue || 0,
+        usage: `${c.usedCount || 0} / ${c.usageLimit || 0}`,
+        validFrom: c.validFrom ? new Date(c.validFrom).toLocaleDateString('en-GB') : 'N/A',
+        validUntil: c.validUntil ? new Date(c.validUntil).toLocaleDateString('en-GB') : 'N/A',
+        status: c.status || 'active',
+      })),
+      commissionPlans: commissionPlanList.map((cp: any) => ({
+        name: cp.name || 'N/A',
+        subscriptionPlan: cp.subscriptionPlan || 'N/A',
+        commissionType: cp.commissionType || 'fixed',
+        commissionValue: cp.commissionValue || 0,
+        couponCode: cp.couponCode || null,
+        couponDiscount: cp.couponDiscount || null,
+        cookieWindow: cp.cookieWindow || 30,
+        minPayout: cp.minPayout || 0,
+        isActive: cp.isActive !== false,
+      })),
+    };
+  }
+
+  private async getBillingPlanStats() {
+    const [totalPlans, activePlans, hiddenPlans, archivedPlans, plans] = await Promise.all([
+      this.billingPlanModel.countDocuments(),
+      this.billingPlanModel.countDocuments({ status: 'active' }),
+      this.billingPlanModel.countDocuments({ status: 'hidden' }),
+      this.billingPlanModel.countDocuments({ status: 'archived' }),
+      this.billingPlanModel.find().select('name price interval status features limits subscriberCount isPopular').lean(),
+    ]);
+
+    const totalSubscribers = plans.reduce((sum: number, p: any) => sum + (p.subscriberCount || 0), 0);
+
+    return {
+      totalPlans,
+      activePlans,
+      hiddenPlans,
+      archivedPlans,
+      totalSubscribers,
+      plans: plans.map((p: any) => ({
+        name: p.name || 'Unknown',
+        price: p.price || 0,
+        interval: p.interval || 'monthly',
+        status: p.status || 'active',
+        isPopular: p.isPopular || false,
+        subscribers: p.subscriberCount || 0,
+        features: Array.isArray(p.features) ? p.features : [],
+        limits: p.limits ? {
+          invoices: p.limits.invoices,
+          quotes: p.limits.quotes,
+          clients: p.limits.clients,
+          teamMembers: p.limits.teamMembers,
+          storage: p.limits.storage,
+          receipts: p.limits.receipts,
+          recurringInvoices: p.limits.recurringInvoices,
+          expenseTracking: p.limits.expenseTracking,
+          domains: p.limits.domains,
+        } : {},
+      })),
+    };
+  }
+
+  private async getTransactionStats() {
+    const [
+      successCountAgg,
+      failedCountAgg,
+      refundCountAgg,
+      totalRevenueAgg,
+      refundTotalAgg,
+      allTransactions,
+    ] = await Promise.all([
+      this.transactionModel.aggregate([
+        { $match: { status: 'succeeded' } },
+        { $group: { _id: null, count: { $sum: 1 } } },
+      ]),
+      this.transactionModel.aggregate([
+        { $match: { status: 'failed' } },
+        { $group: { _id: null, count: { $sum: 1 } } },
+      ]),
+      this.transactionModel.aggregate([
+        { $match: { type: 'refund', status: 'refunded' } },
+        { $group: { _id: null, count: { $sum: 1 } } },
+      ]),
+      this.transactionModel.aggregate([
+        { $match: { type: 'subscription', status: 'succeeded' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      this.transactionModel.aggregate([
+        { $match: { type: 'refund', status: 'refunded' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      this.transactionModel
+        .find()
+        .sort({ transactionDate: -1 })
+        .select('transactionId subscriberName subscriberEmail amount currency type provider status plan billingCycle transactionDate')
+        .lean(),
+    ]);
+
+    const mapTx = (tx: any) => ({
+      id: tx.transactionId || tx._id?.toString().slice(-8).toUpperCase(),
+      subscriberName: tx.subscriberName || 'Unknown',
+      subscriberEmail: tx.subscriberEmail || 'N/A',
+      amount: Math.round((tx.amount || 0) * 100) / 100,
+      currency: tx.currency || 'KD',
+      type: tx.type || 'subscription',
+      provider: tx.provider || 'Stripe',
+      status: tx.status || 'pending',
+      plan: tx.plan || 'N/A',
+      billingCycle: tx.billingCycle || 'monthly',
+      date: tx.transactionDate ? new Date(tx.transactionDate).toLocaleDateString('en-GB') : 'N/A',
+    });
+
+    return {
+      successfulCount: successCountAgg[0]?.count || 0,
+      failedCount: failedCountAgg[0]?.count || 0,
+      refundCount: refundCountAgg[0]?.count || 0,
+      totalRevenue: Math.round((totalRevenueAgg[0]?.total || 0) * 100) / 100,
+      refundTotal: Math.round((refundTotalAgg[0]?.total || 0) * 100) / 100,
+      transactions: {
+        succeeded: allTransactions.filter((t: any) => t.status === 'succeeded').map(mapTx),
+        failed: allTransactions.filter((t: any) => t.status === 'failed').map(mapTx),
+        refunded: allTransactions.filter((t: any) => t.status === 'refunded').map(mapTx),
+        pending: allTransactions.filter((t: any) => t.status === 'pending').map(mapTx),
+      },
+    };
   }
 
   private async getEnterpriseCount(beforeDate?: Date): Promise<number> {

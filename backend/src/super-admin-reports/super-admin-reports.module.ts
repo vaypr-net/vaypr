@@ -8,6 +8,10 @@ import { User, UserSchema } from '../user/entities/user.entity';
 import { Transaction, TransactionSchema } from '../transcations/entities/transcation.entity';
 import { Referral, ReferralSchema } from '../affiliate/entities/referral.entity';
 import { BillingPlan, BillingPlanSchema } from '../billing-plan/entities/billing-plan.entity';
+import { Ticket, TicketSchema } from '../tickets/entities/ticket.entity';
+import { Affiliate, AffiliateSchema } from '../affiliate/entities/affiliate.entity';
+import { Coupon, CouponSchema } from '../affiliate/entities/coupon.entity';
+import { CommissionPlan, CommissionPlanSchema } from '../affiliate/entities/commission-plan.entity';
 
 @Module({
   imports: [
@@ -16,6 +20,10 @@ import { BillingPlan, BillingPlanSchema } from '../billing-plan/entities/billing
       { name: Transaction.name, schema: TransactionSchema },
       { name: Referral.name, schema: ReferralSchema },
       { name: BillingPlan.name, schema: BillingPlanSchema },
+      { name: Ticket.name, schema: TicketSchema },
+      { name: Affiliate.name, schema: AffiliateSchema },
+      { name: Coupon.name, schema: CouponSchema },
+      { name: CommissionPlan.name, schema: CommissionPlanSchema },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
