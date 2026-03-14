@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as https from 'https';
-import * as http from 'http';
+import axios from 'axios';
 
 /**
  * PDF generation service for recurring auto-mails.
@@ -40,8 +39,10 @@ export class PdfGeneratorService {
             `[PDF Generator] Logo loaded for ${invoice?.invoiceNumber || 'invoice'} from: ${candidate}`,
           );
           break;
-        } catch {
-          // Try next candidate.
+        } catch (e: any) {
+          this.logger.warn(
+            `[PDF Generator] Logo candidate failed for ${invoice?.invoiceNumber || 'invoice'}: ${candidate} — ${e?.message || e}`,
+          );
         }
       }
       if (!logoBuffer) {
@@ -167,15 +168,22 @@ export class PdfGeneratorService {
     if (bt.other) billLines.push(bt.other);
 
     const BP = 12;
-    const billH = BP * 2 + 18 + billLines.length * 16;
+    const textWidth = CW - BP * 2;
+    // Measure actual height of each line (accounts for text wrapping)
+    doc.font('Helvetica').fontSize(11);
+    const billLineHeights = billLines.map((line) =>
+      Math.max(16, doc.heightOfString(line, { width: textWidth }) + 4),
+    );
+    const billTextH = billLineHeights.reduce((s, h) => s + h, 0);
+    const billH = BP * 2 + 18 + billTextH;
     doc.rect(MARGIN, y, CW, billH).fill('#f3f4f6');
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#111827')
       .text('Billed to', MARGIN + BP, y + BP);
     let billY = y + BP + 18;
     doc.font('Helvetica').fontSize(11).fillColor('#374151');
-    for (const line of billLines) {
-      doc.text(line, MARGIN + BP, billY, { width: CW - BP * 2 });
-      billY += 16;
+    for (let i = 0; i < billLines.length; i++) {
+      doc.text(billLines[i], MARGIN + BP, billY, { width: textWidth });
+      billY += billLineHeights[i];
     }
     y += billH + 16;
 
@@ -294,28 +302,17 @@ export class PdfGeneratorService {
   }
 
   private async fetchImageBuffer(url: string): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      const proto = url.startsWith('https') ? https : http;
-      const req = proto.get(url, {
-        timeout: 12000,
-        headers: {
-          'User-Agent': 'VAYPR-PDF/1.0',
-          Accept: 'image/*,*/*;q=0.8',
-        },
-      }, (res) => {
-        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          this.fetchImageBuffer(res.headers.location).then(resolve).catch(reject);
-          return;
-        }
-        if (res.statusCode !== 200) { reject(new Error(`Image fetch failed: ${res.statusCode}`)); return; }
-        const chunks: Buffer[] = [];
-        res.on('data', (c: Buffer) => chunks.push(c));
-        res.on('end', () => resolve(Buffer.concat(chunks)));
-        res.on('error', reject);
-      });
-      req.on('error', reject);
-      req.on('timeout', () => { req.destroy(); reject(new Error('Image fetch timeout')); });
+    // Use axios — handles redirects, full-request timeout, better error messages
+    const response = await axios.get<ArrayBuffer>(url, {
+      responseType: 'arraybuffer',
+      timeout: 15000,
+      maxRedirects: 5,
+      headers: {
+        'User-Agent': 'VAYPR-PDF/1.0',
+        Accept: 'image/*,*/*;q=0.8',
+      },
     });
+    return Buffer.from(response.data);
   }
 
   private getCloudinaryPngUrl(url: string): string | null {
