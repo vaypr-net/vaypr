@@ -12,6 +12,7 @@ import { Ticket, TicketSchema } from '../tickets/entities/ticket.entity';
 import { Affiliate, AffiliateSchema } from '../affiliate/entities/affiliate.entity';
 import { Coupon, CouponSchema } from '../affiliate/entities/coupon.entity';
 import { CommissionPlan, CommissionPlanSchema } from '../affiliate/entities/commission-plan.entity';
+import { CurrencyService } from '../common/services/currency.service';
 
 @Module({
   imports: [
@@ -37,6 +38,6 @@ import { CommissionPlan, CommissionPlanSchema } from '../affiliate/entities/comm
     }),
   ],
   controllers: [SuperAdminReportsController],
-  providers: [SuperAdminReportsService],
+  providers: [SuperAdminReportsService, CurrencyService],
 })
 export class SuperAdminReportsModule {}

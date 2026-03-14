@@ -9,6 +9,7 @@ import { Ticket } from '../tickets/entities/ticket.entity';
 import { Affiliate } from '../affiliate/entities/affiliate.entity';
 import { Coupon } from '../affiliate/entities/coupon.entity';
 import { CommissionPlan } from '../affiliate/entities/commission-plan.entity';
+import { CurrencyService } from '../common/services/currency.service';
 
 type MonthRange = {
   monthKey: string;
@@ -28,6 +29,7 @@ export class SuperAdminReportsService {
     @InjectModel(Affiliate.name) private readonly affiliateModel: Model<Affiliate>,
     @InjectModel(Coupon.name) private readonly couponModel: Model<Coupon>,
     @InjectModel(CommissionPlan.name) private readonly commissionPlanModel: Model<CommissionPlan>,
+    private readonly currencyService: CurrencyService,
   ) {}
 
   async getAnalytics() {
@@ -110,14 +112,20 @@ export class SuperAdminReportsService {
       }),
       this.getEnterpriseCount(),
       this.getEnterpriseCount(thisMonthStart),
-      this.transactionModel.aggregate([
-        { $match: { type: 'subscription', status: 'succeeded' } },
-        { $group: { _id: '$plan', value: { $sum: '$amount' } } },
-        { $sort: { value: -1 } },
-      ]),
+      this.transactionModel
+        .find({ type: 'subscription', status: 'succeeded' })
+        .select('amount currency plan')
+        .lean(),
     ]);
 
     const monthRanges = this.buildLastMonths(6);
+
+    // Build planDistributionData with currency conversion
+    const planRevMap = new Map<string, number>();
+    for (const tx of revenueByPlanRaw as any[]) {
+      const plan = tx.plan || 'Unknown';
+      planRevMap.set(plan, (planRevMap.get(plan) || 0) + this.convertToDisplayAmount(tx.amount, tx.currency));
+    }
 
     const [revenueByMonth, conversionByMonth, affiliatePerformance, transactionStats, overviewStats, subscriberStats, ticketStats, affiliateStats, billingPlanStats] = await Promise.all([
       this.getRevenueByMonth(monthRanges),
@@ -140,13 +148,13 @@ export class SuperAdminReportsService {
       'hsl(199, 89%, 48%)',
     ];
 
-    const planDistributionData = revenueByPlanRaw.map(
-      (item: { _id: string; value: number }, index: number) => ({
-        name: item._id || 'Unknown',
-        value: item.value || 0,
+    const planDistributionData = Array.from(planRevMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, revenue], index) => ({
+        name,
+        value: Math.round(revenue * 100) / 100,
         color: planColors[index % planColors.length],
-      }),
-    );
+      }));
 
     return {
       metrics: [
@@ -205,29 +213,16 @@ export class SuperAdminReportsService {
     const earliest = ranges[0].start;
     const latest = ranges[ranges.length - 1].end;
 
-    const grouped = await this.transactionModel.aggregate([
-      {
-        $match: {
-          type: 'subscription',
-          status: 'succeeded',
-          transactionDate: { $gte: earliest, $lt: latest },
-        },
-      },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$transactionDate' },
-            month: { $month: '$transactionDate' },
-          },
-          value: { $sum: '$amount' },
-        },
-      },
-    ]);
+    const txns = await this.transactionModel
+      .find({ type: 'subscription', status: 'succeeded', transactionDate: { $gte: earliest, $lt: latest } })
+      .select('amount currency transactionDate')
+      .lean();
 
     const byMonth = new Map<string, number>();
-    for (const row of grouped) {
-      const monthKey = `${row._id.year}-${String(row._id.month).padStart(2, '0')}`;
-      byMonth.set(monthKey, row.value || 0);
+    for (const tx of txns) {
+      const d = new Date((tx as any).transactionDate);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      byMonth.set(monthKey, (byMonth.get(monthKey) || 0) + this.convertToDisplayAmount((tx as any).amount, (tx as any).currency));
     }
 
     return ranges.map((range) => ({
@@ -321,22 +316,29 @@ export class SuperAdminReportsService {
         isSuperAdmin: { $ne: true },
         createdAt: { $gte: startOfMonth, $lt: startOfNextMonth },
       }),
-      this.transactionModel.aggregate([
-        { $match: { type: 'subscription', status: 'succeeded' } },
-        { $group: { _id: '$plan', revenue: { $sum: '$amount' }, count: { $sum: 1 } } },
-        { $sort: { revenue: -1 } },
-      ]),
+      this.transactionModel
+        .find({ type: 'subscription', status: 'succeeded' })
+        .select('amount currency plan')
+        .lean(),
     ]);
+
+    // Group revenueByPlan with currency conversion
+    const revenueByPlanMap = new Map<string, { revenue: number; count: number }>();
+    for (const tx of revenueByPlanRaw as any[]) {
+      const plan = tx.plan || 'Unknown';
+      const converted = this.convertToDisplayAmount(tx.amount, tx.currency);
+      const existing = revenueByPlanMap.get(plan) || { revenue: 0, count: 0 };
+      revenueByPlanMap.set(plan, { revenue: existing.revenue + converted, count: existing.count + 1 });
+    }
+    const revenueByPlan = Array.from(revenueByPlanMap.entries())
+      .map(([plan, data]) => ({ plan, revenue: Math.round(data.revenue * 100) / 100, transactionCount: data.count }))
+      .sort((a, b) => b.revenue - a.revenue);
 
     return {
       totalRegistered,
       canceledThisMonth,
       newUsersThisMonth: newThisMonth,
-      revenueByPlan: revenueByPlanRaw.map((r: any) => ({
-        plan: r._id || 'Unknown',
-        revenue: Math.round((r.revenue || 0) * 100) / 100,
-        transactionCount: r.count || 0,
-      })),
+      revenueByPlan,
     };
   }
 
@@ -344,20 +346,14 @@ export class SuperAdminReportsService {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [total, active, free, canceled, inactive, revenueAgg, monthlyRevenueAgg, monthlyBilling, yearlyBilling, subscriberList] = await Promise.all([
+    const [total, active, free, canceled, inactive, allRevenueRaw, monthlyRevenueRaw, monthlyBilling, yearlyBilling, subscriberList] = await Promise.all([
       this.userModel.countDocuments({ isSuperAdmin: { $ne: true } }),
       this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, subscriptionStatus: { $in: ['active', 'trialing', 'past_due'] } }),
       this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, subscriptionStatus: 'free' }),
       this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, subscriptionStatus: 'canceled' }),
       this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, subscriptionStatus: 'incomplete' }),
-      this.transactionModel.aggregate([
-        { $match: { type: 'subscription', status: 'succeeded' } },
-        { $group: { _id: null, total: { $sum: '$amount' } } },
-      ]),
-      this.transactionModel.aggregate([
-        { $match: { type: 'subscription', status: 'succeeded', transactionDate: { $gte: startOfMonth } } },
-        { $group: { _id: null, total: { $sum: '$amount' } } },
-      ]),
+      this.transactionModel.find({ type: 'subscription', status: 'succeeded' }).select('amount currency').lean(),
+      this.transactionModel.find({ type: 'subscription', status: 'succeeded', transactionDate: { $gte: startOfMonth } }).select('amount currency').lean(),
       this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, billingCycle: 'monthly', subscriptionStatus: { $in: ['active', 'trialing', 'past_due'] } }),
       this.userModel.countDocuments({ isSuperAdmin: { $ne: true }, billingCycle: 'yearly', subscriptionStatus: { $in: ['active', 'trialing', 'past_due'] } }),
       this.userModel
@@ -369,6 +365,13 @@ export class SuperAdminReportsService {
         .lean(),
     ]);
 
+    const totalRevenue = allRevenueRaw.reduce(
+      (sum: number, tx: any) => sum + this.convertToDisplayAmount(tx.amount, tx.currency), 0,
+    );
+    const monthlyRevenue = monthlyRevenueRaw.reduce(
+      (sum: number, tx: any) => sum + this.convertToDisplayAmount(tx.amount, tx.currency), 0,
+    );
+
     return {
       total,
       active,
@@ -377,8 +380,8 @@ export class SuperAdminReportsService {
       inactive,
       monthlyBillingSubscribers: monthlyBilling,
       yearlyBillingSubscribers: yearlyBilling,
-      totalRevenue: Math.round((revenueAgg[0]?.total || 0) * 100) / 100,
-      monthlyRevenue: Math.round((monthlyRevenueAgg[0]?.total || 0) * 100) / 100,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      monthlyRevenue: Math.round(monthlyRevenue * 100) / 100,
       subscribers: subscriberList.map((u: any) => ({
         name: u.fullName || 'Unknown',
         email: u.email || 'N/A',
@@ -545,13 +548,22 @@ export class SuperAdminReportsService {
     };
   }
 
+  private convertToDisplayAmount(amount: number, currency?: string): number {
+    const source = (currency || '').toUpperCase();
+    const display = this.currencyService.getDisplayCurrency();
+    if (!source || source === display) {
+      return Math.round((Number(amount) || 0) * 100) / 100;
+    }
+    return this.currencyService.convert(Number(amount) || 0, source, display);
+  }
+
   private async getTransactionStats() {
     const [
       successCountAgg,
       failedCountAgg,
       refundCountAgg,
-      totalRevenueAgg,
-      refundTotalAgg,
+      allSucceededForRevenue,
+      allRefundedForTotal,
       allTransactions,
     ] = await Promise.all([
       this.transactionModel.aggregate([
@@ -566,14 +578,16 @@ export class SuperAdminReportsService {
         { $match: { type: 'refund', status: 'refunded' } },
         { $group: { _id: null, count: { $sum: 1 } } },
       ]),
-      this.transactionModel.aggregate([
-        { $match: { type: 'subscription', status: 'succeeded' } },
-        { $group: { _id: null, total: { $sum: '$amount' } } },
-      ]),
-      this.transactionModel.aggregate([
-        { $match: { type: 'refund', status: 'refunded' } },
-        { $group: { _id: null, total: { $sum: '$amount' } } },
-      ]),
+      // Fetch all succeeded subscription transactions for currency-converted total
+      this.transactionModel
+        .find({ type: 'subscription', status: 'succeeded' })
+        .select('amount currency')
+        .lean(),
+      // Fetch all refunded transactions for currency-converted total
+      this.transactionModel
+        .find({ type: 'refund', status: 'refunded' })
+        .select('amount currency')
+        .lean(),
       this.transactionModel
         .find()
         .sort({ transactionDate: -1 })
@@ -581,6 +595,16 @@ export class SuperAdminReportsService {
         .select('transactionId subscriberName subscriberEmail amount currency type provider status plan billingCycle transactionDate')
         .lean(),
     ]);
+
+    // Apply same currency conversion as the overview dashboard
+    const totalRevenue = allSucceededForRevenue.reduce(
+      (sum: number, tx: any) => sum + this.convertToDisplayAmount(tx.amount, tx.currency),
+      0,
+    );
+    const refundTotal = allRefundedForTotal.reduce(
+      (sum: number, tx: any) => sum + this.convertToDisplayAmount(tx.amount, tx.currency),
+      0,
+    );
 
     const mapTx = (tx: any) => ({
       id: tx.transactionId || tx._id?.toString().slice(-8).toUpperCase(),
@@ -600,8 +624,8 @@ export class SuperAdminReportsService {
       successfulCount: successCountAgg[0]?.count || 0,
       failedCount: failedCountAgg[0]?.count || 0,
       refundCount: refundCountAgg[0]?.count || 0,
-      totalRevenue: Math.round((totalRevenueAgg[0]?.total || 0) * 100) / 100,
-      refundTotal: Math.round((refundTotalAgg[0]?.total || 0) * 100) / 100,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      refundTotal: Math.round(refundTotal * 100) / 100,
       transactions: {
         succeeded: allTransactions.filter((t: any) => t.status === 'succeeded').map(mapTx),
         failed: allTransactions.filter((t: any) => t.status === 'failed').map(mapTx),
