@@ -335,6 +335,28 @@ export function useDocumentActions() {
                 innerTextSnippet: clonedElement.innerText?.substring(0, 200) || '(empty)',
               });
             }
+
+            // CRITICAL FIX: Force crossOrigin on all external images to prevent
+            // CORS cache pollution from causing blank logos in the PDF.
+            // If a Cloudinary image was previously loaded without crossOrigin
+            // (e.g. from RecurringPreview or any thumbnail), the browser caches
+            // it without CORS headers. When html2canvas then tries to draw it
+            // onto a canvas it gets a tainted-canvas error and skips the image.
+            // By appending a unique timestamp to the src we force a fresh
+            // CORS-enabled request that bypasses the non-CORS cached entry.
+            const cacheBust = Date.now();
+            const clonedImgs = Array.from(clonedDoc.querySelectorAll('img')) as HTMLImageElement[];
+            clonedImgs.forEach((img) => {
+              const src = img.getAttribute('src') || '';
+              if (src && !src.startsWith('data:')) {
+                img.crossOrigin = 'anonymous';
+                // Append cache-buster only if no existing cache-bust param
+                if (!src.includes('_cb=')) {
+                  const sep = src.includes('?') ? '&' : '?';
+                  img.src = `${src}${sep}_cb=${cacheBust}`;
+                }
+              }
+            });
           },
         }),
         // 30 second timeout for canvas generation (handles slow networks)
