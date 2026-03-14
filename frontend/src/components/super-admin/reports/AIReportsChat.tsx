@@ -67,9 +67,9 @@ function buildAnalyticsContext(analytics: any): string {
   }
 
   if (analytics.planDistributionData?.length) {
-    lines.push("Plan Distribution:");
+    lines.push("Plan Distribution (revenue per plan):");
     analytics.planDistributionData.forEach((p: any) => {
-      lines.push(`  ${p.name}: ${p.value}%`);
+      lines.push(`  ${p.name}: ${p.value} KD`);
     });
   }
 
