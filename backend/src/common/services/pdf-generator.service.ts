@@ -30,8 +30,14 @@ export class PdfGeneratorService {
     // Fetch logo asynchronously BEFORE creating the PDF stream
     let logoBuffer: Buffer | null = null;
     const logoUrl = typeof invoice?.logo === 'string' ? invoice.logo.trim() : '';
+    this.logger.log(
+      `[PDF Generator] Invoice: ${invoice?.invoiceNumber || 'unknown'} | Logo URL from DB: ${logoUrl || '(none)'}`,
+    );
     if (logoUrl) {
       const candidates = this.getLogoCandidates(logoUrl);
+      this.logger.log(
+        `[PDF Generator] Trying ${candidates.length} candidate(s):\n  1) ${candidates.join('\n  2) ')}`,
+      );
       for (const candidate of candidates) {
         try {
           logoBuffer = await this.fetchImageBuffer(candidate);
@@ -129,8 +135,9 @@ export class PdfGeneratorService {
           valign: 'top',
         });
       } catch (error: any) {
+        // Log the ACTUAL PDFKit render error (e.g. CMYK JPEG, progressive JPEG)
         this.logger.warn(
-          `[PDF Generator] Skipping invalid logo image for ${invoice?.invoiceNumber}: ${error?.message || error}`,
+          `[PDF Generator] PDFKit failed to render logo for ${invoice?.invoiceNumber}: ${error?.message || error}. Falling back to company name.`,
         );
         if (cf.companyName) {
           doc.font('Helvetica').fontSize(18).fillColor('#6b7280')
@@ -329,16 +336,18 @@ export class PdfGeneratorService {
 
   private getLogoCandidates(url: string): string[] {
     const out: string[] = [];
-    if (url) out.push(url); // Always try original first for exact preview match
 
     const cloudinaryPng = this.getCloudinaryPngUrl(url);
     if (cloudinaryPng) {
-      // Preserve transparency variant
+      // PNG variants FIRST — PDFKit handles PNG reliably regardless of
+      // original JPEG encoding (CMYK, progressive, etc.)
       out.push(cloudinaryPng.replace('/image/upload/f_png/', '/image/upload/f_png,fl_preserve_transparency/'));
-      // High-quality PNG variant
       out.push(cloudinaryPng.replace('/image/upload/f_png/', '/image/upload/f_png,q_100/'));
       out.push(cloudinaryPng);
     }
+
+    // Original as final fallback
+    if (url) out.push(url);
 
     // De-duplicate candidates
     return [...new Set(out)];
