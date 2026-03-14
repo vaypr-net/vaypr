@@ -235,6 +235,7 @@ export default function Profile() {
     quoteViewed: true,
     quoteAccepted: true,
     quoteRejected: true,
+    quoteModificationRequested: true,
     quoteExpired: true,
     // Recurring Subscriptions
     upcomingRenewal: true,
@@ -407,6 +408,7 @@ export default function Profile() {
           quoteViewed: profile?.quoteViewed !== false,
           quoteAccepted: profile?.quoteAccepted !== false,
           quoteRejected: profile?.quoteRejected !== false,
+          quoteModificationRequested: profile?.quoteModificationRequested !== false,
           quoteExpired: profile?.quoteExpired !== false,
           upcomingRenewal: profile?.upcomingRenewal !== false,
           renewalSuccessful: profile?.renewalSuccessful !== false,
@@ -1590,6 +1592,7 @@ export default function Profile() {
                     { key: 'quoteViewed', label: 'Quote viewed', description: 'When a client opens your quote' },
                     { key: 'quoteAccepted', label: 'Quote accepted', description: 'When a client accepts your quote' },
                     { key: 'quoteRejected', label: 'Quote rejected', description: 'When a client rejects your quote' },
+                    { key: 'quoteModificationRequested', label: 'Modification requested', description: 'When a client requests changes to your quote' },
                     { key: 'quoteExpired', label: 'Quote expired', description: 'When a quote passes its expiry date' },
                   ].map((item) => (
                     <div key={item.key} className="flex items-center justify-between py-3 px-4 bg-muted/30 rounded-lg">
@@ -1733,6 +1736,7 @@ export default function Profile() {
                         { key: 'quoteViewed', label: 'Quote viewed' },
                         { key: 'quoteAccepted', label: 'Quote accepted' },
                         { key: 'quoteRejected', label: 'Quote rejected' },
+                        { key: 'quoteModificationRequested', label: 'Modification requested' },
                         { key: 'quoteExpired', label: 'Quote expired' },
                       ].map((item) => (
                         <div key={`push-${item.key}`} className="flex items-center justify-between py-2 px-4 bg-muted/30 rounded-lg">

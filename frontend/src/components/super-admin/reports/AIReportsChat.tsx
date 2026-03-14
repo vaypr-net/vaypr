@@ -271,7 +271,8 @@ export default function AIReportsChat({ analytics }: AIReportsChatProps) {
     } catch (error: any) {
       const errText =
         error?.response?.data?.message ||
-        "Failed to get AI response. Please add your OpenAI API key in the AI Provider Settings below.";
+        error?.message ||
+        "Failed to get AI response. Check your OpenAI API key in the AI Provider Settings below.";
 
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
