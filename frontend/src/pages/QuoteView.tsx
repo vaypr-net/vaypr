@@ -554,22 +554,26 @@ export default function QuoteView() {
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-700/50">
                       <th className="text-left py-4 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</th>
-                      <th className="text-center py-4 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Qty</th>
-                      <th className="text-right py-4 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Unit Price</th>
-                      <th className="text-right py-4 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</th>
+                      {!quote.hideQuantity && <th className="text-center py-4 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Qty</th>}
+                      {!quote.hideUnitPrice && <th className="text-right py-4 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Unit Price</th>}
+                      {!quote.hideTotalCost && <th className="text-right py-4 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {quote.items.map((item, index) => (
                       <tr key={item.id || index} className="border-t border-slate-100 dark:border-slate-700">
                         <td className="py-4 px-4 font-medium">{item.description}</td>
-                        <td className="py-4 px-4 text-center text-muted-foreground">{item.quantity}</td>
-                        <td className="py-4 px-4 text-right text-muted-foreground">
-                          {formatCurrency(item.unitPrice, quote.currencySymbol)}
-                        </td>
-                        <td className="py-4 px-4 text-right font-semibold">
-                          {formatCurrency(item.quantity * item.unitPrice, quote.currencySymbol)}
-                        </td>
+                        {!quote.hideQuantity && <td className="py-4 px-4 text-center text-muted-foreground">{item.quantity}</td>}
+                        {!quote.hideUnitPrice && (
+                          <td className="py-4 px-4 text-right text-muted-foreground">
+                            {formatCurrency(item.unitPrice, quote.currencySymbol)}
+                          </td>
+                        )}
+                        {!quote.hideTotalCost && (
+                          <td className="py-4 px-4 text-right font-semibold">
+                            {formatCurrency(item.quantity * item.unitPrice, quote.currencySymbol)}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -580,14 +584,22 @@ export default function QuoteView() {
             {/* Totals Section */}
             <div className="flex justify-end">
               <div className="w-80 space-y-3">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(quote.subtotal, quote.currencySymbol)}</span>
-                </div>
+                {!quote.hideSubTotal && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(quote.subtotal, quote.currencySymbol)}</span>
+                  </div>
+                )}
                 {quote.discount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Discount ({quote.discount}%)</span>
                     <span>-{formatCurrency(quote.subtotal * quote.discount / 100, quote.currencySymbol)}</span>
+                  </div>
+                )}
+                {(quote.deliveryFee ?? 0) > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Delivery Fee</span>
+                    <span>{formatCurrency(quote.deliveryFee ?? 0, quote.currencySymbol)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-slate-200 dark:border-slate-600">
