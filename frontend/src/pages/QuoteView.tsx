@@ -445,7 +445,7 @@ export default function QuoteView() {
                   <img 
                     src={quote.logo} 
                     alt="Company Logo" 
-                    className="h-24 w-auto object-contain"
+                    className="max-w-[200px] w-auto h-auto object-contain origin-top-left"
                     style={{ 
                       maxHeight: `${6 * (quote.logoScale || 1)}rem`,
                       transform: `scale(${quote.logoScale || 1})` 
