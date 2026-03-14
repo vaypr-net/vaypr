@@ -156,7 +156,7 @@ export class SuperadminSettingsService {
             Authorization: `Bearer ${resolvedApiKey}`,
             'Content-Type': 'application/json',
           },
-          timeout: 30000,
+          timeout: 60000,
         },
       );
 

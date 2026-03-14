@@ -365,6 +365,7 @@ export class SuperAdminReportsService {
         .select('fullName email subscriptionStatus billingCycle subscriptionAmount currentPeriodEnd subscriptionStartedAt subscriptionCanceledAt createdAt')
         .populate('planId', 'name')
         .sort({ createdAt: -1 })
+        .limit(200)
         .lean(),
     ]);
 
@@ -402,6 +403,7 @@ export class SuperAdminReportsService {
         .find()
         .select('subject customerName customerEmail category status priority assignedTo resolvedAt closedAt createdAt')
         .sort({ createdAt: -1 })
+        .limit(100)
         .lean(),
     ]);
 
@@ -448,8 +450,8 @@ export class SuperAdminReportsService {
       this.referralModel.aggregate([{ $group: { _id: null, total: { $sum: '$commission' } } }]),
       this.affiliateModel.aggregate([{ $group: { _id: null, total: { $sum: '$pending' } } }]),
       this.referralModel.countDocuments({ status: { $in: ['approved', 'paid'] } }),
-      this.affiliateModel.find().select('name email code tier status referrals earnings pending joinDate').sort({ createdAt: -1 }).lean(),
-      this.referralModel.find().select('affiliateName subscriberName plan conversionDate amount commission status').sort({ conversionDate: -1 }).lean(),
+      this.affiliateModel.find().select('name email code tier status referrals earnings pending joinDate').sort({ createdAt: -1 }).limit(100).lean(),
+      this.referralModel.find().select('affiliateName subscriberName plan conversionDate amount commission status').sort({ conversionDate: -1 }).limit(100).lean(),
       this.couponModel.find().select('code discountType discountValue usageLimit usedCount validFrom validUntil status').sort({ createdAt: -1 }).lean(),
       this.commissionPlanModel.find().select('name subscriptionPlan commissionType commissionValue couponCode couponDiscount cookieWindow minPayout isActive').sort({ createdAt: -1 }).lean(),
     ]);
@@ -575,6 +577,7 @@ export class SuperAdminReportsService {
       this.transactionModel
         .find()
         .sort({ transactionDate: -1 })
+        .limit(200)
         .select('transactionId subscriberName subscriberEmail amount currency type provider status plan billingCycle transactionDate')
         .lean(),
     ]);
