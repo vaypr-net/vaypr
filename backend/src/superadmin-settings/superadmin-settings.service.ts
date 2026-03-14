@@ -115,9 +115,12 @@ export class SuperadminSettingsService {
   ): Promise<{ reply: string }> {
     const settings = await this.findByUserId(userId);
 
-    if (!settings.openaiApiKey) {
+    // Use DB-stored key first, then fall back to Railway env variable
+    const resolvedApiKey = settings.openaiApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
+
+    if (!resolvedApiKey) {
       throw new BadRequestException(
-        'No OpenAI API key configured. Please add your API key in the AI Provider Settings and save it.',
+        'No OpenAI API key configured. Please add your API key in the AI Provider Settings and save it, or set OPENAI_API_KEY in your environment variables.',
       );
     }
 
@@ -139,25 +142,52 @@ export class SuperadminSettingsService {
 
     messages.push({ role: 'user', content: userMessage });
 
-    const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model: 'gpt-4o-mini',
-        messages,
-        max_tokens: 1024,
-        temperature: 0.7,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${settings.openaiApiKey}`,
-          'Content-Type': 'application/json',
+    try {
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: 'gpt-4o-mini',
+          messages,
+          max_tokens: 1024,
+          temperature: 0.7,
         },
-      },
-    );
+        {
+          headers: {
+            Authorization: `Bearer ${resolvedApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+        },
+      );
 
-    const reply: string =
-      response.data?.choices?.[0]?.message?.content ?? 'No response from AI.';
+      const reply: string =
+        response.data?.choices?.[0]?.message?.content ?? 'No response from AI.';
 
-    return { reply };
+      return { reply };
+    } catch (err: any) {
+      // Surface the real OpenAI error message instead of a generic 500
+      const openAiMessage: string =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'OpenAI request failed';
+      const errorCode: string = err?.response?.data?.error?.code || '';
+      const status: number = err?.response?.status;
+
+      if (status === 401) {
+        throw new BadRequestException(`Invalid OpenAI API key. Please check your key and save it again.`);
+      }
+      if (status === 429) {
+        if (errorCode === 'insufficient_quota') {
+          throw new BadRequestException(
+            `Your OpenAI account has no remaining credits. Please add billing details at platform.openai.com and try again.`,
+          );
+        }
+        throw new BadRequestException(
+          `OpenAI rate limit reached. Please wait a moment and try again.`,
+        );
+      }
+      throw new BadRequestException(`AI request failed: ${openAiMessage}`);
+    }
   }
 }

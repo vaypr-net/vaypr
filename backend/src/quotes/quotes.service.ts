@@ -419,6 +419,34 @@ export class QuotesService implements OnModuleInit {
   }
 
   /**
+   * Send "Quote Modification Requested" notification email
+   * CHECKS: quoteModificationRequested preference before sending
+   */
+  async sendQuoteModificationRequestedNotification(
+    userId: string,
+    quoteData: { quoteNumber: string; clientName: string; message?: string }
+  ): Promise<boolean> {
+    try {
+      const user = await this.userModel.findById(userId).select('email').exec();
+      if (!user?.email) return false;
+
+      return await this.emailNotificationService.sendNotification({
+        type: 'quoteModificationRequested',
+        userId,
+        recipientEmail: user.email,
+        data: {
+          quoteNumber: quoteData.quoteNumber,
+          clientName: quoteData.clientName,
+          message: quoteData.message || '',
+        },
+      });
+    } catch (error) {
+      console.error(`[Quote] Error sending quoteModificationRequested notification:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Send "Quote Expired" notification email
    * CHECKS: quoteExpired preference before sending
    */
@@ -611,6 +639,12 @@ export class QuotesService implements OnModuleInit {
       await this.sendQuoteAcceptedNotification(updated.userId.toString(), quoteMeta);
     } else if (action === PublicQuoteResponseAction.REJECTED) {
       await this.sendQuoteRejectedNotification(updated.userId.toString(), quoteMeta);
+    } else if (action === PublicQuoteResponseAction.MODIFICATION_REQUESTED) {
+      await this.sendQuoteModificationRequestedNotification(updated.userId.toString(), {
+        quoteNumber: updated.quoteNumber,
+        clientName: updated.billTo?.name || 'Client',
+        message: normalizedMessage,
+      });
     }
 
     try {

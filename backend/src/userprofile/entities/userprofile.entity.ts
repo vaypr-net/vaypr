@@ -45,6 +45,9 @@ export class UserProfile extends BaseEntity {
   quoteRejected: boolean;
 
   @Prop({ type: Boolean, default: true })
+  quoteModificationRequested: boolean;
+
+  @Prop({ type: Boolean, default: true })
   quoteExpired: boolean;
 
   @Prop({ type: Boolean, default: true })

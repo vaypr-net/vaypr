@@ -9,6 +9,7 @@ export type NotificationType =
   | 'quoteViewed'
   | 'quoteAccepted'
   | 'quoteRejected'
+  | 'quoteModificationRequested'
   | 'quoteExpired'
   | 'upcomingRenewal'
   | 'renewalSuccessful'
@@ -77,6 +78,7 @@ export class NotificationPreferencesHelper {
         'quoteViewed',
         'quoteAccepted',
         'quoteRejected',
+        'quoteModificationRequested',
         'quoteExpired',
         'upcomingRenewal',
         'renewalSuccessful',
@@ -108,6 +110,7 @@ export class NotificationPreferencesHelper {
       quoteViewed: true,
       quoteAccepted: true,
       quoteRejected: true,
+      quoteModificationRequested: true,
       quoteExpired: true,
       upcomingRenewal: true,
       renewalSuccessful: true,

@@ -138,6 +138,8 @@ export class EmailNotificationService {
         return this.getQuoteAcceptedTemplate(data);
       case 'quoteRejected':
         return this.getQuoteRejectedTemplate(data);
+      case 'quoteModificationRequested':
+        return this.getQuoteModificationRequestedTemplate(data);
       case 'quoteExpired':
         return this.getQuoteExpiredTemplate(data);
       case 'upcomingRenewal':
@@ -275,6 +277,25 @@ export class EmailNotificationService {
           <li><strong>Client:</strong> ${clientName}</li>
         </ul>
         <p>If your client is still interested, you may want to send them a new quote.</p>
+      `,
+    };
+  }
+
+  private getQuoteModificationRequestedTemplate(data: Record<string, any>): {
+    subject: string;
+    htmlBody: string;
+  } {
+    const { quoteNumber, clientName, message } = data;
+    return {
+      subject: `✏️ Modification requested on Quote ${quoteNumber}`,
+      htmlBody: `
+        <h2 style="color: #f59e0b;">Modification Requested</h2>
+        <p>Your client has requested changes to quote <strong>#${quoteNumber}</strong>.</p>
+        <ul>
+          <li><strong>Client:</strong> ${clientName}</li>
+          ${message ? `<li><strong>Message:</strong> ${message}</li>` : ''}
+        </ul>
+        <p>Log in to review the request and update the quote accordingly.</p>
       `,
     };
   }
