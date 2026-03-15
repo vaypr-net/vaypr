@@ -187,6 +187,17 @@ export class SuperadminSettingsService {
           `OpenAI rate limit reached. Please wait a moment and try again.`,
         );
       }
+      // Handle axios timeout (ECONNABORTED) or OpenAI gateway timeout (error code 524/timeout)
+      const isTimeout =
+        err?.code === 'ECONNABORTED' ||
+        err?.code === 'ETIMEDOUT' ||
+        openAiMessage.toLowerCase().includes('timeout') ||
+        openAiMessage.toLowerCase().includes('timed out');
+      if (isTimeout) {
+        throw new BadRequestException(
+          'The AI request timed out. This usually happens when the analytics context is very large. Try asking a more specific question.',
+        );
+      }
       throw new BadRequestException(`AI request failed: ${openAiMessage}`);
     }
   }
