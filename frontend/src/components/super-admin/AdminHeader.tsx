@@ -1,4 +1,4 @@
-import { Bell, Search, Plus, UserPlus, FileText, Send, Download, CreditCard, Settings, Zap, Users, Ticket, DollarSign, AlertCircle, CheckCircle2, Check, Trash2, Loader2 } from "lucide-react";
+import { Bell, Search, Plus, UserPlus, FileText, Send, Download, CreditCard, Settings, Zap, Users, Ticket, DollarSign, AlertCircle, CheckCircle2, Check, Trash2, Loader2, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +23,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useGetActivities } from "@/hooks/api/useActivities";
 import ActivityService from "@/api/services/activity.service";
 import { useQueryClient } from "@tanstack/react-query";
+import { AddAffiliateDialog } from "@/components/super-admin/affiliates/AddAffiliateDialog";
+import { CouponDialog } from "@/components/super-admin/affiliates/CouponDialog";
+import { useGetCommissionPlans, useCreateAffiliate, useGetAffiliates, useCreateCoupon } from "@/hooks/api/useAffiliates";
 
 function formatTimeAgo(timestamp: string) {
   const now = new Date();
@@ -70,6 +73,20 @@ const searchTargets = [
 export function AdminHeader() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // ── Quick Action modal state ──────────────────────────
+  const [addAffiliateOpen, setAddAffiliateOpen] = useState(false);
+  const [createCouponOpen, setCreateCouponOpen] = useState(false);
+
+  const { data: commissionPlansData } = useGetCommissionPlans();
+  const { data: affiliatesData } = useGetAffiliates(undefined, undefined, undefined, 100);
+  const createAffiliateMutation = useCreateAffiliate();
+  const createCouponMutation = useCreateCoupon();
+
+  const commissionPlans = Array.isArray(commissionPlansData)
+    ? commissionPlansData
+    : (commissionPlansData as any)?.items || [];
+  const affiliatesList = (affiliatesData?.items || []).map((a: any) => ({ id: a._id, name: a.name }));
   const { data: activitiesData, isLoading } = useGetActivities(100, 0);
   const [deletedActivities, setDeletedActivities] = useState<string[]>(() => {
     try {
@@ -408,20 +425,16 @@ export function AdminHeader() {
           </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Affiliates</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => navigate("/super-admin/affiliates")} className="cursor-pointer">
+            <DropdownMenuItem onClick={() => setAddAffiliateOpen(true)} className="cursor-pointer">
               <UserPlus className="w-4 h-4 mr-2" />
               + Add Affiliate
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate("/super-admin/affiliates")} className="cursor-pointer">
-              <Ticket className="w-4 h-4 mr-2" />
+            <DropdownMenuItem onClick={() => setCreateCouponOpen(true)} className="cursor-pointer">
+              <Gift className="w-4 h-4 mr-2" />
               + Create Coupon
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Support</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => navigate("/super-admin/support")} className="cursor-pointer">
-              <Ticket className="w-4 h-4 mr-2" />
-              Create Support Ticket
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/super-admin/support")} className="cursor-pointer">
               <FileText className="w-4 h-4 mr-2" />
               View Open Tickets
@@ -437,6 +450,28 @@ export function AdminHeader() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Quick Action Modals */}
+        <AddAffiliateDialog
+          open={addAffiliateOpen}
+          onOpenChange={setAddAffiliateOpen}
+          affiliate={null}
+          commissionPlans={commissionPlans}
+          onSave={async (data: any) => {
+            await createAffiliateMutation.mutateAsync(data);
+            setAddAffiliateOpen(false);
+          }}
+        />
+        <CouponDialog
+          open={createCouponOpen}
+          onOpenChange={setCreateCouponOpen}
+          coupon={null}
+          affiliates={affiliatesList}
+          onSave={async (data: any) => {
+            await createCouponMutation.mutateAsync(data);
+            setCreateCouponOpen(false);
+          }}
+        />
       </div>
     </header>
   );

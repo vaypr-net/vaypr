@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Users2, DollarSign, TrendingUp, Gift, Eye, Plus, Pencil, Trash2, MoreHorizontal, Mail } from "lucide-react";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
@@ -83,6 +83,15 @@ export default function Affiliates() {
   // Referrals
   const { data: referralsData, isLoading: referralsLoading } = useGetReferrals(undefined, undefined, 100);
   const approveReferralMutation = useApproveReferral();
+
+  // Build a quick id→email map from already-loaded affiliates
+  const affiliateEmailMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (affiliatesData?.items || []).forEach((a: Affiliate) => {
+      map[a._id] = a.email;
+    });
+    return map;
+  }, [affiliatesData]);
   const payoutMutation = useProcessPayouts();
   const sendAffiliateEmailMutation = useSendAffiliateEmail();
 
@@ -629,7 +638,12 @@ Support Team`
                   <div key={ref._id} className="flex items-center justify-between p-4 border border-border rounded-lg">
                     <div>
                       <p className="font-medium">{ref.subscriberName} → {ref.plan}</p>
-                      <p className="text-sm text-muted-foreground">Referred by {ref.affiliateName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Referred by {ref.affiliateName}
+                        {affiliateEmailMap[ref.affiliateId] && (
+                          <span className="ml-1 text-xs text-muted-foreground/70">({affiliateEmailMap[ref.affiliateId]})</span>
+                        )}
+                      </p>
                     </div>
                     <div className="text-right flex items-center gap-3">
                       {ref.status === "pending" && (
@@ -793,6 +807,9 @@ Support Team`
             {selectedReferralForEmail ? (
               <div className="rounded border p-3 bg-muted/20 text-sm">
                 <p className="font-medium">{selectedReferralForEmail.affiliateName}</p>
+                {affiliateEmailMap[selectedReferralForEmail.affiliateId] && (
+                  <p className="text-muted-foreground text-xs">{affiliateEmailMap[selectedReferralForEmail.affiliateId]}</p>
+                )}
                 <p className="text-muted-foreground">
                   Referral: {selectedReferralForEmail.subscriberName} ({selectedReferralForEmail.plan})
                 </p>
