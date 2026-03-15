@@ -58,6 +58,8 @@ export const SuperadminSettingsService = {
     const response = await axios.post<{ reply: string }>(`${BASE_URL}/ai-chat`, {
       message,
       analyticsContext,
+    }, {
+      timeout: 90000, // 90s — AI responses can take 15–30s
     });
     return response.data;
   },

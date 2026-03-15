@@ -41,10 +41,47 @@ const suggestedQuestions = [
   "What is the status of our support tickets?",
 ];
 
-function buildAnalyticsContext(analytics: any): string {
+type AnalyticsTopic = 'subscribers' | 'revenue' | 'transactions' | 'refunds' | 'tickets' | 'affiliates' | 'plans' | 'overview';
+
+function detectTopics(question: string): AnalyticsTopic[] {
+  const q = question.toLowerCase();
+  const topics = new Set<AnalyticsTopic>();
+
+  // Always include overview/metrics as base context
+  topics.add('overview');
+
+  if (/subscriber|user|client|customer|member|signup|register|cancel|churn|active|free plan/.test(q))
+    topics.add('subscribers');
+
+  if (/revenue|mrr|earn|income|money|paid|payment|billing|how much|total.*kd|kd.*total/.test(q))
+    topics.add('revenue');
+
+  if (/refund|refunded|return|chargeback/.test(q))
+    topics.add('refunds');
+
+  if (/transaction|invoice|charge|receipt|purchase|order|failed|success|pending/.test(q))
+    topics.add('transactions');
+
+  if (/ticket|support|issue|complaint|open|pending.*ticket|help request/.test(q))
+    topics.add('tickets');
+
+  if (/affiliate|referral|commission|coupon|discount|payout|partner/.test(q))
+    topics.add('affiliates');
+
+  if (/plan|pricing|subscription plan|tier|feature|limit|pro|free|enterprise/.test(q))
+    topics.add('plans');
+
+  return Array.from(topics);
+}
+
+function buildAnalyticsContext(analytics: any, question?: string): string {
   if (!analytics) return "";
   const lines: string[] = [];
 
+  const topics = question ? detectTopics(question) : (['overview', 'subscribers', 'revenue', 'transactions', 'refunds', 'tickets', 'affiliates', 'plans'] as AnalyticsTopic[]);
+  const has = (t: AnalyticsTopic) => topics.includes(t);
+
+  // ── Always included: key metrics summary (small, text only) ──────────────
   if (analytics.metrics?.length) {
     lines.push("Key Metrics:");
     analytics.metrics.forEach((m: any) => {
@@ -59,169 +96,193 @@ function buildAnalyticsContext(analytics: any): string {
     });
   }
 
-  if (analytics.revenueByMonth?.length) {
-    lines.push("Revenue by Month (last 6 entries):");
-    analytics.revenueByMonth.slice(-6).forEach((r: any) => {
-      lines.push(`  ${r.month}: ${r.mrr} KD`);
-    });
-  }
-
-  if (analytics.planDistributionData?.length) {
-    lines.push("Plan Distribution (revenue per plan):");
-    analytics.planDistributionData.forEach((p: any) => {
-      lines.push(`  ${p.name}: ${p.value} KD`);
-    });
-  }
-
-  if (analytics.affiliatePerformance?.length) {
-    lines.push("Affiliate Performance (last 3 months):");
-    analytics.affiliatePerformance.slice(-3).forEach((a: any) => {
-      lines.push(`  ${a.month}: ${a.referrals} referrals, ${a.conversions} conversions`);
-    });
-  }
-
-  const ts = analytics.transactionStats;
-  if (ts) {
-    lines.push("Transaction Overview:");
-    lines.push(`  Total Successful Transactions: ${ts.successfulCount}`);
-    lines.push(`  Total Failed Transactions: ${ts.failedCount}`);
-    lines.push(`  Total Revenue (all time): ${ts.totalRevenue} KD`);
-    lines.push(`  Total Refunds Issued: ${ts.refundCount}`);
-    lines.push(`  Total Refund Amount: ${ts.refundTotal} KD`);
-
-    const formatTxList = (list: any[], label: string) => {
-      if (!list?.length) return;
-      lines.push(`  ${label} Transactions (${list.length}):`);
-      list.forEach((t: any) => {
-        lines.push(`    - [${t.id}] ${t.subscriberName} (${t.subscriberEmail}) | ${t.amount} ${t.currency} | Plan: ${t.plan} | ${t.billingCycle} | Provider: ${t.provider} | Date: ${t.date}`);
-      });
-    };
-
-    if (ts.transactions) {
-      formatTxList(ts.transactions.succeeded, 'Succeeded');
-      formatTxList(ts.transactions.refunded, 'Refunded');
-      formatTxList(ts.transactions.failed, 'Failed');
-      formatTxList(ts.transactions.pending, 'Pending');
+  // ── Overview / users ─────────────────────────────────────────────────────
+  if (has('overview') || has('subscribers') || has('revenue')) {
+    const ov = analytics.overviewStats;
+    if (ov) {
+      lines.push("Platform Overview:");
+      lines.push(`  Total Registered Users: ${ov.totalRegistered}`);
+      lines.push(`  New Users This Month: ${ov.newUsersThisMonth}`);
+      lines.push(`  Cancellations This Month: ${ov.canceledThisMonth}`);
+      if ((has('revenue') || has('plans')) && ov.revenueByPlan?.length) {
+        lines.push("  Revenue by Plan:");
+        ov.revenueByPlan.forEach((p: any) => {
+          lines.push(`    ${p.plan}: ${p.revenue} KD (${p.transactionCount} transactions)`);
+        });
+      }
     }
   }
 
-  const ov = analytics.overviewStats;
-  if (ov) {
-    lines.push("Platform Overview:");
-    lines.push(`  Total Registered Users: ${ov.totalRegistered}`);
-    lines.push(`  New Users This Month: ${ov.newUsersThisMonth}`);
-    lines.push(`  Cancellations This Month: ${ov.canceledThisMonth}`);
-    if (ov.revenueByPlan?.length) {
-      lines.push("  Revenue by Plan:");
-      ov.revenueByPlan.forEach((p: any) => {
-        lines.push(`    ${p.plan}: ${p.revenue} KD (${p.transactionCount} transactions)`);
+  // ── Revenue / MRR ────────────────────────────────────────────────────────
+  if (has('revenue')) {
+    if (analytics.revenueByMonth?.length) {
+      lines.push("Revenue by Month (last 6):");
+      analytics.revenueByMonth.slice(-6).forEach((r: any) => {
+        lines.push(`  ${r.month}: ${r.mrr} KD`);
+      });
+    }
+    if (analytics.planDistributionData?.length) {
+      lines.push("Revenue by Plan Distribution:");
+      analytics.planDistributionData.forEach((p: any) => {
+        lines.push(`  ${p.name}: ${p.value} KD`);
       });
     }
   }
 
-  const ss = analytics.subscriberStats;
-  if (ss) {
-    lines.push("Subscriber Breakdown:");
-    lines.push(`  Total Subscribers: ${ss.total}`);
-    lines.push(`  Active (paid): ${ss.active}`);
-    lines.push(`  Free Plan: ${ss.free}`);
-    lines.push(`  Canceled: ${ss.canceled}`);
-    lines.push(`  Inactive/Incomplete: ${ss.inactive}`);
-    lines.push(`  Monthly Billing: ${ss.monthlyBillingSubscribers}`);
-    lines.push(`  Yearly Billing: ${ss.yearlyBillingSubscribers}`);
-    lines.push(`  All-Time Revenue: ${ss.totalRevenue} KD`);
-    lines.push(`  This Month Revenue: ${ss.monthlyRevenue} KD`);
+  // ── Subscribers ──────────────────────────────────────────────────────────
+  if (has('subscribers')) {
+    const ss = analytics.subscriberStats;
+    if (ss) {
+      lines.push("Subscriber Breakdown:");
+      lines.push(`  Total Subscribers: ${ss.total}`);
+      lines.push(`  Active (paid): ${ss.active}`);
+      lines.push(`  Free Plan: ${ss.free}`);
+      lines.push(`  Canceled: ${ss.canceled}`);
+      lines.push(`  Inactive/Incomplete: ${ss.inactive}`);
+      lines.push(`  Monthly Billing: ${ss.monthlyBillingSubscribers}`);
+      lines.push(`  Yearly Billing: ${ss.yearlyBillingSubscribers}`);
+      lines.push(`  All-Time Revenue: ${ss.totalRevenue} KD`);
+      lines.push(`  This Month Revenue: ${ss.monthlyRevenue} KD`);
 
-    if (ss.subscribers?.length) {
-      lines.push(`  Subscriber List (${ss.subscribers.length}):`);
-      ss.subscribers.forEach((s: any) => {
-        lines.push(`    - ${s.name} (${s.email}) | Plan: ${s.plan} | Status: ${s.status} | Billing: ${s.billingCycle} | Amount: ${s.amount} KD | Joined: ${s.joinedAt}${s.canceledAt ? ` | Canceled: ${s.canceledAt}` : ` | Renews: ${s.renewsAt}`}`);
-      });
+      if (ss.subscribers?.length) {
+        const sample = ss.subscribers.slice(0, 20);
+        lines.push(`  Subscriber List (showing ${sample.length} of ${ss.subscribers.length}):`);
+        sample.forEach((s: any) => {
+          lines.push(`    - ${s.name} (${s.email}) | Plan: ${s.plan} | Status: ${s.status} | Billing: ${s.billingCycle} | Amount: ${s.amount} KD | Joined: ${s.joinedAt}${s.canceledAt ? ` | Canceled: ${s.canceledAt}` : ` | Renews: ${s.renewsAt}`}`);
+        });
+      }
     }
   }
 
-  const tk = analytics.ticketStats;
-  if (tk) {
-    lines.push("Support Tickets Summary:");
-    lines.push(`  Total Tickets: ${tk.total}`);
-    lines.push(`  Open: ${tk.open}`);
-    lines.push(`  Pending: ${tk.pending}`);
-    lines.push(`  In Progress: ${tk.inProgress}`);
-    lines.push(`  Resolved: ${tk.resolved}`);
-    lines.push(`  Closed: ${tk.closed}`);
+  // ── Transactions & Refunds ───────────────────────────────────────────────
+  if (has('transactions') || has('refunds') || has('revenue')) {
+    const ts = analytics.transactionStats;
+    if (ts) {
+      lines.push("Transaction Overview:");
+      lines.push(`  Total Successful: ${ts.successfulCount}`);
+      lines.push(`  Total Failed: ${ts.failedCount}`);
+      lines.push(`  Total Revenue (all time): ${ts.totalRevenue} KD`);
+      lines.push(`  Total Refunds Issued: ${ts.refundCount}`);
+      lines.push(`  Total Refund Amount: ${ts.refundTotal} KD`);
 
-    const formatTickets = (list: any[], label: string) => {
-      if (!list?.length) return;
-      lines.push(`  ${label} Tickets (${list.length}):`);
-      list.forEach((t: any) => {
-        lines.push(`    - [${t.id}] "${t.subject}" | Customer: ${t.customerName} (${t.customerEmail}) | Category: ${t.category} | Priority: ${t.priority} | Assigned: ${t.assignedTo} | Created: ${t.createdAt}${t.resolvedAt ? ` | Resolved: ${t.resolvedAt}` : ''}`);
-      });
-    };
+      if (has('transactions') || has('refunds')) {
+        const formatTxList = (list: any[], label: string) => {
+          if (!list?.length) return;
+          lines.push(`  ${label} Transactions (${list.length} total, showing up to 15):`);
+          list.slice(0, 15).forEach((t: any) => {
+            lines.push(`    - ${t.subscriberName} (${t.subscriberEmail}) | ${t.amount} ${t.currency} | Plan: ${t.plan} | ${t.billingCycle} | Provider: ${t.provider} | Date: ${t.date}`);
+          });
+        };
 
-    if (tk.tickets) {
-      formatTickets(tk.tickets.resolved, 'Resolved');
-      formatTickets(tk.tickets.pending, 'Pending');
-      formatTickets(tk.tickets.inProgress, 'In Progress');
-      formatTickets(tk.tickets.open, 'Open');
-      formatTickets(tk.tickets.closed, 'Closed');
-    }
-  }
-
-  const af = analytics.affiliateStats;
-  if (af) {
-    lines.push("Affiliate Program:");
-    lines.push(`  Total Affiliates: ${af.totalAffiliates}`);
-    lines.push(`  Total Referrals: ${af.totalReferrals}`);
-    lines.push(`  Approved Referrals: ${af.approvedReferrals}`);
-    lines.push(`  Total Commissions Earned: ${af.totalCommissions} KD`);
-    lines.push(`  Pending Payouts: ${af.pendingPayouts} KD`);
-
-    if (af.affiliates?.length) {
-      lines.push(`  Affiliate List (${af.affiliates.length}):`);
-      af.affiliates.forEach((a: any) => {
-        lines.push(`    - ${a.name} (${a.email}) | Code: ${a.code} | Tier: ${a.tier} | Status: ${a.status} | Referrals: ${a.referrals} | Earnings: ${a.earnings} KD | Pending: ${a.pending} KD | Joined: ${a.joinDate}`);
-      });
-    }
-
-    if (af.referrals?.length) {
-      lines.push(`  Referrals (${af.referrals.length}):`);
-      af.referrals.forEach((r: any) => {
-        lines.push(`    - Affiliate: ${r.affiliateName} → Subscriber: ${r.subscriberName} | Plan: ${r.plan} | Amount: ${r.amount} KD | Commission: ${r.commission} KD | Status: ${r.status} | Date: ${r.date}`);
-      });
-    }
-
-    if (af.coupons?.length) {
-      lines.push(`  Discount Coupons (${af.coupons.length}):`);
-      af.coupons.forEach((c: any) => {
-        const discount = c.discountType === 'percentage' ? `${c.discountValue}%` : `${c.discountValue} KD`;
-        lines.push(`    - Code: ${c.code} | Discount: ${discount} | Usage: ${c.usage} | Valid: ${c.validFrom} → ${c.validUntil} | Status: ${c.status}`);
-      });
-    }
-
-    if ((af as any).commissionPlans?.length) {
-      lines.push(`  Commission Plans (${(af as any).commissionPlans.length}):`);
-      (af as any).commissionPlans.forEach((cp: any) => {
-        const comm = cp.commissionType === 'percentage' ? `${cp.commissionValue}%` : `${cp.commissionValue} KD`;
-        lines.push(`    - ${cp.name} | Plan: ${cp.subscriptionPlan} | Commission: ${comm} | Cookie: ${cp.cookieWindow}d | Min Payout: ${cp.minPayout} KD | Active: ${cp.isActive}${cp.couponCode ? ` | Coupon: ${cp.couponCode} (${cp.couponDiscount} KD off)` : ''}`);
-      });
-    }
-  }
-
-  const bp = analytics.billingPlanStats;
-  if (bp) {
-    lines.push("Billing Plans:");
-    lines.push(`  Total Plans: ${bp.totalPlans} (Active: ${bp.activePlans}, Hidden: ${bp.hiddenPlans}, Archived: ${bp.archivedPlans})`);
-    lines.push(`  Total Subscribers Across Plans: ${bp.totalSubscribers}`);
-    if (bp.plans?.length) {
-      bp.plans.forEach((p: any) => {
-        lines.push(`  Plan: ${p.name} [${p.status}${p.isPopular ? ', Popular' : ''}]`);
-        lines.push(`    Price: ${p.price} KD / ${p.interval} | Subscribers: ${p.subscribers}`);
-        if (p.features?.length) lines.push(`    Features: ${p.features.join(', ')}`);
-        if (p.limits && Object.keys(p.limits).length) {
-          const lims = Object.entries(p.limits).map(([k, v]) => `${k}: ${v === -1 ? 'unlimited' : v}`).join(', ');
-          lines.push(`    Limits: ${lims}`);
+        if (ts.transactions) {
+          if (has('transactions')) {
+            formatTxList(ts.transactions.succeeded, 'Succeeded');
+            formatTxList(ts.transactions.failed, 'Failed');
+            formatTxList(ts.transactions.pending, 'Pending');
+          }
+          if (has('refunds') || has('transactions')) {
+            formatTxList(ts.transactions.refunded, 'Refunded');
+          }
         }
-      });
+      }
+    }
+  }
+
+  // ── Support Tickets ──────────────────────────────────────────────────────
+  if (has('tickets')) {
+    const tk = analytics.ticketStats;
+    if (tk) {
+      lines.push("Support Tickets Summary:");
+      lines.push(`  Total: ${tk.total} | Open: ${tk.open} | Pending: ${tk.pending} | In Progress: ${tk.inProgress} | Resolved: ${tk.resolved} | Closed: ${tk.closed}`);
+
+      const formatTickets = (list: any[], label: string) => {
+        if (!list?.length) return;
+        lines.push(`  ${label} Tickets (${list.length} total, showing up to 15):`);
+        list.slice(0, 15).forEach((t: any) => {
+          lines.push(`    - "${t.subject}" | Customer: ${t.customerName} (${t.customerEmail}) | Category: ${t.category} | Priority: ${t.priority} | Assigned: ${t.assignedTo} | Created: ${t.createdAt}${t.resolvedAt ? ` | Resolved: ${t.resolvedAt}` : ''}`);
+        });
+      };
+
+      if (tk.tickets) {
+        formatTickets(tk.tickets.open, 'Open');
+        formatTickets(tk.tickets.pending, 'Pending');
+        formatTickets(tk.tickets.inProgress, 'In Progress');
+        formatTickets(tk.tickets.resolved, 'Resolved');
+        formatTickets(tk.tickets.closed, 'Closed');
+      }
+    }
+  }
+
+  // ── Affiliates ───────────────────────────────────────────────────────────
+  if (has('affiliates')) {
+    const af = analytics.affiliateStats;
+    if (af) {
+      lines.push("Affiliate Program:");
+      lines.push(`  Total Affiliates: ${af.totalAffiliates}`);
+      lines.push(`  Total Referrals: ${af.totalReferrals}`);
+      lines.push(`  Approved Referrals: ${af.approvedReferrals}`);
+      lines.push(`  Total Commissions Earned: ${af.totalCommissions} KD`);
+      lines.push(`  Pending Payouts: ${af.pendingPayouts} KD`);
+
+      if (analytics.affiliatePerformance?.length) {
+        lines.push("  Performance (last 3 months):");
+        analytics.affiliatePerformance.slice(-3).forEach((a: any) => {
+          lines.push(`    ${a.month}: ${a.referrals} referrals, ${a.conversions} conversions`);
+        });
+      }
+
+      if (af.affiliates?.length) {
+        const sample = af.affiliates.slice(0, 15);
+        lines.push(`  Affiliates (showing ${sample.length} of ${af.affiliates.length}):`);
+        sample.forEach((a: any) => {
+          lines.push(`    - ${a.name} (${a.email}) | Code: ${a.code} | Tier: ${a.tier} | Status: ${a.status} | Referrals: ${a.referrals} | Earnings: ${a.earnings} KD | Pending: ${a.pending} KD | Joined: ${a.joinDate}`);
+        });
+      }
+
+      if (af.referrals?.length) {
+        const sample = af.referrals.slice(0, 15);
+        lines.push(`  Referrals (showing ${sample.length} of ${af.referrals.length}):`);
+        sample.forEach((r: any) => {
+          lines.push(`    - Affiliate: ${r.affiliateName} → Subscriber: ${r.subscriberName} | Plan: ${r.plan} | Amount: ${r.amount} KD | Commission: ${r.commission} KD | Status: ${r.status} | Date: ${r.date}`);
+        });
+      }
+
+      if (af.coupons?.length) {
+        lines.push(`  Discount Coupons (${af.coupons.length}):`);
+        af.coupons.forEach((c: any) => {
+          const discount = c.discountType === 'percentage' ? `${c.discountValue}%` : `${c.discountValue} KD`;
+          lines.push(`    - Code: ${c.code} | Discount: ${discount} | Usage: ${c.usage} | Valid: ${c.validFrom} → ${c.validUntil} | Status: ${c.status}`);
+        });
+      }
+
+      if ((af as any).commissionPlans?.length) {
+        lines.push(`  Commission Plans:`);
+        (af as any).commissionPlans.forEach((cp: any) => {
+          const comm = cp.commissionType === 'percentage' ? `${cp.commissionValue}%` : `${cp.commissionValue} KD`;
+          lines.push(`    - ${cp.name} | Plan: ${cp.subscriptionPlan} | Commission: ${comm} | Cookie: ${cp.cookieWindow}d | Min Payout: ${cp.minPayout} KD | Active: ${cp.isActive}${cp.couponCode ? ` | Coupon: ${cp.couponCode} (${cp.couponDiscount} KD off)` : ''}`);
+        });
+      }
+    }
+  }
+
+  // ── Billing Plans ────────────────────────────────────────────────────────
+  if (has('plans')) {
+    const bp = analytics.billingPlanStats;
+    if (bp) {
+      lines.push("Billing Plans:");
+      lines.push(`  Total Plans: ${bp.totalPlans} (Active: ${bp.activePlans}, Hidden: ${bp.hiddenPlans}, Archived: ${bp.archivedPlans})`);
+      lines.push(`  Total Subscribers Across Plans: ${bp.totalSubscribers}`);
+      if (bp.plans?.length) {
+        bp.plans.forEach((p: any) => {
+          lines.push(`  Plan: ${p.name} [${p.status}${p.isPopular ? ', Popular' : ''}]`);
+          lines.push(`    Price: ${p.price} KD / ${p.interval} | Subscribers: ${p.subscribers}`);
+          if (p.features?.length) lines.push(`    Features: ${p.features.join(', ')}`);
+          if (p.limits && Object.keys(p.limits).length) {
+            const lims = Object.entries(p.limits).map(([k, v]) => `${k}: ${v === -1 ? 'unlimited' : v}`).join(', ');
+            lines.push(`    Limits: ${lims}`);
+          }
+        });
+      }
     }
   }
 
@@ -255,7 +316,7 @@ export default function AIReportsChat({ analytics }: AIReportsChatProps) {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
 
-    const analyticsContext = buildAnalyticsContext(analytics);
+    const analyticsContext = buildAnalyticsContext(analytics, messageText);
 
     try {
       const result = await aiChat.mutateAsync({ message: messageText, analyticsContext });
