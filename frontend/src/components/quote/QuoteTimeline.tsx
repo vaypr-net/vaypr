@@ -126,7 +126,7 @@ export function QuoteTimeline({ events, createdAt }: QuoteTimelineProps) {
                       {config.label}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(event.timestamp), 'MMM d, h:mm a')}
+                      {format(new Date(event.timestamp), 'd MMM, h:mm a')}
                     </p>
                   </div>
                   {event.message && (

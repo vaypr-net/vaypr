@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertCircle, Copy, Check, ChevronRight, ChevronLeft, Loader2, CheckCircle2, FileText, AlertTriangle, Shield } from 'lucide-react';
 import {
   Dialog,
@@ -31,6 +31,7 @@ interface DomainWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDomainAdded: () => void;
+  initialDomain?: any; // open wizard at step 2 for an existing pending domain
 }
 
 type Step = 1 | 2 | 3;
@@ -46,11 +47,11 @@ const PROVIDER_TIPS: Record<Provider, string> = {
   other: 'Add records in your DNS provider',
 };
 
-export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizardProps) {
-  const [step, setStep] = useState<Step>(1);
+export function DomainWizard({ open, onOpenChange, onDomainAdded, initialDomain }: DomainWizardProps) {
+  const [step, setStep] = useState<Step>(initialDomain ? 2 : 1);
   const [domain, setDomain] = useState('');
   const [provider, setProvider] = useState<Provider>('other');
-  const [currentDomain, setCurrentDomain] = useState<any>(null);
+  const [currentDomain, setCurrentDomain] = useState<any>(initialDomain || null);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [authenticating, setAuthenticating] = useState(false);
@@ -58,6 +59,17 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
   const [domainError, setDomainError] = useState('');
   const { toast } = useToast();
   const getDomainLabel = (d: any) => d?.domain || d?.domain_name || '';
+
+  // Sync when initialDomain changes (e.g. user opens a different pending domain)
+  useEffect(() => {
+    if (initialDomain) {
+      setCurrentDomain(initialDomain);
+      setStep(2);
+    } else {
+      setCurrentDomain(null);
+      setStep(1);
+    }
+  }, [initialDomain]);
 
   // Validation
   const validateDomain = (value: string): boolean => {
@@ -187,10 +199,10 @@ export function DomainWizard({ open, onOpenChange, onDomainAdded }: DomainWizard
 
   // Reset wizard
   const handleClose = () => {
-    setStep(1);
+    setStep(initialDomain ? 2 : 1);
     setDomain('');
     setProvider('other');
-    setCurrentDomain(null);
+    setCurrentDomain(initialDomain || null);
     setDomainError('');
     onOpenChange(false);
   };

@@ -33,7 +33,7 @@ const safeFormatDate = (date: string | null | undefined): string => {
   if (!date) return '-';
   const dateObj = new Date(date);
   if (!isValid(dateObj)) return '-';
-  return format(dateObj, 'MMM d, yyyy');
+  return format(dateObj, 'd MMM yyyy');
 };
 
 const isCanceledStatus = (status?: string): boolean => {

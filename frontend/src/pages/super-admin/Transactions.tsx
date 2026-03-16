@@ -626,7 +626,7 @@ export default function Transactions() {
                             <div className="flex items-center justify-between text-sm">
                               <div className="flex items-center gap-1 text-muted-foreground">
                                 <Calendar className="w-3 h-3" />
-                                {new Date(invoice.dueDate || invoice.issueDate).toLocaleDateString('en-US', {
+                                {new Date(invoice.dueDate || invoice.issueDate).toLocaleDateString('en-GB', {
                                   year: 'numeric',
                                   month: 'short',
                                   day: 'numeric'
@@ -672,7 +672,7 @@ export default function Transactions() {
                             <div className="flex items-center justify-between text-sm">
                               <div className="flex items-center gap-1 text-muted-foreground">
                                 <Calendar className="w-3 h-3" />
-                                {new Date(invoice.dueDate || invoice.issueDate).toLocaleDateString('en-US', {
+                                {new Date(invoice.dueDate || invoice.issueDate).toLocaleDateString('en-GB', {
                                   year: 'numeric',
                                   month: 'short',
                                   day: 'numeric'

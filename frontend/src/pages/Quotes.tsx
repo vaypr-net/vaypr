@@ -154,6 +154,9 @@ export default function Quotes() {
   const [emailLogoUrl, setEmailLogoUrl] = useState('');
   const [isUploadingEmailLogo, setIsUploadingEmailLogo] = useState(false);
   const [selectedSenderId, setSelectedSenderId] = useState<string>('');
+  const [emailPromptOpen, setEmailPromptOpen] = useState(false);
+  const [emailPromptAddr, setEmailPromptAddr] = useState('');
+  const [emailPromptPending, setEmailPromptPending] = useState<{ subject: string; body: string } | null>(null);
 
   const getQuoteCompanyName = (quote?: Quote | null) =>
     quote?.companyName ||
@@ -1694,7 +1697,7 @@ ${getQuoteCompanyName(quote)}`);
                   {selectedQuote.viewedAt && (
                     <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg flex-wrap">
                       <Eye className="h-4 w-4 flex-shrink-0" />
-                      <span>Client viewed this quote on {format(new Date(selectedQuote.viewedAt), 'MMM d, yyyy \'at\' h:mm a')}</span>
+                      <span>Client viewed this quote on {format(new Date(selectedQuote.viewedAt), 'd MMM yyyy \'at\' h:mm a')}</span>
                     </div>
                   )}
 
@@ -1718,7 +1721,7 @@ ${getQuoteCompanyName(quote)}`);
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Responded on {format(new Date(selectedQuote.clientResponse.respondedAt), 'MMM d, yyyy \'at\' h:mm a')}
+                        Responded on {format(new Date(selectedQuote.clientResponse.respondedAt), 'd MMM yyyy \'at\' h:mm a')}
                       </p>
                       {selectedQuote.clientResponse.message && (
                         <div className="mt-2 p-2 bg-background/50 rounded">
@@ -1845,6 +1848,29 @@ ${getQuoteCompanyName(quote)}`);
                     <QuoteEmailTemplate 
                       quote={selectedQuote}
                       shareableLink={getShareableLink(selectedQuote)}
+                      onSendMail={async (subject, body) => {
+                        const toEmail = selectedQuote.clientEmail || '';
+                        if (!toEmail) {
+                          setEmailPromptPending({ subject, body });
+                          setEmailPromptAddr('');
+                          setEmailPromptOpen(true);
+                          return;
+                        }
+                        try {
+                          toast({ title: 'Sending…', description: 'Sending email to client.' });
+                          const result = await EmailService.sendEmail({
+                            to: toEmail,
+                            subject,
+                            body: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;">${body.replace(/\n/g, '<br/>')}</div>`,
+                            senderId: selectedSenderId || undefined,
+                            useLoginEmailAsSender: !selectedSenderId,
+                          });
+                          toast({ title: 'Email Sent!', description: `Quote sent to ${toEmail} via ${result.sentVia === 'brevo' ? 'Brevo' : 'Gmail'}` });
+                          await updateQuoteMutation.mutateAsync({ id: selectedQuote.id, data: { status: 'sent' } });
+                        } catch (err: any) {
+                          toast({ title: 'Failed to Send', description: err?.response?.data?.message || err?.message || 'Unknown error', variant: 'destructive' });
+                        }
+                      }}
                     />
                   ) : (
                     <div className="text-center p-6 sm:p-8 bg-secondary/30 rounded-lg">
@@ -2096,6 +2122,54 @@ ${getQuoteCompanyName(quote)}`);
             </Button>
           </DialogFooter>
         )}
+      </DialogContent>
+    </Dialog>
+
+    {/* No-client-email prompt */}
+    <Dialog open={emailPromptOpen} onOpenChange={(o) => { setEmailPromptOpen(o); if (!o) setEmailPromptPending(null); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Enter Recipient Email</DialogTitle>
+          <DialogDescription>This quote has no client email on file. Enter the email address to send to.</DialogDescription>
+        </DialogHeader>
+        <div className="py-2">
+          <Label htmlFor="ep-email" className="text-sm mb-1 block">Email Address</Label>
+          <Input
+            id="ep-email"
+            type="email"
+            placeholder="client@example.com"
+            value={emailPromptAddr}
+            onChange={(e) => setEmailPromptAddr(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setEmailPromptOpen(false); setEmailPromptPending(null); }}>Cancel</Button>
+          <Button
+            disabled={!emailPromptAddr.trim() || !emailPromptAddr.includes('@')}
+            onClick={async () => {
+              if (!emailPromptPending || !selectedQuote) return;
+              const toEmail = emailPromptAddr.trim();
+              setEmailPromptOpen(false);
+              try {
+                toast({ title: 'Sending…', description: 'Sending email to client.' });
+                const result = await EmailService.sendEmail({
+                  to: toEmail,
+                  subject: emailPromptPending.subject,
+                  body: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;">${emailPromptPending.body.replace(/\n/g, '<br/>')}</div>`,
+                  senderId: selectedSenderId || undefined,
+                  useLoginEmailAsSender: !selectedSenderId,
+                });
+                toast({ title: 'Email Sent!', description: `Quote sent to ${toEmail} via ${result.sentVia === 'brevo' ? 'Brevo' : 'Gmail'}` });
+                await updateQuoteMutation.mutateAsync({ id: selectedQuote.id, data: { status: 'sent' } });
+              } catch (err: any) {
+                toast({ title: 'Failed to Send', description: err?.response?.data?.message || err?.message || 'Unknown error', variant: 'destructive' });
+              } finally {
+                setEmailPromptPending(null);
+              }
+            }}
+          >Send Mail</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
     </DashboardLayout>

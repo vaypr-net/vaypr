@@ -991,9 +991,9 @@ export default function Profile() {
                     <CardDescription>
                       {currentPlanStatus === 'active' && 'Your subscription is active'}
                       {currentPlanStatus === 'trial' && subscription?.trialEndsAt &&
-                        `Trial ends ${format(new Date(subscription.trialEndsAt), 'MMMM d, yyyy')}`}
+                        `Trial ends ${format(new Date(subscription.trialEndsAt), 'd MMMM yyyy')}`}
                       {currentPlanStatus === 'cancelled' && currentPeriodEnd &&
-                        `Access until ${format(new Date(currentPeriodEnd), 'MMMM d, yyyy')}`}
+                        `Access until ${format(new Date(currentPeriodEnd), 'd MMMM yyyy')}`}
                     </CardDescription>
                   </div>
                   <Badge variant={currentPlanStatus === 'active' ? 'default' : 'secondary'}>
@@ -1300,7 +1300,7 @@ export default function Profile() {
                             {item.plan} {item.billingCycle ? `(${item.billingCycle})` : ''}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {format(new Date(item.transactionDate), 'MMM d, yyyy')}
+                            {format(new Date(item.transactionDate), 'd MMM yyyy')}
                           </p>
                         </div>
                         <div className="text-right">
@@ -1828,7 +1828,7 @@ export default function Profile() {
                     <li key={session._id} className="flex items-center justify-between gap-4 py-4">
                       <div className="min-w-0">
                         <div className="font-medium text-sm">{summarizeUserAgent(session.userAgent)}</div>
-                        <div className="text-xs text-muted-foreground">{format(new Date(session.createdAt), "MMM d, yyyy, h:mm a")}</div>
+                        <div className="text-xs text-muted-foreground">{format(new Date(session.createdAt), "d MMM yyyy, h:mm a")}</div>
                       </div>
                       <div className="flex items-center gap-3">
                         {isCurrent ? (

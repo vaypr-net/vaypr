@@ -12,9 +12,10 @@ import { formatDateDMY } from '@/lib/document-date';
 interface QuoteEmailTemplateProps {
   quote: Quote;
   shareableLink: string;
+  onSendMail?: (subject: string, body: string) => void;
 }
 
-export function QuoteEmailTemplate({ quote, shareableLink }: QuoteEmailTemplateProps) {
+export function QuoteEmailTemplate({ quote, shareableLink, onSendMail }: QuoteEmailTemplateProps) {
   const { toast } = useToast();
   
   const defaultSubject = `Quote ${quote.quoteNumber} from ${quote.companyName || 'Our Company'}`;
@@ -125,10 +126,12 @@ ${quote.companyEmail ? `Email: ${quote.companyEmail}` : ''}`.trim();
             <Copy className="h-3.5 w-3.5" />
             Copy Email
           </Button>
-          <Button size="sm" onClick={handleOpenEmailClient} className="gap-2">
-            <Mail className="h-3.5 w-3.5" />
-            Open Email Client
-          </Button>
+          {onSendMail && (
+            <Button size="sm" onClick={() => onSendMail(subject, body)} className="gap-2">
+              <Mail className="h-3.5 w-3.5" />
+              Send Mail
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DocumentDateInput } from "@/components/ui/document-date-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -187,22 +188,18 @@ export function CouponDialog({ open, onOpenChange, coupon, affiliates, onSave }:
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="validFrom">Valid From</Label>
-              <Input
+              <DocumentDateInput
                 id="validFrom"
-                type="date"
                 value={formData.validFrom}
-                onChange={(e) => setFormData(prev => ({ ...prev, validFrom: e.target.value }))}
-                required
+                onChange={(value) => setFormData(prev => ({ ...prev, validFrom: value }))}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="validUntil">Valid Until</Label>
-              <Input
+              <DocumentDateInput
                 id="validUntil"
-                type="date"
                 value={formData.validUntil}
-                onChange={(e) => setFormData(prev => ({ ...prev, validUntil: e.target.value }))}
-                required
+                onChange={(value) => setFormData(prev => ({ ...prev, validUntil: value }))}
               />
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { DocumentDateInput } from '@/components/ui/document-date-input';
 import { 
   useExpenses, 
   useExpenseStats, 
@@ -395,7 +396,7 @@ export default function Expenses() {
                         <TableCell className="font-medium text-destructive">
                           -{formatCurrency(expense.amount)}
                         </TableCell>
-                        <TableCell>{format(new Date(expense.date), 'MMM d, yyyy')}</TableCell>
+                        <TableCell>{format(new Date(expense.date), 'd MMM yyyy')}</TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -467,10 +468,9 @@ export default function Expenses() {
                 </div>
                 <div className="space-y-2">
                   <Label>Date</Label>
-                  <Input
-                    type="date"
+                  <DocumentDateInput
                     value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, date: value })}
                   />
                 </div>
               </div>

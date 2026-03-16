@@ -637,7 +637,7 @@ export default function QuoteView() {
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Responded on {format(new Date(quote.clientResponse.respondedAt), 'MMMM d, yyyy \'at\' h:mm a')}
+                  Responded on {format(new Date(quote.clientResponse.respondedAt), 'd MMMM yyyy \'at\' h:mm a')}
                 </p>
                 {quote.clientResponse.message && (
                   <p className="mt-3 text-sm italic bg-white/50 dark:bg-black/20 rounded-lg p-3">"{quote.clientResponse.message}"</p>

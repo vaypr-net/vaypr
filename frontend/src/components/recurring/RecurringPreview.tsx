@@ -29,16 +29,17 @@ interface RecurringPreviewProps {
 }
 
 export function RecurringPreview({ data }: RecurringPreviewProps) {
+  const accentColor = data.itemHeaderColor || '#6366f1';
   const formatCurrency = (amount: number) => `KD ${amount.toFixed(3)}`;
-  
+
   const getPaymentMethodLabel = (type: string) => {
     const labels: Record<string, string> = {
-      cash: 'CASH',
-      bank_transfer: 'BANK TRANSFER',
-      cheque: 'CHEQUE',
-      online_payment: 'ONLINE PAYMENT',
+      cash: 'Cash',
+      bank_transfer: 'Bank Transfer',
+      cheque: 'Cheque',
+      online_payment: 'Online Payment',
     };
-    return labels[type] || type.toUpperCase();
+    return labels[type] || type;
   };
 
   const getFrequencyLabel = (frequency: string) => {
@@ -52,102 +53,121 @@ export function RecurringPreview({ data }: RecurringPreviewProps) {
   };
 
   const logoSize = 80 * (data.logoScale || 1);
+  const showLeft = data.paymentType || (data.showPaymentTerms && data.paymentTerms) || (data.showBankDetails && data.bankDetails.bankName);
 
   return (
-    <div className="bg-white text-black p-8 min-h-[600px] rounded-lg shadow-lg">
-      {/* Header with Logo */}
-      <div className="flex justify-between items-start mb-8">
+    <div className="bg-white text-black p-8 min-h-[600px] font-sans">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-10">
         <div>
           {data.logo && (
-            <img 
-              src={data.logo} 
-              alt="Company logo" 
+            <img
+              src={data.logo}
+              alt="Company logo"
               crossOrigin="anonymous"
-              style={{ 
+              style={{
                 height: `${logoSize}px`,
                 width: 'auto',
-                maxWidth: `${logoSize * 2.5}px`,
-                objectFit: 'contain'
+                maxWidth: `${logoSize * 3}px`,
+                objectFit: 'contain',
               }}
             />
           )}
         </div>
         <div className="text-right">
-          <h1 className="text-2xl font-bold text-gray-800">RECURRING BILLING</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            {getFrequencyLabel(data.frequency)} • Next: {data.nextBillingDate ? format(new Date(data.nextBillingDate), 'MMM d, yyyy') : '-'}
+          <h1 className="text-3xl font-bold" style={{ color: accentColor }}>
+            Recurring
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {getFrequencyLabel(data.frequency)}
+          </p>
+          <p className="text-sm text-gray-500">
+            Next: {data.nextBillingDate ? format(new Date(data.nextBillingDate), 'dd/MM/yyyy') : '—'}
           </p>
         </div>
       </div>
 
       {/* Bill To */}
-      <div className="mb-8">
-        <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Bill To</h3>
-        <p className="font-medium text-gray-800">{data.clientName || 'Client Name'}</p>
+      <div className="mb-8 bg-gray-50 rounded-lg p-4">
+        <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Billed to</p>
+        <p className="font-semibold text-gray-800 text-base">{data.clientName || 'Client Name'}</p>
       </div>
 
       {/* Items Table */}
       <div className="mb-8">
-        <table className="w-full">
+        <table className="w-full border-collapse">
           <thead>
-            <tr style={{ backgroundColor: data.itemHeaderColor || '#6366f1' }}>
-              <th className="text-left p-3 text-white font-medium">Description</th>
-              <th className="text-right p-3 text-white font-medium">Amount</th>
+            <tr style={{ backgroundColor: accentColor }}>
+              <th className="text-left px-4 py-3 text-white font-semibold text-sm">Item description</th>
+              <th className="text-right px-4 py-3 text-white font-semibold text-sm">Total Cost</th>
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-gray-200">
-              <td className="p-3 text-gray-700">{data.description || 'Billing description'}</td>
-              <td className="p-3 text-right text-gray-700">{formatCurrency(data.grandTotal)}</td>
+            <tr className="border-b border-gray-100">
+              <td className="px-4 py-4 text-gray-700 text-sm">{data.description || 'Billing description'}</td>
+              <td className="px-4 py-4 text-right text-gray-700 text-sm">{formatCurrency(data.grandTotal)}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      {/* Total */}
-      <div className="flex justify-end mb-8">
-        <div className="w-64">
-          <div className="flex justify-between py-2 border-t-2 border-gray-800 font-bold text-lg">
-            <span>Grand Total</span>
-            <span>{formatCurrency(data.grandTotal)}</span>
+      {/* Bottom two-column section — matches invoice layout */}
+      <div className="flex gap-8 items-start">
+        {/* Left: Payment Method + Terms + Bank Details */}
+        {showLeft && (
+          <div className="flex-1 space-y-3">
+            {data.paymentType && (
+              <div>
+                <p className="text-sm font-semibold text-gray-700">Payment Method</p>
+                <p className="text-sm text-gray-600">{getPaymentMethodLabel(data.paymentType)}</p>
+              </div>
+            )}
+
+            {data.showPaymentTerms && data.paymentTerms && (
+              <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
+                <p className="text-xs font-semibold text-gray-700 mb-1">Payment Terms</p>
+                <p className="text-xs text-gray-500 whitespace-pre-wrap">{data.paymentTerms}</p>
+              </div>
+            )}
+
+            {data.showBankDetails && data.bankDetails.bankName && (
+              <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
+                <p className="text-xs font-semibold text-gray-700 mb-1">Bank Transfer Details</p>
+                <p className="text-xs text-gray-500">
+                  <span className="font-medium text-gray-600">Bank:</span> {data.bankDetails.bankName}
+                </p>
+                <p className="text-xs text-gray-500">
+                  <span className="font-medium text-gray-600">Account Number:</span> {data.bankDetails.accountName}
+                </p>
+                <p className="text-xs text-gray-500">
+                  <span className="font-medium text-gray-600">IBAN Number:</span> {data.bankDetails.iban}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Right: Totals */}
+        <div className="w-64 ml-auto">
+          <div className="border-t-2 border-gray-800 pt-3 flex justify-between items-center">
+            <span className="font-bold text-base text-gray-800">Grand Total:</span>
+            <span className="font-bold text-base" style={{ color: accentColor }}>
+              {formatCurrency(data.grandTotal)}
+            </span>
           </div>
         </div>
       </div>
-
-      {/* Payment Method */}
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Payment Method</h3>
-        <p className="text-gray-700">{getPaymentMethodLabel(data.paymentType)}</p>
-      </div>
-
-      {/* Bank Details */}
-      {data.showBankDetails && data.bankDetails.bankName && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Bank Details</h3>
-          <div className="space-y-1 text-sm text-gray-700">
-            <p><span className="font-medium">Bank:</span> {data.bankDetails.bankName}</p>
-            <p><span className="font-medium">Account Number:</span> {data.bankDetails.accountName}</p>
-            <p><span className="font-medium">IBAN Number:</span> {data.bankDetails.iban}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Terms */}
-      {data.showPaymentTerms && data.paymentTerms && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Payment Terms</h3>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.paymentTerms}</p>
-        </div>
-      )}
 
       {/* Footer */}
-      {(data.companyFooter.companyName || data.companyFooter.address) && (
-        <div className="mt-8 pt-4 border-t border-gray-200 text-center text-sm text-gray-500">
+      {(data.companyFooter.companyName || data.companyFooter.address || data.companyFooter.officePhone || data.companyFooter.websiteEmail) && (
+        <div className="mt-10 pt-4 border-t border-gray-200 text-center text-xs text-gray-400">
           <p>
-            {data.companyFooter.companyName}
-            {data.companyFooter.address && ` • ${data.companyFooter.address}`}
-            {data.companyFooter.officePhone && ` • Office: ${data.companyFooter.officePhone}`}
-            {data.companyFooter.websiteEmail && ` • ${data.companyFooter.websiteEmail}`}
+            {[
+              data.companyFooter.companyName,
+              data.companyFooter.address,
+              data.companyFooter.officePhone,
+              data.companyFooter.websiteEmail,
+            ].filter(Boolean).join(' • ')}
           </p>
         </div>
       )}
