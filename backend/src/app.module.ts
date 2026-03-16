@@ -67,10 +67,11 @@ import { NotificationsModule } from './notifications/notifications.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const raw = configService.get<string>('MONGODB_URI');
+        // Temporary hardcoded URI — direct shard connection (bypasses DNS/SRV timeout)
+        const HARDCODED_URI = 'mongodb://softwareforgeteam2_db_user:M8Gbq5CssbupvyZq@ac-wiz7uaj-shard-00-00.bi0zshe.mongodb.net:27017,ac-wiz7uaj-shard-00-01.bi0zshe.mongodb.net:27017,ac-wiz7uaj-shard-00-02.bi0zshe.mongodb.net:27017/test?ssl=true&replicaSet=atlas-126bpv-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0';
+        const raw = HARDCODED_URI || configService.get<string>('MONGODB_URI');
         const defaultDb = configService.get<string>('MONGODB_DB') || 'test';
 
-        // MONGODB_URI must always be set - NO FALLBACK to localhost
         if (!raw) {
           throw new Error(
             'MONGODB_URI environment variable is required! ' +
