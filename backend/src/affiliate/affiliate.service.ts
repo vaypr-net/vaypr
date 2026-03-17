@@ -540,13 +540,11 @@ export class AffiliateService {
     const supportEmail = (settings?.supportEmail || '').trim();
     const fromEmail = supportEmail || user.email;
 
+    const senderName = [settings?.firstName, settings?.lastName].filter(Boolean).join(' ') || user.fullName || user.email;
+
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
         <p>${message.replace(/\n/g, '<br/>')}</p>
-        <p style="margin-top: 20px;">
-          Regards,<br/>
-          ${supportEmail || user.email}
-        </p>
       </div>
     `;
 
@@ -558,7 +556,7 @@ export class AffiliateService {
         htmlBody,
         undefined,
         undefined,
-        { replyTo: supportEmail || undefined },
+        { replyTo: supportEmail || undefined, senderName },
       );
       return {
         success: true,
