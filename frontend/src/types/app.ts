@@ -284,7 +284,7 @@ export interface Payment {
   clientName: string;
   amount: number;
   currency: string;
-  method: 'bank_transfer' | 'credit_card' | 'cash' | 'check' | 'other';
+  method: 'bank_transfer' | 'credit_card' | 'debit_card' | 'cash' | 'check' | 'other';
   status: 'pending' | 'completed' | 'failed' | 'refunded';
   paidAt: string;
   notes?: string;

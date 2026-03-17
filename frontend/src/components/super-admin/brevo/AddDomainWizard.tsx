@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertCircle, Copy, Check, ChevronRight, ChevronLeft, Loader2, AlertTriangle, CheckCircle2, Clock, FileText, Zap, Shield } from 'lucide-react';
 import {
   Dialog,
@@ -33,6 +33,8 @@ interface AddDomainWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDomainAdded: (domain: BrevoD) => void;
+  /** Pre-load an existing domain and start at the DNS records step */
+  initialDomain?: BrevoD;
 }
 
 type Step = 1 | 2 | 3;
@@ -49,7 +51,7 @@ const PROVIDER_TIPS: Record<Provider, string> = {
   other: 'Add records in your DNS provider',
 };
 
-export function AddDomainWizard({ open, onOpenChange, onDomainAdded }: AddDomainWizardProps) {
+export function AddDomainWizard({ open, onOpenChange, onDomainAdded, initialDomain }: AddDomainWizardProps) {
   const [step, setStep] = useState<Step>(1);
   const [domain, setDomain] = useState('');
   const [provider, setProvider] = useState<Provider>('other');
@@ -61,6 +63,15 @@ export function AddDomainWizard({ open, onOpenChange, onDomainAdded }: AddDomain
   const [domainError, setDomainError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const { toast } = useToast();
+
+  // When wizard opens with an existing domain, jump straight to DNS records view
+  useEffect(() => {
+    if (open && initialDomain) {
+      setCurrentDomain(initialDomain);
+      setDomain(initialDomain.domain);
+      setStep(2);
+    }
+  }, [open, initialDomain]);
 
   // Validation
   const validateDomain = (value: string): boolean => {
@@ -799,11 +810,12 @@ export function AddDomainWizard({ open, onOpenChange, onDomainAdded }: AddDomain
                   </>
                 )}
               </Button>
-              {currentDomain?.status === 'DNS_PENDING' && (
+              {currentDomain?.status !== 'VERIFIED' && (
                 <Button
                   onClick={handleAuthenticateDomain}
                   disabled={verifying || authenticating || !currentDomain}
                   className="gap-1"
+                  title="Authenticate domain with Brevo after DNS records are configured"
                 >
                   {authenticating ? (
                     <>

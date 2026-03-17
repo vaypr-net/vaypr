@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Mail, Copy, Trash2, RefreshCw, Shield } from 'lucide-react';
+import { Plus, Mail, Copy, Trash2, RefreshCw, Shield, AlertCircle, XCircle, Clock, CheckCircle, FileSearch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -20,6 +20,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { BrevoService, BrevoD } from '@/api/services/brevo.service';
 import { AddDomainWizard } from '@/components/super-admin/brevo/AddDomainWizard';
@@ -34,6 +42,9 @@ export function BrevoDomainsPage() {
   const [domainToDelete, setDomainToDelete] = useState<BrevoD | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [authenticatingDomainId, setAuthenticatingDomainId] = useState<string | null>(null);
+  const [checkResult, setCheckResult] = useState<BrevoD | null>(null);
+  const [dnsWizardOpen, setDnsWizardOpen] = useState(false);
+  const [dnsWizardDomain, setDnsWizardDomain] = useState<BrevoD | null>(null);
   const { toast } = useToast();
 
   // Load domains
@@ -81,10 +92,8 @@ export function BrevoDomainsPage() {
           description: 'Your domain is now authenticated.',
         });
       } else {
-        toast({
-          title: 'Verification in progress',
-          description: 'Some checks may still be pending. Try again in a few moments.',
-        });
+        // Show detailed DNS check result dialog
+        setCheckResult(updated);
       }
     } catch (error) {
       toast({
@@ -190,6 +199,14 @@ export function BrevoDomainsPage() {
         onDomainAdded={handleAddDomain}
       />
 
+      {/* DNS Records Wizard — view existing domain's records */}
+      <AddDomainWizard
+        open={dnsWizardOpen}
+        onOpenChange={(o) => { setDnsWizardOpen(o); if (!o) setDnsWizardDomain(null); }}
+        onDomainAdded={() => { setDnsWizardOpen(false); setDnsWizardDomain(null); }}
+        initialDomain={dnsWizardDomain ?? undefined}
+      />
+
       {/* Content */}
       {domains.length === 0 && !loading ? (
         // Empty State
@@ -268,8 +285,26 @@ export function BrevoDomainsPage() {
                               className="gap-1"
                             >
                               <RefreshCw className="h-4 w-4" />
-                              Verify
+                              Check
                             </Button>
+                            {domain.status !== 'VERIFIED' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const domainId = domain._id || domain.id;
+                                  if (domainId) {
+                                    setDnsWizardDomain({ ...domain, id: domainId, _id: domainId });
+                                    setDnsWizardOpen(true);
+                                  }
+                                }}
+                                className="gap-1"
+                                title="View DNS records to add"
+                              >
+                                <FileSearch className="h-4 w-4" />
+                                DNS Records
+                              </Button>
+                            )}
                             {domain.status === 'DNS_PENDING' && (
                               <Button
                                 variant="default"
@@ -310,6 +345,112 @@ export function BrevoDomainsPage() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* DNS Check Result Dialog */}
+      {checkResult && (
+        <Dialog open={!!checkResult} onOpenChange={() => setCheckResult(null)}>
+          <DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto">
+            <DialogHeader className="pb-1">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                DNS Check — <span className="font-mono text-foreground">{checkResult.domain}</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                {checkResult.errorMessage || 'DNS records not yet fully propagated. Add any missing records to your provider, then check again after 15–48 h.'}
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Per-record breakdown */}
+            {checkResult.checks && (
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {[
+                  { key: 'brevo_code', label: 'Brevo Code', desc: 'Ownership verification (TXT)', purpose: 'BREVO_CODE' },
+                  { key: 'dkim',       label: 'DKIM',       desc: 'Email auth signature',         purpose: 'DKIM' },
+                  { key: 'dmarc',      label: 'DMARC',      desc: 'Email policy record',          purpose: 'DMARC' },
+                  { key: 'spf',        label: 'SPF',        desc: 'Authorized sending servers',   purpose: 'SPF' },
+                ].map(({ key, label, desc, purpose }) => {
+                  const val: string = ((checkResult.checks as any)[key] || 'MISSING').toUpperCase();
+                  const isOk      = val === 'OK';
+                  const isFail    = val === 'FAIL';
+                  const isMissing = val === 'MISSING';
+                  const needsAction = isFail || isMissing;
+                  const dnsRecord = (checkResult.dnsRecords || []).find((r: any) => r.purpose === purpose);
+                  return (
+                    <div key={key} className={`rounded-lg border ${
+                      isOk      ? 'border-green-200 bg-green-50/70'
+                    : isFail    ? 'border-red-200 bg-red-50/70'
+                    : 'border-yellow-200 bg-yellow-50/70'
+                    }`}>
+                      {/* Card header */}
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <div className="flex-shrink-0">
+                          {isOk    ? <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                          : isFail  ? <XCircle    className="w-3.5 h-3.5 text-red-600" />
+                          : <Clock className="w-3.5 h-3.5 text-yellow-600" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-semibold leading-tight ${
+                            isOk ? 'text-green-800' : isFail ? 'text-red-800' : 'text-yellow-800'
+                          }`}>{label}</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight truncate">{desc}</p>
+                        </div>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${
+                          isOk      ? 'bg-green-100 text-green-700'
+                        : isFail    ? 'bg-red-100 text-red-700'
+                        : isMissing ? 'bg-gray-100 text-gray-600'
+                        : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {isOk ? 'OK' : isFail ? 'FAILED' : isMissing ? 'MISSING' : 'PENDING'}
+                        </span>
+                      </div>
+                      {/* DNS record details for failing/missing records */}
+                      {needsAction && dnsRecord && (
+                        <div className="mx-2 mb-2 p-2 bg-white border border-dashed border-red-200 rounded text-[11px] space-y-1">
+                          <p className="font-semibold text-red-600 text-[10px] uppercase tracking-wide mb-1">Add to DNS provider</p>
+                          {[
+                            { field: 'Type',  value: dnsRecord.type },
+                            { field: 'Host',  value: dnsRecord.host },
+                            { field: 'Value', value: dnsRecord.value },
+                            ...(dnsRecord.ttl ? [{ field: 'TTL', value: dnsRecord.ttl }] : []),
+                          ].map(({ field, value }) => (
+                            <div key={field} className="flex items-start gap-1.5">
+                              <span className="w-8 text-muted-foreground flex-shrink-0 font-medium">{field}</span>
+                              <span className="font-mono break-all flex-1 text-gray-800 select-all leading-tight">{value}</span>
+                              <button
+                                type="button"
+                                onClick={() => navigator.clipboard.writeText(value)}
+                                className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors mt-0.5"
+                                title={`Copy ${field}`}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 p-2.5 bg-muted/40 rounded-lg text-xs text-muted-foreground mt-1">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground/70" />
+              <span>Add missing records to your DNS provider, wait 15–48 h for propagation, then click <em>Check</em> again.</span>
+            </div>
+
+            <DialogFooter className="mt-1">
+              <Button variant="outline" size="sm" onClick={() => {
+                const d = checkResult;
+                setCheckResult(null);
+                setDnsWizardDomain(d);
+                setDnsWizardOpen(true);
+              }}>View DNS Records</Button>
+              <Button size="sm" onClick={() => setCheckResult(null)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Delete Confirmation Dialog */}

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useGetSuperadminSettings } from "@/hooks/api/useSuperadminSettings";
 import { motion } from "framer-motion";
 import { Users2, DollarSign, TrendingUp, Gift, Eye, Plus, Pencil, Trash2, MoreHorizontal, Mail } from "lucide-react";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
@@ -83,6 +84,7 @@ export default function Affiliates() {
   // Referrals
   const { data: referralsData, isLoading: referralsLoading } = useGetReferrals(undefined, undefined, 100);
   const approveReferralMutation = useApproveReferral();
+  const { data: adminSettings } = useGetSuperadminSettings();
 
   // Build a quick id→email map from already-loaded affiliates
   const affiliateEmailMap = useMemo(() => {
@@ -264,7 +266,7 @@ Referral update for ${ref.subscriberName} (${ref.plan}):
 Please reply to this email with your payout account details so we can process your commission payout.
 
 Regards,
-Support Team`
+${adminSettings?.firstName || ''} ${adminSettings?.lastName || ''}`.trim()
     );
     setEmailDialogOpen(true);
   };
