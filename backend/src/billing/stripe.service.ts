@@ -179,14 +179,17 @@ export class StripeService {
         const repairedCommission = await this.calculateReferralCommission(
           plan,
           subscriptionAmount,
+          affiliate,
         );
 
         if (repairedCommission > 0) {
+          // Store amount in KWD (plan price) and commission in KWD
+          const planPriceKWD = Number(plan?.price || 0);
           await this.referralModel.findByIdAndUpdate(existingReferral._id, {
-            amount: subscriptionAmount,
-            amountCurrency: sourceCurrency,
+            amount: planPriceKWD,
+            amountCurrency: 'KWD',
             commission: repairedCommission,
-            commissionCurrency: sourceCurrency,
+            commissionCurrency: 'KWD',
           });
 
           if (existingReferral.status === 'approved') {
@@ -211,10 +214,14 @@ export class StripeService {
     const commission = await this.calculateReferralCommission(
       plan,
       subscriptionAmount,
+      affiliate,
     );
 
+    // Store amount as the plan's KWD price for consistent display
+    const planPriceKWD = Number(plan?.price || 0);
+
     this.logger.log(
-      `Commission calculated: ${commission} ${sourceCurrency} for subscription amount ${subscriptionAmount} ${sourceCurrency}`,
+      `Commission calculated: ${commission} KWD for ${plan?.name || 'Unknown'} plan (price: ${planPriceKWD} KWD)`,
     );
 
     const referralRecord = await this.referralModel.create({
@@ -224,10 +231,10 @@ export class StripeService {
       subscriberName: user.fullName,
       plan: plan?.name || 'Unknown',
       conversionDate: new Date(),
-      amount: subscriptionAmount,
-      amountCurrency: sourceCurrency,
+      amount: planPriceKWD,
+      amountCurrency: 'KWD',
       commission,
-      commissionCurrency: sourceCurrency,
+      commissionCurrency: 'KWD',
       status: 'pending',
     });
 
@@ -250,43 +257,55 @@ export class StripeService {
   private async calculateReferralCommission(
     billingPlan: any,
     subscriptionAmount: number,
+    affiliate?: any,
   ): Promise<number> {
-    if (!billingPlan || !subscriptionAmount || subscriptionAmount <= 0) {
+    if (!billingPlan) {
       return 0;
     }
 
-    const planId = billingPlan._id?.toString?.();
     const planName = (billingPlan.name || '').trim();
+    const allPlansPattern = /^(all\s*plans|all|\*)$/i;
 
     let commissionPlan: any = null;
 
-    // Priority 1: exact plan-specific commission rules.
-    const exactFilters: any[] = [];
-    if (planId) {
-      exactFilters.push({ subscriptionPlan: planId });
-    }
-    if (planName) {
-      exactFilters.push({
-        subscriptionPlan: new RegExp(`^${this.escapeRegex(planName)}$`, 'i'),
-      });
-    }
-
-    if (exactFilters.length > 0) {
-      commissionPlan = await this.commissionPlanModel
+    // Priority 1: Use the affiliate's directly assigned commission plan.
+    // This is the correct approach — each affiliate is enrolled in one commission plan
+    // (e.g. "Ramadan30 30%", "Gold Tier 10%"). We use that, NOT a search by plan name
+    // (which would match multiple plans and pick the wrong one).
+    if (affiliate?.commissionPlanId) {
+      const affiliatePlan = await this.commissionPlanModel
         .findOne({
+          _id: affiliate.commissionPlanId,
           isActive: true,
-          $or: exactFilters,
         })
-        .sort({ createdAt: -1 })
         .lean();
+
+      if (affiliatePlan) {
+        const planTarget = (affiliatePlan.subscriptionPlan || '').trim();
+        const isAllPlans = allPlansPattern.test(planTarget);
+        const matchesBillingPlan =
+          isAllPlans ||
+          planTarget.localeCompare(planName, undefined, {
+            sensitivity: 'base',
+          }) === 0;
+
+        if (matchesBillingPlan) {
+          // Affiliate's plan covers this billing plan — use it directly.
+          commissionPlan = affiliatePlan;
+        }
+        // If the affiliate's plan is for a different specific plan (e.g. "enterprise")
+        // but user subscribed to "premium", fall through to the "All Plans" fallback below.
+      }
     }
 
-    // Priority 2 (fallback): generic commission rules for all plans.
+    // Priority 2 (fallback): find an "All Plans" commission plan.
+    // Reached only when the affiliate has no commissionPlanId, or their assigned plan
+    // doesn't cover the current billing plan.
     if (!commissionPlan) {
       commissionPlan = await this.commissionPlanModel
         .findOne({
           isActive: true,
-          subscriptionPlan: new RegExp('^(all\\s*plans|all|\\*)$', 'i'),
+          subscriptionPlan: { $regex: '^(all\\s*plans|all|\\*)$', $options: 'i' },
         })
         .sort({ createdAt: -1 })
         .lean();
@@ -303,8 +322,15 @@ export class StripeService {
 
     let commission = 0;
     if (commissionPlan.commissionType === 'percentage') {
-      commission = (subscriptionAmount * value) / 100;
+      // Always calculate commission from the plan's KWD price (billingPlan.price),
+      // NOT from the raw AED Stripe charge (subscriptionAmount).
+      // Using the AED amount causes wrong results due to KWD→AED rounding:
+      // e.g. 10 KWD → 100 AED (Stripe) → 30% × 100 = 30 AED → 30×0.0835 = 2.51 KWD ❌
+      // Correct: 30% × 10 KWD (plan price) = 3.00 KWD ✓
+      const planPriceKWD = Number(billingPlan.price || 0);
+      commission = (planPriceKWD * value) / 100;
     } else {
+      // Fixed-amount commissions are already in KWD
       commission = value;
     }
 
@@ -799,9 +825,12 @@ export class StripeService {
 
     const planObject = (plan?.toObject?.() || plan) || { price: actualPrice };
     
-    // Convert AED price to display currency (KWD)
+    // Use the plan's original KWD price from the database as the display price.
+    // Converting Stripe's AED amount back to KWD introduces rounding errors
+    // (e.g. 10 KWD → 120 AED → 10.02 KWD) because the KWD→AED conversion rounds at cents.
+    // The plan's `price` field is already stored in KWD (the display currency), so use it directly.
     const displayCurrency = this.currencyService.getDisplayCurrency();
-    const priceInDisplayCurrency = this.currencyService.convertToDisplayCurrency(actualPrice);
+    const priceInDisplayCurrency = planObject?.price ?? this.currencyService.convertToDisplayCurrency(actualPrice);
     
     const isCanceledStatus = subscriptionStatus === 'canceled';
     const isScheduledCancellation =
