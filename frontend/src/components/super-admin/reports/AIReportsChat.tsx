@@ -50,6 +50,14 @@ function detectTopics(question: string): AnalyticsTopic[] {
   // Always include overview/metrics as base context
   topics.add('overview');
 
+  // If the question is a vague follow-up asking for names, lists, or details
+  // (e.g. "what are their names", "list them", "show me", "who are they"),
+  // include ALL topics so the AI has full context to answer.
+  if (/\bname(s)?\b|\bwho\b|list (them|all|me|the)|show (me|all|them)|give me|tell me|detail|their \w+|all of them|full list/.test(q)) {
+    (['subscribers', 'revenue', 'transactions', 'refunds', 'tickets', 'affiliates', 'plans'] as AnalyticsTopic[]).forEach(t => topics.add(t));
+    return Array.from(topics);
+  }
+
   if (/subscriber|user|client|customer|member|signup|register|cancel|churn|active|free plan/.test(q))
     topics.add('subscribers');
 
@@ -145,9 +153,8 @@ function buildAnalyticsContext(analytics: any, question?: string): string {
       lines.push(`  This Month Revenue: ${ss.monthlyRevenue} KD`);
 
       if (ss.subscribers?.length) {
-        const sample = ss.subscribers.slice(0, 20);
-        lines.push(`  Subscriber List (showing ${sample.length} of ${ss.subscribers.length}):`);
-        sample.forEach((s: any) => {
+        lines.push(`  Subscriber List (${ss.subscribers.length} total):`);
+        ss.subscribers.forEach((s: any) => {
           lines.push(`    - ${s.name} (${s.email}) | Plan: ${s.plan} | Status: ${s.status} | Billing: ${s.billingCycle} | Amount: ${s.amount} KD | Joined: ${s.joinedAt}${s.canceledAt ? ` | Canceled: ${s.canceledAt}` : ` | Renews: ${s.renewsAt}`}`);
         });
       }
@@ -168,8 +175,8 @@ function buildAnalyticsContext(analytics: any, question?: string): string {
       if (has('transactions') || has('refunds')) {
         const formatTxList = (list: any[], label: string) => {
           if (!list?.length) return;
-          lines.push(`  ${label} Transactions (${list.length} total, showing up to 15):`);
-          list.slice(0, 15).forEach((t: any) => {
+          lines.push(`  ${label} Transactions (${list.length} total):`);
+          list.forEach((t: any) => {
             lines.push(`    - ${t.subscriberName} (${t.subscriberEmail}) | ${t.amount} ${t.currency} | Plan: ${t.plan} | ${t.billingCycle} | Provider: ${t.provider} | Date: ${t.date}`);
           });
         };
@@ -197,8 +204,8 @@ function buildAnalyticsContext(analytics: any, question?: string): string {
 
       const formatTickets = (list: any[], label: string) => {
         if (!list?.length) return;
-        lines.push(`  ${label} Tickets (${list.length} total, showing up to 15):`);
-        list.slice(0, 15).forEach((t: any) => {
+        lines.push(`  ${label} Tickets (${list.length} total):`);
+        list.forEach((t: any) => {
           lines.push(`    - "${t.subject}" | Customer: ${t.customerName} (${t.customerEmail}) | Category: ${t.category} | Priority: ${t.priority} | Assigned: ${t.assignedTo} | Created: ${t.createdAt}${t.resolvedAt ? ` | Resolved: ${t.resolvedAt}` : ''}`);
         });
       };
@@ -232,17 +239,15 @@ function buildAnalyticsContext(analytics: any, question?: string): string {
       }
 
       if (af.affiliates?.length) {
-        const sample = af.affiliates.slice(0, 15);
-        lines.push(`  Affiliates (showing ${sample.length} of ${af.affiliates.length}):`);
-        sample.forEach((a: any) => {
+        lines.push(`  Affiliates (${af.affiliates.length} total):`);
+        af.affiliates.forEach((a: any) => {
           lines.push(`    - ${a.name} (${a.email}) | Code: ${a.code} | Tier: ${a.tier} | Status: ${a.status} | Referrals: ${a.referrals} | Earnings: ${a.earnings} KD | Pending: ${a.pending} KD | Joined: ${a.joinDate}`);
         });
       }
 
       if (af.referrals?.length) {
-        const sample = af.referrals.slice(0, 15);
-        lines.push(`  Referrals (showing ${sample.length} of ${af.referrals.length}):`);
-        sample.forEach((r: any) => {
+        lines.push(`  Referrals (${af.referrals.length} total):`);
+        af.referrals.forEach((r: any) => {
           lines.push(`    - Affiliate: ${r.affiliateName} → Subscriber: ${r.subscriberName} | Plan: ${r.plan} | Amount: ${r.amount} KD | Commission: ${r.commission} KD | Status: ${r.status} | Date: ${r.date}`);
         });
       }

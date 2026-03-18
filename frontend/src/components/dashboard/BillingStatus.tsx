@@ -7,7 +7,7 @@ import { billingService } from '@/api/services/billing.service';
 import { Check, AlertCircle, ArrowRight, LogOut, Zap } from 'lucide-react';
 import { useState } from 'react';
 import CancelSubscriptionDialog from '@/components/billing/CancelSubscriptionDialog';
-import { CURRENCY_CONFIG } from '@/config/currency.config';
+import { CURRENCY_CONFIG, convertToDisplayCurrency } from '@/config/currency.config';
 
 interface BillingPlan {
   _id: string;
@@ -186,7 +186,10 @@ export function BillingStatus() {
             {!isCanceledStatus && currentPlan && currentPlan.price > 0 && (
               <p className="text-sm text-muted-foreground mt-1">
                 {CURRENCY_CONFIG.displayCurrency}{' '}
-                {(currentPlan.priceInDisplayCurrency || (currentPlan.price * CURRENCY_CONFIG.conversionRate)).toFixed(2)}
+                {(currentPlan.priceInDisplayCurrency != null
+                  ? currentPlan.priceInDisplayCurrency
+                  : convertToDisplayCurrency(currentPlan.price)
+                ).toFixed(2)}
                 /{subscription?.billingCycle === 'yearly' ? 'year' : 'month'}
               </p>
             )}
