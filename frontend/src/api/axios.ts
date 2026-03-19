@@ -7,7 +7,7 @@ console.log('🔌 API Base URL:', apiBaseUrl); // Debug log
 
 const axiosInstance = axios.create({
   baseURL: apiBaseUrl,
-  timeout: 10000,
+  timeout: 60000, // 60s — allows file uploads to DO Spaces to complete
   headers: {
     'Content-Type': 'application/json',
   },

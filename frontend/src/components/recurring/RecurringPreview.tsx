@@ -64,7 +64,6 @@ export function RecurringPreview({ data }: RecurringPreviewProps) {
             <img
               src={data.logo}
               alt="Company logo"
-              crossOrigin="anonymous"
               style={{
                 height: `${logoSize}px`,
                 width: 'auto',

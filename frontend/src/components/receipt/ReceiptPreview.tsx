@@ -29,7 +29,6 @@ export function ReceiptPreview({ data, previewId = "receipt-preview", compact = 
           <img 
             src={data.logo} 
             alt="Company Logo" 
-            crossOrigin="anonymous"
             className={`object-contain mx-auto transition-transform print:mb-1 ${compact ? 'mb-1.5' : 'mb-2'}`}
             style={{ 
               height: `${(compact ? 2.2 : 2.8) * (data.logoScale || 1)}rem`,
