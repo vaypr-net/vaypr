@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { QuotesService } from './quotes.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
@@ -24,6 +25,8 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 @ApiTags('quotes')
 @Controller('quotes')
 export class QuotesController {
+  private static readonly multerOpts = { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } };
+
   constructor(
     private readonly quotesService: QuotesService,
     private readonly cloudinaryService: CloudinaryService,
@@ -33,7 +36,7 @@ export class QuotesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('logo'))
+  @UseInterceptors(FileInterceptor('logo', QuotesController.multerOpts))
   async create(
     @Body() createQuoteDto: CreateQuoteDto,
     @UploadedFile() logo: Express.Multer.File,
@@ -107,7 +110,7 @@ export class QuotesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('logo'))
+  @UseInterceptors(FileInterceptor('logo', QuotesController.multerOpts))
   async update(
     @Param('id') id: string,
     @Body() updateQuoteDto: UpdateQuoteDto,

@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { RecurringService } from './recurring.service';
 import { RecurringAutomailService } from './services/recurring-automail.service';
 import { CreateRecurringDto } from './dto/create-recurring.dto';
@@ -25,6 +26,8 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 @UseGuards(JwtAuthGuard)
 @Controller('recurring')
 export class RecurringController {
+  private static readonly multerOpts = { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } };
+
   constructor(
     private readonly recurringService: RecurringService,
     private readonly cloudinaryService: CloudinaryService,
@@ -33,7 +36,7 @@ export class RecurringController {
 
   @Post()
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('logo'))
+  @UseInterceptors(FileInterceptor('logo', RecurringController.multerOpts))
   async create(
     @Body() createRecurringDto: CreateRecurringDto,
     @UploadedFile() logo: Express.Multer.File,
@@ -73,7 +76,7 @@ export class RecurringController {
 
   @Patch(':id')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('logo'))
+  @UseInterceptors(FileInterceptor('logo', RecurringController.multerOpts))
   async update(
     @Param('id') id: string,
     @Body() updateRecurringDto: UpdateRecurringDto,

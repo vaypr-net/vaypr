@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { RecieptService } from './reciept.service';
 import { CreateReceiptDto } from './dto/create-reciept.dto';
 import { UpdateReceiptDto } from './dto/update-reciept.dto';
@@ -25,6 +26,8 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 @UseGuards(JwtAuthGuard)
 @Controller('receipts')
 export class RecieptController {
+  private static readonly multerOpts = { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } };
+
   constructor(
     private readonly recieptService: RecieptService,
     private readonly cloudinaryService: CloudinaryService,
@@ -32,7 +35,7 @@ export class RecieptController {
 
   @Post()
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('logo'))
+  @UseInterceptors(FileInterceptor('logo', RecieptController.multerOpts))
   async create(
     @Body() createReceiptDto: CreateReceiptDto,
     @UploadedFile() logo: Express.Multer.File,
@@ -85,7 +88,7 @@ export class RecieptController {
 
   @Patch(':id')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('logo'))
+  @UseInterceptors(FileInterceptor('logo', RecieptController.multerOpts))
   async update(
     @Param('id') id: string,
     @Body() updateReceiptDto: UpdateReceiptDto,

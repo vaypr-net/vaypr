@@ -12,6 +12,7 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { CorporatePagesService } from './corporate-pages.service';
 import { CreateCorporatePageDto } from './dto/create-corporate-page.dto';
 import { UpdateCorporatePageDto } from './dto/update-corporate-page.dto';
@@ -23,6 +24,8 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller('corporate')
 export class CorporatePagesController {
+  private static readonly multerOpts = { storage: memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }; // 20MB for guide PDFs
+
   constructor(
     private readonly corporatePagesService: CorporatePagesService,
     private readonly cloudinaryService: CloudinaryService,
@@ -159,7 +162,7 @@ export class CorporatePagesController {
 
   @UseGuards(SuperAdminGuard)
   @Post('admin/guides/upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', CorporatePagesController.multerOpts))
   async uploadGuideFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       return { message: 'No file uploaded' };
@@ -175,7 +178,7 @@ export class CorporatePagesController {
 
   @UseGuards(SuperAdminGuard)
   @Post('admin/team/upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', CorporatePagesController.multerOpts))
   async uploadTeamMemberImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       return { message: 'No file uploaded' };

@@ -13,6 +13,7 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import {
   ApiTags,
   ApiOperation,
@@ -37,11 +38,24 @@ export class ExpenseController {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
+  private static readonly multerOptions = {
+    storage: memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+    fileFilter: (_req: any, file: Express.Multer.File, cb: any) => {
+      const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+      if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only images and PDF files are allowed for receipts'), false);
+      }
+    },
+  };
+
   @Post()
   @ApiOperation({ summary: 'Create a new expense' })
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Expense created successfully' })
-  @UseInterceptors(FileInterceptor('receipt'))
+  @UseInterceptors(FileInterceptor('receipt', ExpenseController.multerOptions))
   async create(
     @Body() createExpenseDto: CreateExpenseDto,
     @Request() req,
@@ -120,7 +134,7 @@ export class ExpenseController {
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 200, description: 'Expense updated successfully' })
   @ApiResponse({ status: 404, description: 'Expense not found' })
-  @UseInterceptors(FileInterceptor('receipt'))
+  @UseInterceptors(FileInterceptor('receipt', ExpenseController.multerOptions))
   async update(
     @Param('id') id: string,
     @Body() updateExpenseDto: UpdateExpenseDto,

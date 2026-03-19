@@ -1,75 +1,61 @@
 import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
-import { v2 as Cloudinary } from 'cloudinary';
-import { Readable } from 'stream';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { randomUUID } from 'crypto';
+import * as path from 'path';
 
 @Injectable()
 export class CloudinaryService {
-  constructor(@Inject('CLOUDINARY') private cloudinary: typeof Cloudinary) {}
+  constructor(@Inject('CLOUDINARY') private s3: S3Client) {}
+
+  private buildPublicUrl(key: string): string {
+    // DO_SPACES_URL = https://vaypr-uploads.sfo3.digitaloceanspaces.com
+    const spacesUrl = (process.env.DO_SPACES_URL || '').replace(/\/$/, '');
+
+    if (spacesUrl) {
+      return `${spacesUrl}/${key}`;
+    }
+
+    // Fallback: construct from endpoint + bucket
+    const bucket = process.env.DO_SPACES_BUCKET;
+    const endpoint = (process.env.DO_SPACES_ENDPOINT || '').replace(/\/$/, '');
+    return `${endpoint}/${bucket}/${key}`;
+  }
 
   private async upload(
     file: Express.Multer.File,
     folder: string,
     resourceType: 'image' | 'raw' | 'video' | 'auto',
   ): Promise<any> {
-    return new Promise((resolve, reject) => {
-      // Set timeout for upload (30 seconds)
-      const uploadTimeout = setTimeout(() => {
-        reject(new InternalServerErrorException('File upload timeout - took too long'));
-      }, 30000);
+    const ext = path.extname(file.originalname) || '';
+    const uniqueKey = `${folder}/${randomUUID()}${ext}`;
 
-      const upload = this.cloudinary.uploader.upload_stream(
-        {
-          folder,
-          resource_type: resourceType,
-          timeout: 30000,
-        },
-        (error, result) => {
-          // Clear timeout once upload completes (success or failure)
-          clearTimeout(uploadTimeout);
-
-          if (error) {
-            console.error('[Cloudinary] Upload error:', error);
-            return reject(
-              new InternalServerErrorException(
-                `Failed to upload file to Cloudinary: ${error.message || 'Unknown error'}`
-              )
-            );
-          }
-
-          if (!result) {
-            return reject(
-              new InternalServerErrorException('File upload failed - no result returned')
-            );
-          }
-
-          resolve(result);
-        },
-      );
-
-      // Handle stream errors
-      upload.on('error', (error) => {
-        clearTimeout(uploadTimeout);
-        console.error('[Cloudinary] Stream error:', error);
-        reject(
-          new InternalServerErrorException(
-            `File upload stream error: ${error.message || 'Unknown error'}`
-          )
-        );
-      });
-
-      // Pipe file buffer to upload stream
-      try {
-        Readable.from(file.buffer).pipe(upload);
-      } catch (pipeError) {
-        clearTimeout(uploadTimeout);
-        console.error('[Cloudinary] Pipe error:', pipeError);
-        reject(
-          new InternalServerErrorException(
-            `Failed to process upload file: ${pipeError.message || 'Unknown error'}`
-          )
-        );
-      }
+    const command = new PutObjectCommand({
+      Bucket: process.env.DO_SPACES_BUCKET,
+      Key: uniqueKey,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      ACL: 'public-read' as any,
     });
+
+    try {
+      await this.s3.send(command);
+    } catch (error) {
+      console.error('[DO Spaces] Upload error:', error);
+      throw new InternalServerErrorException(
+        `Failed to upload file to DigitalOcean Spaces: ${error.message || 'Unknown error'}`,
+      );
+    }
+
+    const url = this.buildPublicUrl(uniqueKey);
+
+    // Return in the same shape as Cloudinary so all controllers stay untouched
+    return {
+      secure_url: url,
+      url,
+      public_id: uniqueKey,
+      resource_type: resourceType,
+      original_filename: file.originalname,
+    };
   }
 
   async uploadImage(file: Express.Multer.File, folder = 'profiles'): Promise<any> {
@@ -81,6 +67,18 @@ export class CloudinaryService {
   }
 
   async deleteImage(publicId: string): Promise<any> {
-    return this.cloudinary.uploader.destroy(publicId);
+    const command = new DeleteObjectCommand({
+      Bucket: process.env.DO_SPACES_BUCKET,
+      Key: publicId,
+    });
+
+    try {
+      return await this.s3.send(command);
+    } catch (error) {
+      console.error('[DO Spaces] Delete error:', error);
+      throw new InternalServerErrorException(
+        `Failed to delete file from DigitalOcean Spaces: ${error.message || 'Unknown error'}`,
+      );
+    }
   }
 }

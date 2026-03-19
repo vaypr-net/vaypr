@@ -1,13 +1,16 @@
-import { v2 as cloudinary } from 'cloudinary';
+import { S3Client } from '@aws-sdk/client-s3';
 
 export const CloudinaryProvider = {
   provide: 'CLOUDINARY',
   useFactory: () => {
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
+    return new S3Client({
+      endpoint: process.env.DO_SPACES_ENDPOINT || '',
+      region: process.env.DO_SPACES_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.DO_SPACES_KEY || '',
+        secretAccessKey: process.env.DO_SPACES_SECRET || '',
+      },
+      forcePathStyle: false, // DO Spaces uses virtual-hosted-style URLs
     });
-    return cloudinary;
   },
 };

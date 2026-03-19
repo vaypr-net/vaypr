@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { InvoiceService } from './invoice.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
@@ -25,6 +26,8 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 @UseGuards(JwtAuthGuard)
 @Controller('invoice')
 export class InvoiceController {
+  private static readonly multerOpts = { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } };
+
   constructor(
     private readonly invoiceService: InvoiceService,
     private readonly cloudinaryService: CloudinaryService,
@@ -32,7 +35,7 @@ export class InvoiceController {
 
   @Post()
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('logo'))
+  @UseInterceptors(FileInterceptor('logo', InvoiceController.multerOpts))
   async create(
     @Body() createInvoiceDto: CreateInvoiceDto,
     @UploadedFile() logo: Express.Multer.File,
@@ -83,7 +86,7 @@ export class InvoiceController {
 
   @Patch(':id')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('logo'))
+  @UseInterceptors(FileInterceptor('logo', InvoiceController.multerOpts))
   async update(
     @Param('id') id: string,
     @Body() updateInvoiceDto: UpdateInvoiceDto,

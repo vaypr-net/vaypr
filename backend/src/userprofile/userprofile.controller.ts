@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Delete, UseGuards, Request, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { UserprofileService } from './userprofile.service';
 import { CreateUserprofileDto } from './dto/create-userprofile.dto';
@@ -16,6 +17,8 @@ export class UserprofileController {
     private readonly userprofileService: UserprofileService,
     private readonly userService: UserService,
   ) {}
+
+  private static readonly multerOpts = { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } };
 
   private getAuthUserId(req: any): string {
     return req?.user?.userId || req?.user?.sub;
@@ -47,7 +50,7 @@ export class UserprofileController {
 
   @Patch('upload-image')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', UserprofileController.multerOpts))
   async uploadImage(@Request() req, @UploadedFile() file: Express.Multer.File) {
     return this.userprofileService.uploadProfileImage(this.getAuthUserId(req), file);
   }

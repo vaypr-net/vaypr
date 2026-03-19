@@ -1,6 +1,7 @@
 import { Controller, Post, Body, UseGuards, Request, HttpStatus, HttpCode, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { IsEmail, IsNotEmpty, IsString, IsOptional, IsBoolean } from 'class-validator';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { EmailRouterService } from './email-router.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
@@ -48,6 +49,8 @@ class SendEmailDto {
  */
 @Controller('email')
 export class EmailController {
+  private static readonly multerOpts = { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } };
+
   constructor(
     private readonly emailRouterService: EmailRouterService,
     private readonly cloudinaryService: CloudinaryService,
@@ -96,7 +99,7 @@ export class EmailController {
 
   @Post('upload-logo')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', EmailController.multerOpts))
   @HttpCode(HttpStatus.OK)
   async uploadLogo(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
