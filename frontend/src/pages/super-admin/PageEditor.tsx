@@ -2047,7 +2047,7 @@ function CorporatePagesEditor() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-primary hover:text-primary"
+                      className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
                       onClick={() => {
                         if (guide.fileUrl && guide.fileUrl !== "#") window.open(guide.fileUrl, "_blank", "noopener,noreferrer");
                         else toast({ title: "No file URL", description: "Wire this to Cloudinary/real storage." });
