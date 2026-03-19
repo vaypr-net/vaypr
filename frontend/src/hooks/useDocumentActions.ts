@@ -24,6 +24,34 @@ export function useDocumentActions() {
   const { toast } = useToast();
   const previewRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Fetch a DO Spaces image through the backend proxy and return a data URL.
+   * This avoids CORS restrictions when html2canvas draws logos onto canvas.
+   */
+  const fetchDoSpacesAsDataUrl = useCallback(async (url: string): Promise<string | null> => {
+    try {
+      if (!url.includes('digitaloceanspaces.com')) return null;
+      const key = url.split('.digitaloceanspaces.com/')[1];
+      if (!key) return null;
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(
+        `${apiBase}/storage/proxy?key=${encodeURIComponent(key)}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      return new Promise<string | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  }, []);
+
   const findNaturalPageBreak = useCallback((
     ctx: CanvasRenderingContext2D,
     width: number,
@@ -79,6 +107,8 @@ export function useDocumentActions() {
   const renderElementToCanvas = useCallback(async (element: HTMLElement): Promise<HTMLCanvasElement> => {
     const originalStyle = element.style.display;
     element.style.display = 'block';
+    // Track DO Spaces img srcs replaced with data URLs so we can restore them after export
+    const originalSrcs = new Map<HTMLImageElement, string>();
 
     try {
       console.log('[PDF Debug] ======= PDF GENERATION START =======');
@@ -209,6 +239,26 @@ export function useDocumentActions() {
         ])));
         console.log('[PDF Debug] All images processed');
       }
+
+      // ── DO Spaces CORS fix ──────────────────────────────────────────────────
+      // html2canvas reloads images with CORS headers. DO Spaces rejects these
+      // requests (no CORS config), so logos are blank in exported PDFs.
+      // Fix: fetch each logo through the backend proxy, convert to a data URL,
+      // and temporarily swap the <img> src before html2canvas renders.
+      const spacesImgs = imgs.filter(img => img.src.includes('digitaloceanspaces.com'));
+      if (spacesImgs.length > 0) {
+        console.log('[PDF Debug] Converting', spacesImgs.length, 'DO Spaces image(s) to data URLs for PDF export');
+        await Promise.all(spacesImgs.map(async (img) => {
+          const dataUrl = await fetchDoSpacesAsDataUrl(img.src);
+          if (dataUrl) {
+            originalSrcs.set(img, img.src);
+            img.src = dataUrl;
+            // Brief pause so the browser fully swaps the src before canvas capture
+            await new Promise<void>(r => setTimeout(r, 80));
+          }
+        }));
+      }
+      // ───────────────────────────────────────────────────────────────────────
 
       // CRITICAL FIX: Wait for browser to complete rendering cycle
       // After fonts/images load, the browser still needs time to:
@@ -364,6 +414,10 @@ export function useDocumentActions() {
 
     } finally {
       element.style.display = originalStyle;
+      // Restore original DO Spaces URLs so the live preview is unaffected
+      for (const [img, src] of originalSrcs) {
+        img.src = src;
+      }
     }
   }, []);
 
@@ -568,7 +622,8 @@ export function useDocumentActions() {
     renderHeight *= fitScale;
 
     const x = (pageWidth - renderWidth) / 2;
-    const y = (pageHeight - renderHeight) / 2;
+    // Align content to the top of the page (not centered vertically)
+    const y = 0;
     const imgData = canvas.toDataURL('image/png');
     pdf.addImage(imgData, 'PNG', x, y, renderWidth, renderHeight);
 
