@@ -29,7 +29,7 @@ export default function Login() {
   const { updateUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const isCorporateLogin = location.pathname === '/super-admin/login';
+  const isCorporateLogin = location.pathname === '/corporate/login';
 
   const [is2FAPromptOpen, setIs2FAPromptOpen] = useState(false);
   const [tempToken, setTempToken] = useState<string | null>(null);
