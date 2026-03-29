@@ -1,19 +1,52 @@
-version: '3.8'
 services:
-  frontend:
-    build:
-      context: ./frontend
-    ports:
-      - "3001:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
-
   backend:
     build:
       context: ./backend
+    container_name: vayper-backend
     ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
+      - "4040:4040"
+    env_file:
+      - .env
     restart: unless-stopped
+    networks:
+      - vayper-network
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: vayper-frontend
+    ports:
+      - "3004:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - vayper-network
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+networks:
+  vayper-network:
+    driver: bridge

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import * as path from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -29,7 +31,6 @@ import { EmailModule } from './email/email.module';
 import { ContactModule } from './contact/contact.module';
 import { SenderModule } from './sender/sender.module';
 import { EmailSettingsModule } from './email-settings/email-settings.module';
-
 import { SocialLinksModule } from './social-links/social-links.module';
 import { FaqsModule } from './faqs/faqs.module';
 import { LandingPageModule } from './landing-page/landing-page.module';
@@ -53,7 +54,11 @@ import { NotificationsModule } from './notifications/notifications.module';
         path.resolve(process.cwd(), '../backend/.env'),
       ],
     }),
-    // Register JwtModule globally so all modules share the same JWT config
+    // Rate limiting - 100 requests per minute per IP
+    ThrottlerModule.forRoot([{
+      ttl: 60000, // 1 minute
+      limit: 100, // 100 requests per minute
+    }]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -72,20 +77,14 @@ import { NotificationsModule } from './notifications/notifications.module';
         const defaultDb = configService.get<string>('MONGODB_DB') || 'test';
 
         if (!raw) {
-          throw new Error(
-            'MONGODB_URI environment variable is required! ' +
-            'Local: Add MONGODB_URI=mongodb+srv://... to backend/.env ' +
-            'Railway: Set MONGODB_URI in Railway dashboard Variables section'
-          );
+          throw new Error('MONGODB_URI environment variable is required!');
         }
 
         let uri = raw;
-
-        // If MONGODB_URI doesn't include a database name, append the default DB
         try {
           const afterProto = raw.replace(/^mongodb(\+srv)?:\/\//i, '');
           const hostPart = afterProto.split('/')[0];
-          const rest = afterProto.substring(hostPart.length); // starts with '/' or ''
+          const rest = afterProto.substring(hostPart.length);
           const hasDb = rest && rest.length > 1 && !rest.startsWith('/?');
           if (!hasDb) {
             if (raw.includes('?')) {
@@ -95,11 +94,9 @@ import { NotificationsModule } from './notifications/notifications.module';
             }
           }
         } catch (e) {
-          // if parsing fails, use raw URI as-is
           uri = raw;
         }
 
-        // Mask credentials for logs
         const masked = uri.replace(/(:\/\/)([^:]+):([^@]+)@/, '$1$2:*****@');
         console.log('🔗 MongoDB connected to:', masked);
 
@@ -135,17 +132,11 @@ import { NotificationsModule } from './notifications/notifications.module';
     ContactModule,
     SenderModule,
     EmailSettingsModule,
-   
     SocialLinksModule,
-   
     FaqsModule,
-   
     LandingPageModule,
-   
     SupportPagesModule,
-   
     CorporatePagesModule,
-   
     ActivityModule,
     BillingModule,
     SuperAdminOverviewModule,
@@ -154,6 +145,13 @@ import { NotificationsModule } from './notifications/notifications.module';
     NotificationsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Enable rate limiting globally
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
