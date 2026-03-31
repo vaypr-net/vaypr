@@ -150,7 +150,7 @@ export default function Login() {
           </div>
           
           <p className="text-white/60 text-sm">
-            © {new Date().getFullYear()} VAYPR. All rights reserved.
+            Copyright © VAYPR™ , All rights reserved.
           </p>
         </div>
       </div>
