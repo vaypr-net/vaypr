@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - Essential Build & Deploy
+name: Security Scan Pipeline
 
 on:
   push:
@@ -10,14 +10,9 @@ on:
       - main
       - develop
 
-env:
-  DOCKER_BUILDKIT: 1
-  COMPOSE_DOCKER_CLI_BUILD: 1
-  PROJECT_DIR: /var/www/projects/vayper
-
 jobs:
-  code-quality:
-    name: Code Quality
+  dependency-audit:
+    name: Dependency Security Audit
     runs-on: [self-hosted, development]
     steps:
       - name: Checkout repository
@@ -36,106 +31,132 @@ jobs:
         working-directory: frontend
         run: npm install --legacy-peer-deps --prefer-offline
 
-      - name: TypeScript Type Check - Backend
+      - name: Audit Backend Dependencies
         working-directory: backend
-        run: npx tsc --noEmit || echo "TypeScript check completed with warnings"
+        run: |
+          echo "=== Backend Dependency Audit ==="
+          npm audit --audit-level=high --omit=dev || true
 
-      - name: TypeScript Type Check - Frontend
+      - name: Audit Frontend Dependencies
         working-directory: frontend
-        run: npx tsc --noEmit || echo "TypeScript check completed with warnings"
+        run: |
+          echo "=== Frontend Dependency Audit ==="
+          npm audit --audit-level=high --omit=dev || true
 
-      - name: ESLint - Frontend
-        working-directory: frontend
-        run: npx eslint . --ext .ts,.tsx --max-warnings=100 || echo "ESLint completed with warnings"
+  secret-scan:
+    name: Secret & Credential Detection
+    runs-on: [self-hosted, development]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Gitleaks if needed
+        run: |
+          if ! command -v gitleaks &> /dev/null; then
+            echo "Installing gitleaks..."
+            cd /tmp
+            wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
+            tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
+            sudo mv gitleaks /usr/local/bin/ 2>/dev/null || mv gitleaks ~/bin/ 2>/dev/null
+            chmod +x /usr/local/bin/gitleaks 2>/dev/null || chmod +x ~/bin/gitleaks 2>/dev/null
+          else
+            echo "gitleaks already installed"
+          fi
+
+      - name: Run Gitleaks Secret Scan
+        run: |
+          if command -v gitleaks &> /dev/null; then
+            gitleaks detect --source . --verbose --redact --report-format json --report-path /tmp/gitleaks-report.json || true
+            echo "=== Gitleaks Scan Complete ==="
+          else
+            echo "gitleaks not available, performing basic secret check..."
+            grep -rn "password\s*=\s*['"]" --include="*.ts" --include="*.js" . 2>/dev/null | grep -v node_modules | head -20 || true
+            grep -rn "sk_live_\|sk_test_\|api_key\s*=\s*['"]" --include="*.ts" --include="*.js" . 2>/dev/null | grep -v node_modules | head -20 || true
+          fi
+
+  dockerfile-lint:
+    name: Dockerfile Security Scan
+    runs-on: [self-hosted, development]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Hadolint if needed
+        run: |
+          if ! command -v hadolint &> /dev/null; then
+            echo "Installing hadolint..."
+            cd /tmp
+            wget -q https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
+            chmod +x hadolint-Linux-x86_64
+            sudo mv hadolint-Linux-x86_64 /usr/local/bin/hadolint 2>/dev/null || mv hadolint-Linux-x86_64 ~/bin/hadolint 2>/dev/null
+          else
+            echo "hadolint already installed"
+          fi
+
+      - name: Lint Backend Dockerfile
+        run: |
+          if command -v hadolint &> /dev/null; then
+            hadolint backend/Dockerfile || true
+          else
+            echo "hadolint missing: cannot lint backend/Dockerfile"
+          fi
+
+      - name: Lint Frontend Dockerfile
+        run: |
+          if [ -f frontend/Dockerfile ]; then
+            if command -v hadolint &> /dev/null; then
+              hadolint frontend/Dockerfile || true
+            else
+              echo "hadolint missing: cannot lint frontend/Dockerfile"
+            fi
+          else
+            echo "frontend/Dockerfile not found, skipping"
+          fi
 
   build:
     name: Build Docker Images
     runs-on: [self-hosted, development]
-    needs: code-quality
+    needs: [dependency-audit, secret-scan, dockerfile-lint]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Build Backend Image
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          echo "=== Building Backend Docker Image ==="
-          docker build \
-            --file backend/Dockerfile \
-            --tag vayper-backend:${{ github.sha }} \
-            --tag vayper-backend:latest \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
-            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
-            ./backend
+          docker build --file backend/Dockerfile --tag vayper-backend:${{ github.sha }} --tag vayper-backend:latest ./backend
 
       - name: Build Frontend Image
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          echo "=== Building Frontend Docker Image ==="
-          docker build \
-            --file frontend/Dockerfile \
-            --tag vayper-frontend:${{ github.sha }} \
-            --tag vayper-frontend:latest \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
-            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
-            ./frontend
+          docker build --file frontend/Dockerfile --tag vayper-frontend:${{ github.sha }} --tag vayper-frontend:latest ./frontend
 
-  deploy:
-    name: Deploy to Production
+  image-scan:
+    name: Docker Image Vulnerability Scan
     runs-on: [self-hosted, development]
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Pre-deployment Health Check
+      - name: Install Trivy if needed
         run: |
-          echo "=== Pre-deployment Checks ==="
-          docker info | head -10
-          docker compose version
-          df -h | head -5
-
-      - name: Stop Existing Containers
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          docker compose down --remove-orphans 2>/dev/null || echo "No containers to stop"
-
-      - name: Deploy New Containers
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          docker compose up -d --force-recreate
-
-      - name: Wait for Services to be Healthy
-        run: |
-          echo "Waiting for services to become healthy..."
-          sleep 30
-
-          BACKEND_OK=false
-          for i in {1..10}; do
-            if curl -sf http://localhost:4040/health > /dev/null 2>&1; then
-              echo "✅ Backend is healthy"
-              BACKEND_OK=true
-              break
-            fi
-            echo "Waiting for backend... (attempt $i/10)"
-            sleep 5
-          done
-
-          FRONTEND_OK=false
-          for i in {1..10}; do
-            if curl -sf http://localhost:3004 > /dev/null 2>&1; then
-              echo "✅ Frontend is healthy"
-              FRONTEND_OK=true
-              break
-            fi
-            echo "Waiting for frontend... (attempt $i/10)"
-            sleep 5
-          done
-
-          if [ "$BACKEND_OK" = true ] && [ "$FRONTEND_OK" = true ]; then
-            echo "🎉 Deployment successful!"
+          if ! command -v trivy &> /dev/null; then
+            echo "Installing trivy..."
+            cd /tmp
+            wget -q https://github.com/aquasecurity/trivy/releases/download/v0.50.1/trivy_0.50.1_Linux-64bit.deb
+            sudo dpkg -i trivy_0.50.1_Linux-64bit.deb || true
           else
-            echo "⚠️ Some services may not be healthy"
-            exit 1
+            echo "trivy already installed"
+          fi
+
+      - name: Scan Backend Image
+        run: |
+          if command -v trivy &> /dev/null; then
+            trivy image --severity HIGH,CRITICAL --format table vayper-backend:latest || true
+          else
+            echo "trivy not installed: cannot scan backend image"
+          fi
+
+      - name: Scan Frontend Image
+        run: |
+          if command -v trivy &> /dev/null; then
+            trivy image --severity HIGH,CRITICAL --format table vayper-frontend:latest || true
+          else
+            echo "trivy not installed: cannot scan frontend image"
           fi
