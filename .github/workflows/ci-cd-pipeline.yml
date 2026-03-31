@@ -27,7 +27,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '20.x'
-          cache: 'npm'
 
       - name: Install Backend Dependencies
         working-directory: /var/www/projects/vayper/backend
@@ -65,7 +64,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '20.x'
-          cache: 'npm'
 
       - name: Audit Backend Dependencies
         working-directory: /var/www/projects/vayper/backend
@@ -103,7 +101,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '20.x'
-          cache: 'npm'
 
       - name: Install Gitleaks (if needed)
         run: |
@@ -159,7 +156,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '20.x'
-          cache: 'npm'
 
       - name: Install Hadolint (if needed)
         run: |
@@ -215,7 +211,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '20.x'
-          cache: 'npm'
 
       - name: Build Backend Image
         working-directory: /var/www/projects/vayper
