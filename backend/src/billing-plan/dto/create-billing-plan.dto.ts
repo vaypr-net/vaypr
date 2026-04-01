@@ -75,6 +75,18 @@ export class CreateBillingPlanDto {
   limits: PlanLimitsDto;
 
   @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  ctaText?: string;
+
+  @IsOptional()
+  @IsString()
+  ctaLink?: string;
+
+  @IsOptional()
   @IsBoolean()
   isPopular?: boolean;
 

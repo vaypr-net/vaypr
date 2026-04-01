@@ -37,6 +37,15 @@ export class BillingPlan extends Document {
     customEmailDomain: boolean; // Can use custom domain for sending emails
   };
 
+  @Prop({ default: '' })
+  description: string; // Plan description shown on pricing page
+
+  @Prop({ default: '' })
+  ctaText: string; // CTA button text (e.g., "Get Started", "Book a Call")
+
+  @Prop({ default: '' })
+  ctaLink: string; // CTA button link (e.g., "/signup", "/contact")
+
   @Prop({ default: false })
   isPopular: boolean;
 
