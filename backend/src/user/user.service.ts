@@ -9,16 +9,30 @@ import { User } from './entities/user.entity';
 import { UserProfile } from '../userprofile/entities/userprofile.entity';
 import { BrevoService } from '../brevo/brevo.service';
 import { ActivityService } from '../activity/activity.service';
+import { BillingPlan } from '../billing-plan/entities/billing-plan.entity';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(UserProfile.name) private userProfileModel: Model<UserProfile>,
+    @InjectModel(BillingPlan.name) private billingPlanModel: Model<BillingPlan>,
     private readonly jwtService: JwtService,
     private readonly brevoService: BrevoService,
     private readonly activityService: ActivityService,
   ) {}
+
+  /**
+   * Dynamically resolves the Free plan ID from the DB.
+   * Never relies on a hardcoded ObjectId that may not exist in production.
+   */
+  private async getFreePlanId(): Promise<string | undefined> {
+    const freePlan =
+      (await this.billingPlanModel.findOne({ price: 0, status: 'active' }).sort({ createdAt: 1 })) ||
+      (await this.billingPlanModel.findOne({ name: /free/i, status: 'active' }).sort({ createdAt: 1 })) ||
+      (await this.billingPlanModel.findOne({ status: 'active' }).sort({ price: 1, createdAt: 1 }));
+    return freePlan?._id?.toString();
+  }
 
   async register(createUserDto: CreateUserDto) {
     const existingUser = await this.userModel.findOne({ email: createUserDto.email });
@@ -48,12 +62,13 @@ export class UserService {
     }
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const freePlanId = await this.getFreePlanId();
     const user = new this.userModel({
       ...createUserDto,
       password: hashedPassword,
       brandingDomain, // Set the verified domain
-      // Assign Free plan to new users
-      planId: '6992c72183584deeda6e68bb', // Free plan ID
+      // Assign Free plan to new users (resolved dynamically from DB)
+      planId: freePlanId,
       subscriptionStatus: 'free',
       billingCycle: 'monthly',
       // SECURITY: isSuperAdmin can ONLY be set via CLI script
@@ -103,11 +118,12 @@ export class UserService {
     }
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const freePlanId = await this.getFreePlanId();
     const user = new this.userModel({
       ...createUserDto,
       password: hashedPassword,
-      // Assign Free plan to new users
-      planId: '6992c72183584deeda6e68bb', // Free plan ID
+      // Assign Free plan to new users (resolved dynamically from DB)
+      planId: freePlanId,
       subscriptionStatus: 'free',
       billingCycle: 'monthly',
       // SECURITY: isSuperAdmin can ONLY be set via CLI script
@@ -194,6 +210,7 @@ export class UserService {
     profilePicture?: string;
   }): Promise<User> {
     // Create user
+    const freePlanId = await this.getFreePlanId();
     const user = new this.userModel({
       email: googleData.email,
       fullName: googleData.fullName,
@@ -201,8 +218,8 @@ export class UserService {
       profilePicture: googleData.profilePicture,
       authProvider: 'google',
       emailVerified: true,
-      // Assign Free plan to new Google OAuth users
-      planId: '6992c72183584deeda6e68bb', // Free plan ID
+      // Assign Free plan to new Google OAuth users (resolved dynamically from DB)
+      planId: freePlanId,
       subscriptionStatus: 'free',
       billingCycle: 'monthly',
       // SECURITY: isSuperAdmin can ONLY be set via CLI script
