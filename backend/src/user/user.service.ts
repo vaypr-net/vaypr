@@ -245,6 +245,19 @@ export class UserService {
 
     await userProfile.save();
 
+    // Create activity for new subscriber (same as manual signup)
+    try {
+      await this.activityService.create({
+        type: 'new_subscriber',
+        title: 'New subscriber',
+        description: `${savedUser.fullName} signed up via Google`,
+        relatedEntityId: savedUser._id.toString(),
+      });
+    } catch (error) {
+      console.error('Failed to create activity for Google user:', error);
+      // Don't fail signup if activity creation fails
+    }
+
     return savedUser;
   }
 
