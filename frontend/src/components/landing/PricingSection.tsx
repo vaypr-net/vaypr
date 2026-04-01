@@ -35,35 +35,36 @@ const FREE_PLAN_DESCRIPTION =
 const BUSINESS_PLAN_DESCRIPTION =
   "Ideal for growing businesses that need full access to invoicing, quotes, and expense tracking.";
 
-const staticFreePlanFallback: Plan = {
-  _id: "static-free-plan",
-  name: "Free",
-  price: 0,
-  currency: CURRENCY_CONFIG.displayCurrency,
-  interval: "monthly",
-  status: "active",
-  features: [
-    "Up to 3 Invoices per month",
-    "Up to 2 Quotes per month",
-    "Up to 3 Receipts per month",
-    "10 Clients",
-    "1 Recurring Subscription",
-    "Up to 5 Expense Tracking",
-    "1 Custom Template",
-  ],
-  limits: {
-    invoices: 3,
-    quotes: 2,
-    clients: 10,
-    teamMembers: 1,
-    storage: "1GB",
-    receipts: 3,
-    recurringInvoices: 1,
-    expenseTracking: true,
-    invoiceTemplates: "1",
-  },
-  isPopular: false,
-};
+// COMMENTED OUT: Static Free plan fallback - Free plan will now come from backend API only
+// const staticFreePlanFallback: Plan = {
+//   _id: "static-free-plan",
+//   name: "Free",
+//   price: 0,
+//   currency: CURRENCY_CONFIG.displayCurrency,
+//   interval: "monthly",
+//   status: "active",
+//   features: [
+//     "Up to 3 Invoices per month",
+//     "Up to 2 Quotes per month",
+//     "Up to 3 Receipts per month",
+//     "10 Clients",
+//     "1 Recurring Subscription",
+//     "Up to 5 Expense Tracking",
+//     "1 Custom Template",
+//   ],
+//   limits: {
+//     invoices: 3,
+//     quotes: 2,
+//     clients: 10,
+//     teamMembers: 1,
+//     storage: "1GB",
+//     receipts: 3,
+//     recurringInvoices: 1,
+//     expenseTracking: true,
+//     invoiceTemplates: "1",
+//   },
+//   isPopular: false,
+// };
 
 // Static Enterprise Plan - Hardcoded (same as before)
 const staticEnterprisePlan = {
@@ -132,12 +133,9 @@ export function PricingSection() {
         if (!response.ok) throw new Error('Failed to fetch plans');
         const data = await response.json();
         const apiPlans: Plan[] = data.items || [];
-        const hasFreePlan = apiPlans.some((plan) => {
-          const normalizedName = plan.name.toLowerCase();
-          return plan.price === 0 || normalizedName.includes("free") || normalizedName.includes("starter");
-        });
-
-        setPlans(hasFreePlan ? apiPlans : [staticFreePlanFallback, ...apiPlans]);
+        
+        // Free plan will come from backend API only - no static fallback
+        setPlans(apiPlans);
       } catch (err) {
         console.error('Error fetching plans:', err);
         setError('Failed to load plans');
