@@ -536,7 +536,7 @@ export default function Plans() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingPlan} onOpenChange={(open) => { if (!open) { setEditingPlan(null); resetForm(); } }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Plan: {editingPlan?.name}</DialogTitle>
           </DialogHeader>
