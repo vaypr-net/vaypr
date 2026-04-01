@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Logger } from '@nestjs/common';
 import { User } from '../../user/entities/user.entity';
+import { BillingPlan } from '../../billing-plan/entities/billing-plan.entity';
 
 /**
  * PlanLimitService
@@ -29,6 +30,7 @@ export class PlanLimitService {
 
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(BillingPlan.name) private billingPlanModel: Model<BillingPlan>,
   ) {}
 
   /**
@@ -64,26 +66,31 @@ export class PlanLimitService {
       
       // If user doesn't have a plan, assign the default Free plan
       if (!plan) {
-        this.logger.warn(`User ${userId} has no billing plan. Assigning default Free plan.`);
-        const DEFAULT_FREE_PLAN_ID = '6992c72183584deeda6e68bb';
-        
-        // Update user with Free plan
+        this.logger.warn(`User ${userId} has no billing plan. Looking up Free plan dynamically.`);
+
+        // Dynamically find the Free plan - try multiple strategies
+        const freePlan =
+          // 1. Exact price = 0
+          (await this.billingPlanModel.findOne({ price: 0, status: 'active' }).sort({ createdAt: 1 })) ||
+          // 2. Name contains "free" (case-insensitive)
+          (await this.billingPlanModel.findOne({ name: /free/i, status: 'active' }).sort({ createdAt: 1 })) ||
+          // 3. Cheapest active plan as last resort
+          (await this.billingPlanModel.findOne({ status: 'active' }).sort({ price: 1, createdAt: 1 }));
+
+        if (!freePlan) {
+          this.logger.error('No billing plans found in the database at all.');
+          throw new BadRequestException('Failed to assign default billing plan. Please contact support.');
+        }
+
+        // Update user with the actual Free plan ID from DB
         await this.userModel.findByIdAndUpdate(userId, {
-          planId: DEFAULT_FREE_PLAN_ID,
+          planId: freePlan._id,
           subscriptionStatus: 'free',
           billingCycle: 'monthly',
         });
-        
-        // Fetch updated user with plan
-        const updatedUser = await this.userModel
-          .findById(userId)
-          .populate('planId', 'name limits');
-        
-        plan = updatedUser?.planId as any;
-        
-        if (!plan) {
-          throw new BadRequestException('Failed to assign default billing plan. Please contact support.');
-        }
+
+        plan = freePlan;
+        this.logger.log(`Assigned Free plan "${freePlan.name}" (${freePlan._id}) to user ${userId}.`);
       }
 
       // Get the limit from plan

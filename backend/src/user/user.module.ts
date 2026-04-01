@@ -11,6 +11,7 @@ import { SessionService } from './session.service';
 import { BrevoModule } from '../brevo/brevo.module';
 import { ActivityModule } from '../activity/activity.module';
 import { SessionController } from './session.controller';
+import { BillingPlan, BillingPlanSchema } from '../billing-plan/entities/billing-plan.entity';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SessionController } from './session.controller';
       { name: User.name, schema: UserSchema },
       { name: UserProfile.name, schema: UserProfileSchema },
       { name: Session.name, schema: SessionSchema },
+      { name: BillingPlan.name, schema: BillingPlanSchema },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
