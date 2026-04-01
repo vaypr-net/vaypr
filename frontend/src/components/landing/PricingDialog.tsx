@@ -20,8 +20,10 @@ interface PlanCard {
   yearlyPrice: string;
   features: string[];
   cta: string;
+  ctaLink: string;
   highlighted: boolean;
   planId?: string;
+  isEnterprise: boolean;
 }
 
 interface PricingDialogProps {
@@ -36,27 +38,27 @@ export function PricingDialog({ children }: PricingDialogProps) {
 
   // Map API billing plan to PlanCard format
   const mapBillingPlanToCard = (plan: BillingPlan, yearlyPlan?: BillingPlan): PlanCard => {
-    // Determine if this is a custom/enterprise plan
-    const isCustomPlan = plan.name.toLowerCase().includes('enterprise') || 
-                         plan.name.toLowerCase().includes('custom');
+    // Determine if this is a custom/enterprise plan (price === -1)
+    const isCustomPlan = plan.price === -1;
     
     // Determine if this is a free plan
     const isFreePlan = plan.price === 0;
 
     // Get the yearly equivalent price if available
-    // Formula: (monthlyPrice * 12) * 0.85 = yearly price with 15% savings
     const yearlyPrice = yearlyPlan ? yearlyPlan.price : Math.round((plan.price * 12 * 0.85) * 100) / 100;
 
     return {
       name: plan.name,
       badge: isFreePlan ? "Free Forever" : plan.isPopular ? "Most Popular" : isCustomPlan ? "Custom" : "Popular",
-      description: plan.features[0] || `${plan.name} plan for your business`,
-      monthlyPrice: isFreePlan ? "Free" : isCustomPlan ? "Custom" : `${plan.currency}${plan.price}`,
-      yearlyPrice: isFreePlan ? "Free" : isCustomPlan ? "Custom" : `${plan.currency}${yearlyPrice}`,
-      features: plan.features.slice(isFreePlan || isCustomPlan ? 0 : 1), // Use all features if free/custom, else skip first (used as description)
-      cta: isFreePlan ? "Start Free" : isCustomPlan ? "Contact Sales" : `Get ${plan.name}`,
+      description: plan.description || plan.features[0] || `${plan.name} plan for your business`,
+      monthlyPrice: isFreePlan ? "Free" : isCustomPlan ? "Let's Talk!" : `${plan.currency}${plan.price}`,
+      yearlyPrice: isFreePlan ? "Free" : isCustomPlan ? "Let's Talk!" : `${plan.currency}${yearlyPrice}`,
+      features: plan.features.slice(isFreePlan || isCustomPlan ? 0 : 1),
+      cta: plan.ctaText || (isFreePlan ? "Start Free" : isCustomPlan ? "Book a Call" : `Get ${plan.name}`),
+      ctaLink: plan.ctaLink || (isCustomPlan ? "/contact" : "/signup"),
       highlighted: plan.isPopular,
       planId: plan._id,
+      isEnterprise: isCustomPlan,
     };
   };
 
@@ -82,19 +84,19 @@ export function PricingDialog({ children }: PricingDialogProps) {
           }
         });
 
-        // Convert to PlanCard format, excluding Enterprise/Custom plans (we render those statically)
+        // Convert to PlanCard format — Enterprise/Custom plans are now included (managed from super admin)
         const mappedPlans: PlanCard[] = Object.values(plansByName)
           .map((planPair) => {
             const plan = planPair.monthly || planPair.yearly!;
             return mapBillingPlanToCard(plan, planPair.yearly);
-          })
-          .filter(
-            (p) =>
-              !p.name.toLowerCase().includes('enterprise') &&
-              !p.name.toLowerCase().includes('custom') &&
-              p.monthlyPrice !== 'Custom'
-          );
+          });
 
+        // Sort: Free first, then paid plans, Enterprise last
+        mappedPlans.sort((a, b) => {
+          const scoreA = a.monthlyPrice === 'Free' ? 0 : a.isEnterprise ? Infinity : 1;
+          const scoreB = b.monthlyPrice === 'Free' ? 0 : b.isEnterprise ? Infinity : 1;
+          return scoreA - scoreB;
+        });
         setPlans(mappedPlans);
       } catch (error) {
         console.error('Failed to fetch billing plans:', error);
@@ -113,7 +115,9 @@ export function PricingDialog({ children }: PricingDialogProps) {
               "1 Custom Template",
             ],
             cta: "Start Free",
+            ctaLink: "/signup",
             highlighted: false,
+            isEnterprise: false,
           },
           {
             name: "Business",
@@ -128,22 +132,26 @@ export function PricingDialog({ children }: PricingDialogProps) {
               "Priority Support",
             ],
             cta: "Get Business",
+            ctaLink: "/signup",
             highlighted: true,
+            isEnterprise: false,
           },
           {
             name: "Enterprise",
             badge: "Custom",
             description: "Advanced features & dedicated support.",
-            monthlyPrice: "Custom",
-            yearlyPrice: "Custom",
+            monthlyPrice: "Let's Talk!",
+            yearlyPrice: "Let's Talk!",
             features: [
               "Everything in Business",
               "API Access",
               "Dedicated Manager",
               "White-label Options",
             ],
-            cta: "Contact Sales",
+            cta: "Book a Call",
+            ctaLink: "/contact",
             highlighted: false,
+            isEnterprise: true,
           },
         ]);
       } finally {
@@ -248,6 +256,10 @@ export function PricingDialog({ children }: PricingDialogProps) {
                         <span className="text-3xl font-bold text-foreground">
                           {plan.monthlyPrice}
                         </span>
+                      ) : plan.isEnterprise ? (
+                        <span className="text-3xl font-bold text-foreground">
+                          Let's Talk!
+                        </span>
                       ) : (
                         <div className="flex items-baseline gap-1">
                           <span className="text-3xl font-bold text-foreground">
@@ -282,69 +294,20 @@ export function PricingDialog({ children }: PricingDialogProps) {
                         "w-full",
                         plan.highlighted
                           ? "bg-primary hover:bg-primary/90 shadow-glow"
-                          : ""
+                          : plan.isEnterprise
+                            ? "bg-foreground text-background hover:bg-foreground/90"
+                            : ""
                       )}
                       variant={plan.highlighted ? "default" : "outline"}
                       onClick={() => setOpen(false)}
                     >
-                      <Link to="/signup">
+                      <Link to={plan.ctaLink}>
                         {plan.cta}
                         {plan.highlighted && <ArrowRight className="w-3 h-3 ml-1" />}
                       </Link>
                     </Button>
                   </div>
                 ))}
-
-                {/* Static Enterprise / Let's Talk card - always shown */}
-                <div className="relative p-5 rounded-2xl transition-all duration-300 hover:scale-[1.02] bg-card/50 border border-border hover:border-primary/30">
-                  {/* Badge */}
-                  <div className="mb-3">
-                    <span className="inline-block px-3 py-1 rounded-lg text-xs font-semibold bg-muted text-foreground">
-                      Enterprise
-                    </span>
-                  </div>
-
-                  {/* Price */}
-                  <div className="mb-3">
-                    <span className="text-3xl font-bold text-foreground">Let's Talk!</span>
-                  </div>
-
-                  <p className="text-muted-foreground text-xs mb-4">
-                    For larger organizations needing custom solutions, dedicated support, and advanced features.
-                  </p>
-
-                  {/* Features */}
-                  <ul className="space-y-2 mb-5">
-                    {[
-                      "Everything in Business",
-                      "Graphic Designer For Templates",
-                      "Ai Integration System",
-                      "API Access",
-                      "Dedicated Account Manager",
-                      "Smart Financial Analytics",
-                      "Advanced Expense Tracking",
-                      "White-label Options",
-                    ].map((feature) => (
-                      <li key={feature} className="flex items-start gap-2">
-                        <Check className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-                        <span className="text-foreground text-xs">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* CTA Button */}
-                  <Button
-                    asChild
-                    size="sm"
-                    className="w-full bg-foreground text-background hover:bg-foreground/90"
-                    variant="outline"
-                    onClick={() => setOpen(false)}
-                  >
-                    <Link to="/contact">
-                      Book a Call
-                    </Link>
-                  </Button>
-                </div>
               </>
             )}
           </div>

@@ -21,6 +21,9 @@ export interface BillingPlan {
   currency: string;
   interval: 'monthly' | 'yearly';
   status: 'active' | 'hidden' | 'archived';
+  description: string;
+  ctaText: string;
+  ctaLink: string;
   features: string[];
   limits: PlanLimits;
   isPopular: boolean;
@@ -51,6 +54,9 @@ export interface CreateBillingPlanDto {
   currency?: string;
   interval: 'monthly' | 'yearly';
   status?: 'active' | 'hidden' | 'archived';
+  description?: string;
+  ctaText?: string;
+  ctaLink?: string;
   features: string[];
   limits: PlanLimits;
   isPopular?: boolean;

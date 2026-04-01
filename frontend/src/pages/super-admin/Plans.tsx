@@ -74,9 +74,13 @@ function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps) {
       </div>
 
       <p className="text-sm text-muted-foreground mb-4 min-h-[40px]">
-        {plan.price === 0 && "Perfect for freelancers and small businesses just getting started with professional invoicing."}
-        {plan.price > 0 && plan.price !== -1 && "Ideal for growing businesses that need full access to invoicing, quotes, and expense tracking."}
-        {plan.price === -1 && "For larger organizations needing custom solutions, dedicated support, and advanced features."}
+        {plan.description || (
+          <>
+            {plan.price === 0 && "Perfect for freelancers and small businesses just getting started with professional invoicing."}
+            {plan.price > 0 && plan.price !== -1 && "Ideal for growing businesses that need full access to invoicing, quotes, and expense tracking."}
+            {plan.price === -1 && "For larger organizations needing custom solutions, dedicated support, and advanced features."}
+          </>
+        )}
       </p>
 
       <div className="mb-6">
@@ -110,9 +114,9 @@ function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps) {
         }`}>
           {isEnterprise ? (
             <span className="flex items-center justify-center gap-2">
-              <Phone className="w-4 h-4" /> Book a Call
+              <Phone className="w-4 h-4" /> {plan.ctaText || 'Book a Call'}
             </span>
-          ) : "Get Started"}
+          ) : (plan.ctaText || "Get Started")}
         </div>
         
         <div className="flex gap-2">
@@ -162,6 +166,9 @@ export default function Plans() {
     price: "",
     interval: "monthly" as "monthly" | "yearly",
     status: "active" as "active" | "hidden" | "archived",
+    description: "",
+    ctaText: "",
+    ctaLink: "",
     features: "",
     invoices: "",
     quotes: "",
@@ -182,6 +189,9 @@ export default function Plans() {
       price: "",
       interval: "monthly",
       status: "active",
+      description: "",
+      ctaText: "",
+      ctaLink: "",
       features: "",
       invoices: "",
       quotes: "",
@@ -203,6 +213,9 @@ export default function Plans() {
       price: plan.price === -1 ? "-1" : plan.price.toString(),
       interval: plan.interval,
       status: plan.status,
+      description: plan.description || "",
+      ctaText: plan.ctaText || "",
+      ctaLink: plan.ctaLink || "",
       features: plan.features.join("\n"),
       invoices: plan.limits.invoices.toString(),
       quotes: plan.limits.quotes.toString(),
@@ -241,6 +254,9 @@ export default function Plans() {
       currency: "KWD",
       interval: formData.interval,
       status: formData.status,
+      description: formData.description.trim(),
+      ctaText: formData.ctaText.trim(),
+      ctaLink: formData.ctaLink.trim(),
       features: formData.features.split("\n").filter(f => f.trim()),
       limits: {
         invoices: parseInt(formData.invoices) || -1,
@@ -374,6 +390,37 @@ export default function Plans() {
                   onChange={(e) => setFormData({ ...formData, features: e.target.value })}
                 />
               </div>
+              <div>
+                <Label>Description</Label>
+                <Textarea 
+                  rows={2} 
+                  placeholder="Plan description shown on the pricing page" 
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+              {parseInt(formData.price) === -1 && (
+                <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg border border-dashed border-primary/30">
+                  <div>
+                    <Label>CTA Button Text</Label>
+                    <Input 
+                      placeholder='e.g., Book a Call' 
+                      value={formData.ctaText}
+                      onChange={(e) => setFormData({ ...formData, ctaText: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Button label on the pricing card</p>
+                  </div>
+                  <div>
+                    <Label>CTA Button Link</Label>
+                    <Input 
+                      placeholder='e.g., /contact' 
+                      value={formData.ctaLink}
+                      onChange={(e) => setFormData({ ...formData, ctaLink: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Where the button navigates to</p>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-4 gap-4">
                 <div>
                   <Label>Invoices/mo</Label>
@@ -547,6 +594,37 @@ export default function Plans() {
                 onChange={(e) => setFormData({ ...formData, features: e.target.value })}
               />
             </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea 
+                rows={2} 
+                placeholder="Plan description shown on the pricing page" 
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+            {parseInt(formData.price) === -1 && (
+              <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg border border-dashed border-primary/30">
+                <div>
+                  <Label>CTA Button Text</Label>
+                  <Input 
+                    placeholder='e.g., Book a Call' 
+                    value={formData.ctaText}
+                    onChange={(e) => setFormData({ ...formData, ctaText: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Button label on the pricing card</p>
+                </div>
+                <div>
+                  <Label>CTA Button Link</Label>
+                  <Input 
+                    placeholder='e.g., /contact' 
+                    value={formData.ctaLink}
+                    onChange={(e) => setFormData({ ...formData, ctaLink: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Where the button navigates to</p>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-4 gap-4">
               <div>
                 <Label>Invoices/mo</Label>

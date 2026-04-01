@@ -15,6 +15,9 @@ interface Plan {
   currency: string;
   interval: string;
   status: string;
+  description: string;
+  ctaText: string;
+  ctaLink: string;
   features: string[];
   limits: {
     invoices: number;
@@ -34,6 +37,8 @@ const FREE_PLAN_DESCRIPTION =
   "Perfect for freelancers and small businesses just getting started with professional invoicing.";
 const BUSINESS_PLAN_DESCRIPTION =
   "Ideal for growing businesses that need full access to invoicing, quotes, and expense tracking.";
+const ENTERPRISE_PLAN_DESCRIPTION =
+  "For larger organizations needing custom solutions, dedicated support, and advanced features.";
 
 // COMMENTED OUT: Static Free plan fallback - Free plan will now come from backend API only
 // const staticFreePlanFallback: Plan = {
@@ -66,22 +71,9 @@ const BUSINESS_PLAN_DESCRIPTION =
 //   isPopular: false,
 // };
 
-// Static Enterprise Plan - Hardcoded (same as before)
-const staticEnterprisePlan = {
-  name: "Enterprise",
-  description: "For larger organizations needing custom solutions, dedicated support, and advanced features.",
-  features: [
-    "Everything in Business",
-    "Graphic Designer For Templates",
-    "Ai Integration System",
-    "API Access",
-    "Dedicated Account Manager",
-    "Smart Financial Analytics",
-    "Advanced Expense Tracking",
-    "White-label Options",
-  ],
-  cta: "Book a Call",
-};
+// Enterprise plan is now managed from the super admin panel
+// When price === -1, the plan is rendered as a "Let's Talk" card
+// Features, description, CTA text and link all come from the database
 
 export function PricingSection() {
   const { data: landingPage } = useLandingPage();
@@ -107,7 +99,14 @@ export function PricingSection() {
     "Select from best plans, ensuring a perfect match. Need more or less?";
 
   const getPlanDescription = (plan: Plan): string => {
+    // Use plan description from backend if available
+    if (plan.description) return plan.description;
+
     const normalizedName = plan.name.toLowerCase();
+
+    if (plan.price === -1 || normalizedName.includes('enterprise')) {
+      return ENTERPRISE_PLAN_DESCRIPTION;
+    }
 
     if (plan.price === 0 || normalizedName.includes("free") || normalizedName.includes("starter")) {
       return FREE_PLAN_DESCRIPTION;
@@ -134,7 +133,12 @@ export function PricingSection() {
         const data = await response.json();
         const apiPlans: Plan[] = data.items || [];
         
-        // Free plan will come from backend API only - no static fallback
+        // Sort: Free (0) first, then paid plans ascending, Enterprise (-1) last
+        apiPlans.sort((a, b) => {
+          const scoreA = a.price === 0 ? 0 : a.price === -1 ? Infinity : a.price;
+          const scoreB = b.price === 0 ? 0 : b.price === -1 ? Infinity : b.price;
+          return scoreA - scoreB;
+        });
         setPlans(apiPlans);
       } catch (err) {
         console.error('Error fetching plans:', err);
@@ -250,12 +254,6 @@ export function PricingSection() {
     }
   };
 
-  // Handle Book a Call button click
-  const handleBookCall = () => {
-    // Open contact form or modal
-    navigate('/contact');
-  };
-
   // Calculate yearly price with 15% discount
   // Formula: (monthlyPrice * 12) * 0.85 = yearly price with 15% savings
   const calculateYearlyPrice = (monthlyPrice: number): number => {
@@ -325,9 +323,8 @@ export function PricingSection() {
     );
   }
 
-  // Filter out Enterprise plan from API if it exists, show all other plans
-  // The hardcoded Enterprise plan will be rendered separately
-  const displayPlans = plans.filter(p => p.name !== "Enterprise");
+  // All plans come from the API now (including Enterprise with price === -1)
+  const displayPlans = plans;
   const firstPaidPlanId = displayPlans.find((plan) => plan.price > 0)?._id;
 
   if (!pricingEnabled) {
@@ -403,8 +400,52 @@ export function PricingSection() {
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {displayPlans.map((plan, index) => {
+            const isEnterprise = plan.price === -1;
             const price = getDisplayPrice(plan);
             const formattedPrice = price === 0 ? 'Free' : (Number.isInteger(price) ? price.toString() : price.toFixed(2));
+
+            // Enterprise / "Let's Talk" card (price === -1)
+            if (isEnterprise) {
+              return (
+                <div
+                  key={plan._id}
+                  className="relative p-8 rounded-2xl transition-all duration-300 bg-white border border-[#e5e5ef] hover:border-[#d8d8e6]"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <div className="mb-6">
+                    <span className="inline-block px-4 py-1.5 rounded-xl text-sm font-semibold bg-[#f0f0f4] text-[#1f1f2a] border border-[#e6e6ef]">
+                      {plan.name}
+                    </span>
+                  </div>
+
+                  <p className="text-[#6b6b76] text-sm mb-6 min-h-[60px]">
+                    {getPlanDescription(plan)}
+                  </p>
+
+                  <div className="mb-8">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-[#151520]">Let's Talk!</span>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-4 mb-8">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-[#7c4dff] flex-shrink-0 mt-0.5" />
+                        <span className="text-[#2a2a35] text-sm">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    onClick={() => navigate(plan.ctaLink || '/contact')}
+                    className="w-full bg-[#11111c] text-white hover:bg-[#0c0c15]"
+                  >
+                    {plan.ctaText || 'Book a Call'}
+                  </Button>
+                </div>
+              );
+            }
 
             // Highlight the intended center paid plan even if backend flags/name vary (e.g. "premium")
             if (plan.isPopular || isBusinessPlan(plan) || plan._id === firstPaidPlanId) {
@@ -452,7 +493,7 @@ export function PricingSection() {
                         disabled={checkoutLoading === plan._id}
                         className="w-full bg-primary hover:bg-primary/90 border border-primary text-primary-foreground py-3 rounded-lg"
                       >
-                        {checkoutLoading === plan._id ? 'Processing...' : 'Get Started'}
+                        {checkoutLoading === plan._id ? 'Processing...' : (plan.ctaText || 'Get Started')}
                       </Button>
                     </div>
                   </div>
@@ -460,7 +501,7 @@ export function PricingSection() {
               );
             }
 
-            // Non-featured plans
+            // Non-featured plans (Free, etc.)
             return (
               <div
                 key={plan._id}
@@ -503,54 +544,11 @@ export function PricingSection() {
                 </ul>
 
                 <Button onClick={() => handleGetStarted(plan)} disabled={checkoutLoading === plan._id} className="w-full bg-white border border-[#e5e5ef] hover:bg-[#f7f7fb] text-[#151520] py-3 rounded-lg">
-                  {checkoutLoading === plan._id ? 'Processing...' : 'Get Started'}
+                  {checkoutLoading === plan._id ? 'Processing...' : (plan.ctaText || 'Get Started')}
                 </Button>
               </div>
             );
           })}
-
-          {/* Static Enterprise Card - Hardcoded (Same as before) */}
-          <div
-            className="relative p-8 rounded-2xl transition-all duration-300 bg-white border border-[#e5e5ef] hover:border-[#d8d8e6]"
-            style={{ animationDelay: `${displayPlans.length * 0.1}s` }}
-          >
-            {/* Badge */}
-            <div className="mb-6">
-              <span className="inline-block px-4 py-1.5 rounded-xl text-sm font-semibold bg-[#f0f0f4] text-[#1f1f2a] border border-[#e6e6ef]">
-                {staticEnterprisePlan.name}
-              </span>
-            </div>
-
-            {/* Description */}
-            <p className="text-[#6b6b76] text-sm mb-6 min-h-[60px]">
-              {staticEnterprisePlan.description}
-            </p>
-
-            {/* Price - Let's Talk */}
-            <div className="mb-8">
-              <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-bold text-[#151520]">Let's Talk!</span>
-              </div>
-            </div>
-
-            {/* Features */}
-            <ul className="space-y-4 mb-8">
-              {staticEnterprisePlan.features.map((feature) => (
-                <li key={feature} className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-[#7c4dff] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#2a2a35] text-sm">{feature}</span>
-                </li>
-              ))}
-            </ul>
-
-            {/* CTA Button - Book a Call */}
-            <Button
-              onClick={handleBookCall}
-              className="w-full bg-[#11111c] text-white hover:bg-[#0c0c15]"
-            >
-              {staticEnterprisePlan.cta}
-            </Button>
-          </div>
         </div>
       </div>
 
