@@ -409,7 +409,7 @@ export function PricingSection() {
               return (
                 <div
                   key={plan._id}
-                  className="relative p-8 rounded-2xl transition-all duration-300 bg-white border border-[#e5e5ef] hover:border-[#d8d8e6]"
+                  className="relative flex flex-col p-8 rounded-2xl transition-all duration-300 bg-white border border-[#e5e5ef] hover:border-[#d8d8e6]"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <div className="mb-6">
@@ -428,7 +428,7 @@ export function PricingSection() {
                     </div>
                   </div>
 
-                  <ul className="space-y-4 mb-8">
+                  <ul className="space-y-4 mb-8 flex-1">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-3">
                         <Check className="w-5 h-5 text-[#7c4dff] flex-shrink-0 mt-0.5" />
@@ -439,7 +439,7 @@ export function PricingSection() {
 
                   <Button
                     onClick={() => navigate(plan.ctaLink || '/contact')}
-                    className="w-full bg-[#11111c] text-white hover:bg-[#0c0c15]"
+                    className="w-full mt-auto bg-[#11111c] text-white hover:bg-[#0c0c15]"
                   >
                     {plan.ctaText || 'Book a Call'}
                   </Button>
@@ -452,7 +452,7 @@ export function PricingSection() {
               return (
                 <div key={plan._id} style={{ animationDelay: `${index * 0.1}s` }}>
                   <div className="rounded-2xl border border-primary flex justify-center shadow-[0_10px_24px_hsl(var(--primary)/0.18)]">
-                    <div className="relative p-8 rounded-2xl bg-[#fcfbff] w-full">
+                    <div className="relative flex flex-col p-8 rounded-2xl bg-[#fcfbff] w-full">
                       <div className="mb-6">
                         <span className="inline-block px-4 py-1.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground shadow-[0_6px_14px_hsl(var(--primary)/0.35)]">
                           {plan.name}
@@ -479,7 +479,7 @@ export function PricingSection() {
                         )}
                       </div>
 
-                      <ul className="space-y-4 mb-8">
+                      <ul className="space-y-4 mb-8 flex-1">
                         {plan.features.map((feature) => (
                           <li key={feature} className="flex items-start gap-3">
                             <Check className="w-5 h-5 text-[#7c4dff] flex-shrink-0 mt-0.5" />
@@ -491,7 +491,7 @@ export function PricingSection() {
                       <Button
                         onClick={() => handleGetStarted(plan)}
                         disabled={checkoutLoading === plan._id}
-                        className="w-full bg-primary hover:bg-primary/90 border border-primary text-primary-foreground py-3 rounded-lg"
+                        className="w-full mt-auto bg-primary hover:bg-primary/90 border border-primary text-primary-foreground py-3 rounded-lg"
                       >
                         {checkoutLoading === plan._id ? 'Processing...' : (plan.ctaText || 'Get Started')}
                       </Button>
@@ -505,7 +505,7 @@ export function PricingSection() {
             return (
               <div
                 key={plan._id}
-                className="relative p-8 rounded-2xl transition-all duration-300 bg-white border border-[#e5e5ef] hover:border-[#d8d8e6]"
+                className="relative flex flex-col p-8 rounded-2xl transition-all duration-300 bg-white border border-[#e5e5ef] hover:border-[#d8d8e6]"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className="mb-6">
@@ -534,7 +534,7 @@ export function PricingSection() {
                   )}
                 </div>
 
-                <ul className="space-y-4 mb-8">
+                <ul className="space-y-4 mb-8 flex-1">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-3">
                       <Check className="w-5 h-5 text-[#7c4dff] flex-shrink-0 mt-0.5" />
@@ -543,7 +543,7 @@ export function PricingSection() {
                   ))}
                 </ul>
 
-                <Button onClick={() => handleGetStarted(plan)} disabled={checkoutLoading === plan._id} className="w-full bg-white border border-[#e5e5ef] hover:bg-[#f7f7fb] text-[#151520] py-3 rounded-lg">
+                <Button onClick={() => handleGetStarted(plan)} disabled={checkoutLoading === plan._id} className="w-full mt-auto bg-white border border-[#e5e5ef] hover:bg-[#f7f7fb] text-[#151520] py-3 rounded-lg">
                   {checkoutLoading === plan._id ? 'Processing...' : (plan.ctaText || 'Get Started')}
                 </Button>
               </div>
