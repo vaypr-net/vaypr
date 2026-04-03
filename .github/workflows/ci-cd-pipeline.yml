@@ -1,105 +1,21 @@
-name: Security Scan Pipeline
+name: Build & Deploy
 
 on:
   push:
     branches:
       - main
-      - develop
-  pull_request:
-    branches:
-      - main
-      - develop
 
 jobs:
-  dockerfile-lint:
-    name: Dockerfile Security Scan
+  deploy:
     runs-on: [self-hosted, development]
+
     steps:
-      - name: Checkout repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Hadolint if needed
+      - name: Pull and Deploy
         run: |
-          mkdir -p ~/bin
-          export PATH="$HOME/bin:$PATH"
-          if ! command -v hadolint &> /dev/null; then
-            echo "Installing hadolint..."
-            cd /tmp
-            wget -q https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 || true
-            chmod +x hadolint-Linux-x86_64 || true
-            if [ -f hadolint-Linux-x86_64 ]; then
-              mv hadolint-Linux-x86_64 ~/bin/hadolint || true
-            fi
-          else
-            echo "hadolint already installed"
-          fi
-          command -v hadolint || echo "hadolint not installed"
-
-      - name: Lint Backend Dockerfile
-        run: |
-          if command -v hadolint &> /dev/null; then
-            hadolint backend/Dockerfile || true
-          else
-            echo "hadolint missing: cannot lint backend/Dockerfile"
-          fi
-
-      - name: Lint Frontend Dockerfile
-        run: |
-          if [ -f frontend/Dockerfile ]; then
-            if command -v hadolint &> /dev/null; then
-              hadolint frontend/Dockerfile || true
-            else
-              echo "hadolint missing: cannot lint frontend/Dockerfile"
-            fi
-          else
-            echo "frontend/Dockerfile not found, skipping"
-          fi
-
-  build:
-    name: Build Docker Images
-    runs-on: [self-hosted, development]
-    needs: dockerfile-lint
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build Backend Image
-        run: |
-          docker build --file backend/Dockerfile --tag vayper-backend:${{ github.sha }} --tag vayper-backend:latest ./backend
-
-      - name: Build Frontend Image
-        run: |
-          docker build --file frontend/Dockerfile --tag vayper-frontend:${{ github.sha }} --tag vayper-frontend:latest ./frontend
-
-  image-scan:
-    name: Docker Image Vulnerability Scan
-    runs-on: [self-hosted, development]
-    needs: build
-    steps:
-      - name: Install Trivy if needed
-        run: |
-          if ! command -v trivy &> /dev/null; then
-            echo "Installing trivy..."
-            cd /tmp
-            wget -q https://github.com/aquasecurity/trivy/releases/download/v0.50.1/trivy_0.50.1_Linux-64bit.deb || true
-            sudo dpkg -i trivy_0.50.1_Linux-64bit.deb || true
-          else
-            echo "trivy already installed"
-          fi
-          command -v trivy || echo "trivy not installed"
-
-      - name: Scan Backend Image
-        run: |
-          if command -v trivy &> /dev/null; then
-            trivy image --severity HIGH,CRITICAL --format table vayper-backend:latest || true
-          else
-            echo "trivy not installed: cannot scan backend image"
-          fi
-
-      - name: Scan Frontend Image
-        run: |
-          if command -v trivy &> /dev/null; then
-            trivy image --severity HIGH,CRITICAL --format table vayper-frontend:latest || true
-          else
-            echo "trivy not installed: cannot scan frontend image"
-          fi
+          cd /var/www/projects/vaypr
+          git fetch origin main
+          git reset --hard origin/main
+          docker compose up -d --build --remove-orphans
