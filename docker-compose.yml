@@ -4,7 +4,7 @@ services:
       context: ./backend
     container_name: vayper-backend
     ports:
-      - "4040:4040"
+      - "127.0.0.1:4040:4040"
     env_file:
       - .env
     restart: unless-stopped
@@ -28,7 +28,7 @@ services:
       context: ./frontend
     container_name: vayper-frontend
     ports:
-      - "3004:80"
+      - "127.0.0.1:3004:80"
     depends_on:
       - backend
     restart: unless-stopped
