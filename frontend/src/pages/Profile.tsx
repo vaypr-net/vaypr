@@ -1338,98 +1338,117 @@ export default function Profile() {
                 <CardDescription>Manage your password and security settings</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50">
-                  <div>
-                    <h4 className="font-medium flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      Password
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      Last changed: {passwordLastChanged ? format(passwordLastChanged, 'MMM dd, yyyy \'at\' HH:mm') : 'Never'}
-                    </p>
+                {/* Password Change - Only show for non-Google OAuth users */}
+                {user?.authProvider !== 'google' && !user?.googleId && (
+                  <div className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50">
+                    <div>
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Check className="h-4 w-4 text-green-600" />
+                        Password
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        Last changed: {passwordLastChanged ? format(passwordLastChanged, 'MMM dd, yyyy \'at\' HH:mm') : 'Never'}
+                      </p>
+                    </div>
+                    <Dialog open={isChangingPassword} onOpenChange={setIsChangingPassword}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline">Change Password</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Change Password</DialogTitle>
+                          <DialogDescription>
+                            Enter your current password and choose a new one
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="current-password">Current Password</Label>
+                            <div className="relative">
+                              <Input
+                                id="current-password"
+                                type={showCurrentPassword ? 'text' : 'password'}
+                                value={passwordForm.currentPassword}
+                                onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-0 top-0 h-full"
+                                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                              >
+                                {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="new-password">New Password</Label>
+                            <div className="relative">
+                              <Input
+                                id="new-password"
+                                type={showNewPassword ? 'text' : 'password'}
+                                value={passwordForm.newPassword}
+                                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-0 top-0 h-full"
+                                onClick={() => setShowNewPassword(!showNewPassword)}
+                              >
+                                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="confirm-password">Confirm New Password</Label>
+                            <div className="relative">
+                              <Input
+                                id="confirm-password"
+                                type={showConfirmPassword ? 'text' : 'password'}
+                                value={passwordForm.confirmPassword}
+                                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-0 top-0 h-full"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              >
+                                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsChangingPassword(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleChangePassword}>Update Password</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                  <Dialog open={isChangingPassword} onOpenChange={setIsChangingPassword}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline">Change Password</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Change Password</DialogTitle>
-                        <DialogDescription>
-                          Enter your current password and choose a new one
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="current-password">Current Password</Label>
-                          <div className="relative">
-                            <Input
-                              id="current-password"
-                              type={showCurrentPassword ? 'text' : 'password'}
-                              value={passwordForm.currentPassword}
-                              onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="absolute right-0 top-0 h-full"
-                              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                            >
-                              {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="new-password">New Password</Label>
-                          <div className="relative">
-                            <Input
-                              id="new-password"
-                              type={showNewPassword ? 'text' : 'password'}
-                              value={passwordForm.newPassword}
-                              onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="absolute right-0 top-0 h-full"
-                              onClick={() => setShowNewPassword(!showNewPassword)}
-                            >
-                              {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="confirm-password">Confirm New Password</Label>
-                          <div className="relative">
-                            <Input
-                              id="confirm-password"
-                              type={showConfirmPassword ? 'text' : 'password'}
-                              value={passwordForm.confirmPassword}
-                              onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="absolute right-0 top-0 h-full"
-                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            >
-                              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsChangingPassword(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleChangePassword}>Update Password</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                )}
+
+                {/* Info message for Google OAuth users */}
+                {(user?.authProvider === 'google' || user?.googleId) && (
+                  <div className="flex items-start gap-3 p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-sky-50">
+                    <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <h4 className="font-medium text-blue-900 mb-1">Google Account</h4>
+                      <p className="text-sm text-blue-700">
+                        You're signed in with Google. Your password is managed through your Google account. 
+                        Please visit <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-900">Google Account Security</a> to update your password.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-blue-50/50 to-transparent">
                   <div className="flex-1">

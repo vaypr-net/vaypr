@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   ExternalLink, 
   Plus, 
@@ -55,6 +55,9 @@ export function SocialMediaEditor() {
     url: '',
     icon: '',
   });
+  // Local state for URL inputs to prevent focus loss
+  const [localUrls, setLocalUrls] = useState<Record<string, string>>({});
+  const saveTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
   // API hooks
   const { data: socialLinks, isLoading, error } = useGetSocialLinks();
@@ -63,12 +66,44 @@ export function SocialMediaEditor() {
   const deleteMutation = useDeleteSocialLink();
   const toggleMutation = useToggleSocialLink();
 
-  // Handle URL change with auto-save
+  // Initialize local URLs when social links load
+  useEffect(() => {
+    if (socialLinks) {
+      const urls: Record<string, string> = {};
+      socialLinks.forEach(link => {
+        urls[link._id] = link.url;
+      });
+      setLocalUrls(urls);
+    }
+  }, [socialLinks]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(saveTimeouts.current).forEach((timeout) => {
+        if (timeout) clearTimeout(timeout);
+      });
+    };
+  }, []);
+
+  // Handle URL change with debounced auto-save
   const handleUrlChange = (id: string, url: string) => {
-    updateMutation.mutate({ 
-      id, 
-      data: { url } 
-    });
+    // Update local state immediately (prevents focus loss)
+    setLocalUrls(prev => ({ ...prev, [id]: url }));
+
+    // Clear existing timeout for this link
+    if (saveTimeouts.current[id]) {
+      clearTimeout(saveTimeouts.current[id]);
+    }
+
+    // Set new timeout for auto-save after 1 second
+    saveTimeouts.current[id] = setTimeout(() => {
+      updateMutation.mutate({ 
+        id, 
+        data: { url } 
+      });
+      delete saveTimeouts.current[id];
+    }, 1000);
   };
 
   // Handle toggle enabled/disabled
@@ -165,11 +200,10 @@ export function SocialMediaEditor() {
                   {link.platform}
                 </Label>
                 <Input
-                  value={link.url}
+                  value={localUrls[link._id] || ''}
                   onChange={(e) => handleUrlChange(link._id, e.target.value)}
                   placeholder={`Enter ${link.platform} URL`}
                   className="h-9"
-                  disabled={updateMutation.isPending}
                 />
               </div>
             </div>
@@ -193,8 +227,8 @@ export function SocialMediaEditor() {
                 variant="ghost" 
                 size="icon" 
                 className="h-8 w-8"
-                onClick={() => window.open(link.url, '_blank')}
-                disabled={!link.url}
+                onClick={() => window.open(localUrls[link._id] || link.url, '_blank')}
+                disabled={!localUrls[link._id] && !link.url}
               >
                 <ExternalLink className="w-4 h-4" />
               </Button>

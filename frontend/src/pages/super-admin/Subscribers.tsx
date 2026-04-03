@@ -70,8 +70,10 @@ export default function Subscribers() {
   const availablePlans = ["Free", "Starter", "Professional", "Enterprise"];
 
   useEffect(() => {
-    setInternalNotes(selectedSubscriber?.internalNotes || "");
-  }, [selectedSubscriber?._id, selectedSubscriber?.internalNotes]);
+    if (selectedSubscriber) {
+      setInternalNotes(selectedSubscriber.internalNotes || "");
+    }
+  }, [selectedSubscriber]);
 
   const selectedPlanIndex = useMemo(
     () => availablePlans.indexOf(selectedSubscriber?.plan || ""),

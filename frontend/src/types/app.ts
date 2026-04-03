@@ -39,6 +39,8 @@ export interface User {
   createdAt: string;
   subscription?: Subscription;
   isSuperAdmin?: boolean; // Super admin flag
+  authProvider?: string; // 'manual' or 'google'
+  googleId?: string; // Google OAuth user ID
 }
 
 export type ClientType = 'individual' | 'company';
