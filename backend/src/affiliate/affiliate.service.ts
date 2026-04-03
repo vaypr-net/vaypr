@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateAffiliateDto } from './dto/create-affiliate.dto';
@@ -79,113 +79,173 @@ export class AffiliateService {
     limit = 10,
     offset = 0,
   ): Promise<{ items: Affiliate[]; total: number; hasMore: boolean }> {
-    const query: any = {};
+    try {
+      const query: any = {};
 
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { code: { $regex: search, $options: 'i' } },
-      ];
-    }
+      if (search) {
+        query.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+          { code: { $regex: search, $options: 'i' } },
+        ];
+      }
 
-    if (status) {
-      query.status = status;
-    }
+      if (status) {
+        query.status = status;
+      }
 
-    if (tier) {
-      query.tier = tier;
-    }
+      if (tier) {
+        query.tier = tier;
+      }
 
-    const total = await this.affiliateModel.countDocuments(query);
-    const items = await this.affiliateModel
-      .find(query)
-      .populate('commissionPlanId')
-      .sort({ earnings: -1 })
-      .limit(limit)
-      .skip(offset);
+      const total = await this.affiliateModel.countDocuments(query);
+      const items = await this.affiliateModel
+        .find(query)
+        .populate({
+          path: 'commissionPlanId',
+          strictPopulate: false,
+        })
+        .sort({ earnings: -1 })
+        .limit(limit)
+        .skip(offset)
+        .lean()
+        .exec();
 
-    const convertedItems = items.map((affiliate: any) => {
-      const doc = affiliate.toObject ? affiliate.toObject() : affiliate;
+      const convertedItems = items.map((affiliate: any) => {
+        return {
+          ...affiliate,
+          // Affiliate balances are generated from Stripe referral commission values (AED).
+          earnings: this.toDisplayCurrency(affiliate.earnings || 0, 'AED'),
+          pending: this.toDisplayCurrency(affiliate.pending || 0, 'AED'),
+          // Use createdAt as fallback for joinDate if not set
+          joinDate: affiliate.joinDate || affiliate.createdAt,
+        };
+      });
+
       return {
-        ...doc,
-        // Affiliate balances are generated from Stripe referral commission values (AED).
-        earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
-        pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
-        // Use createdAt as fallback for joinDate if not set
-        joinDate: doc.joinDate || doc.createdAt,
+        items: convertedItems as any,
+        total,
+        hasMore: offset + limit < total,
       };
-    });
-
-    return {
-      items: convertedItems as any,
-      total,
-      hasMore: offset + limit < total,
-    };
+    } catch (error) {
+      console.error('Error in getAllAffiliates:', error);
+      throw new BadRequestException('Failed to fetch affiliates: ' + error.message);
+    }
   }
 
   async getAffiliateById(id: string): Promise<Affiliate> {
-    const affiliate = await this.affiliateModel.findById(id).populate('commissionPlanId');
-    if (!affiliate) {
-      throw new NotFoundException('Affiliate not found');
+    try {
+      const affiliate = await this.affiliateModel
+        .findById(id)
+        .populate({
+          path: 'commissionPlanId',
+          strictPopulate: false,
+        })
+        .lean()
+        .exec();
+        
+      if (!affiliate) {
+        throw new NotFoundException('Affiliate not found');
+      }
+      
+      return {
+        ...affiliate,
+        earnings: this.toDisplayCurrency(affiliate.earnings || 0, 'AED'),
+        pending: this.toDisplayCurrency(affiliate.pending || 0, 'AED'),
+        // Use createdAt as fallback for joinDate if not set
+        joinDate: affiliate.joinDate || affiliate.createdAt,
+      } as any;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error in getAffiliateById:', error);
+      throw new BadRequestException('Failed to fetch affiliate: ' + error.message);
     }
-    
-    const doc = affiliate.toObject ? affiliate.toObject() : affiliate;
-    return {
-      ...doc,
-      earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
-      pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
-      // Use createdAt as fallback for joinDate if not set
-      joinDate: doc.joinDate || doc.createdAt,
-    } as any;
   }
 
   async updateAffiliate(id: string, updateAffiliateDto: UpdateAffiliateDto): Promise<Affiliate> {
-    const affiliate = await this.affiliateModel.findByIdAndUpdate(
-      id,
-      { ...updateAffiliateDto, updatedAt: new Date() },
-      { new: true }
-    ).populate('commissionPlanId');
-    if (!affiliate) {
-      throw new NotFoundException('Affiliate not found');
+    try {
+      const affiliate = await this.affiliateModel.findByIdAndUpdate(
+        id,
+        { ...updateAffiliateDto, updatedAt: new Date() },
+        { new: true }
+      )
+      .populate({
+        path: 'commissionPlanId',
+        strictPopulate: false,
+      })
+      .lean()
+      .exec();
+      
+      if (!affiliate) {
+        throw new NotFoundException('Affiliate not found');
+      }
+      
+      return {
+        ...affiliate,
+        earnings: this.toDisplayCurrency(affiliate.earnings || 0, 'AED'),
+        pending: this.toDisplayCurrency(affiliate.pending || 0, 'AED'),
+        // Use createdAt as fallback for joinDate if not set
+        joinDate: affiliate.joinDate || affiliate.createdAt,
+      } as any;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error in updateAffiliate:', error);
+      throw new BadRequestException('Failed to update affiliate: ' + error.message);
     }
-    
-    const doc = affiliate.toObject ? affiliate.toObject() : affiliate;
-    return {
-      ...doc,
-      earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
-      pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
-      // Use createdAt as fallback for joinDate if not set
-      joinDate: doc.joinDate || doc.createdAt,
-    } as any;
   }
 
   async deleteAffiliate(id: string): Promise<{ success: boolean; message: string }> {
-    const affiliate = await this.affiliateModel.findByIdAndDelete(id);
-    if (!affiliate) {
-      throw new NotFoundException('Affiliate not found');
+    try {
+      const affiliate = await this.affiliateModel.findByIdAndDelete(id);
+      if (!affiliate) {
+        throw new NotFoundException('Affiliate not found');
+      }
+      return { success: true, message: 'Affiliate deleted successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error in deleteAffiliate:', error);
+      throw new BadRequestException('Failed to delete affiliate: ' + error.message);
     }
-    return { success: true, message: 'Affiliate deleted successfully' };
   }
 
   async updateAffiliateStatus(id: string, status: 'active' | 'inactive'): Promise<Affiliate> {
-    const affiliate = await this.affiliateModel.findByIdAndUpdate(
-      id, 
-      { status, updatedAt: new Date() }, 
-      { new: true }
-    ).populate('commissionPlanId');
-    if (!affiliate) {
-      throw new NotFoundException('Affiliate not found');
+    try {
+      const affiliate = await this.affiliateModel.findByIdAndUpdate(
+        id, 
+        { status, updatedAt: new Date() }, 
+        { new: true }
+      )
+      .populate({
+        path: 'commissionPlanId',
+        strictPopulate: false,
+      })
+      .lean()
+      .exec();
+      
+      if (!affiliate) {
+        throw new NotFoundException('Affiliate not found');
+      }
+      
+      return {
+        ...affiliate,
+        earnings: this.toDisplayCurrency(affiliate.earnings || 0, 'AED'),
+        pending: this.toDisplayCurrency(affiliate.pending || 0, 'AED'),
+        // Use createdAt as fallback for joinDate if not set
+        joinDate: affiliate.joinDate || affiliate.createdAt,
+      } as any;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error in updateAffiliateStatus:', error);
+      throw new BadRequestException('Failed to update affiliate status: ' + error.message);
     }
-    
-    const doc = affiliate.toObject ? affiliate.toObject() : affiliate;
-    return {
-      ...doc,
-      earnings: this.toDisplayCurrency(doc.earnings || 0, 'AED'),
-      pending: this.toDisplayCurrency(doc.pending || 0, 'AED'),
-      // Use createdAt as fallback for joinDate if not set
-      joinDate: doc.joinDate || doc.createdAt,
-    } as any;
   }
 
   async getAffiliateStats(): Promise<{
@@ -194,23 +254,28 @@ export class AffiliateService {
     totalCommissions: number;
     pendingPayouts: number;
   }> {
-    const [totalAffiliates, totalReferrals, commissionAgg, pendingAgg] = await Promise.all([
-      this.affiliateModel.countDocuments(),
-      this.referralModel.countDocuments(),
-      this.referralModel.aggregate([
-        { $group: { _id: null, total: { $sum: '$commission' } } },
-      ]),
-      this.affiliateModel.aggregate([
-        { $group: { _id: null, total: { $sum: '$pending' } } },
-      ]),
-    ]);
+    try {
+      const [totalAffiliates, totalReferrals, commissionAgg, pendingAgg] = await Promise.all([
+        this.affiliateModel.countDocuments(),
+        this.referralModel.countDocuments(),
+        this.referralModel.aggregate([
+          { $group: { _id: null, total: { $sum: '$commission' } } },
+        ]),
+        this.affiliateModel.aggregate([
+          { $group: { _id: null, total: { $sum: '$pending' } } },
+        ]),
+      ]);
 
-    return {
-      totalAffiliates,
-      totalReferrals,
-      totalCommissions: this.toDisplayCurrency(commissionAgg[0]?.total || 0),
-      pendingPayouts: this.toDisplayCurrency(pendingAgg[0]?.total || 0),
-    };
+      return {
+        totalAffiliates,
+        totalReferrals,
+        totalCommissions: this.toDisplayCurrency(commissionAgg[0]?.total || 0),
+        pendingPayouts: this.toDisplayCurrency(pendingAgg[0]?.total || 0),
+      };
+    } catch (error) {
+      console.error('Error in getAffiliateStats:', error);
+      throw new BadRequestException('Failed to fetch affiliate stats: ' + error.message);
+    }
   }
 
   // ==================== COMMISSION PLAN CRUD ====================
@@ -289,32 +354,39 @@ export class AffiliateService {
     limit = 10,
     offset = 0,
   ): Promise<{ items: Coupon[]; total: number; hasMore: boolean }> {
-    const query: any = {};
+    try {
+      const query: any = {};
 
-    if (search) {
-      query.code = { $regex: search, $options: 'i' };
+      if (search) {
+        query.code = { $regex: search, $options: 'i' };
+      }
+
+      if (status) {
+        query.status = status;
+      }
+
+      if (linkedAffiliate) {
+        query.linkedAffiliate = linkedAffiliate;
+      }
+
+      const total = await this.couponModel.countDocuments(query);
+      const items = await this.couponModel
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .skip(offset)
+        .lean()
+        .exec();
+
+      return {
+        items,
+        total,
+        hasMore: offset + limit < total,
+      };
+    } catch (error) {
+      console.error('Error in getAllCoupons:', error);
+      throw new BadRequestException('Failed to fetch coupons: ' + error.message);
     }
-
-    if (status) {
-      query.status = status;
-    }
-
-    if (linkedAffiliate) {
-      query.linkedAffiliate = linkedAffiliate;
-    }
-
-    const total = await this.couponModel.countDocuments(query);
-    const items = await this.couponModel
-      .find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .skip(offset);
-
-    return {
-      items,
-      total,
-      hasMore: offset + limit < total,
-    };
   }
 
   async getCouponById(id: string): Promise<Coupon> {
@@ -346,29 +418,39 @@ export class AffiliateService {
   // ==================== REFERRAL TRACKING ====================
 
   async createReferral(createReferralDto: CreateReferralDto): Promise<Referral> {
-    // Auto-calculate commission from the affiliate's linked commission plan
-    let commission = createReferralDto.commission ?? 0;
+    try {
+      // Auto-calculate commission from the affiliate's linked commission plan
+      let commission = createReferralDto.commission ?? 0;
 
-    const affiliate = await this.affiliateModel
-      .findById(createReferralDto.affiliateId)
-      .populate('commissionPlanId');
+      const affiliate = await this.affiliateModel
+        .findById(createReferralDto.affiliateId)
+        .populate({
+          path: 'commissionPlanId',
+          strictPopulate: false,
+        })
+        .lean()
+        .exec();
 
-    if (affiliate && affiliate.commissionPlanId) {
-      const plan = affiliate.commissionPlanId as any;
-      if (plan.commissionType === 'percentage') {
-        commission = (createReferralDto.amount * plan.commissionValue) / 100;
-      } else {
-        // fixed amount
-        commission = plan.commissionValue;
+      if (affiliate && affiliate.commissionPlanId) {
+        const plan = affiliate.commissionPlanId as any;
+        if (plan.commissionType === 'percentage') {
+          commission = (createReferralDto.amount * plan.commissionValue) / 100;
+        } else {
+          // fixed amount
+          commission = plan.commissionValue;
+        }
       }
-    }
 
-    const referral = new this.referralModel({
-      ...createReferralDto,
-      commission,
-      conversionDate: new Date(),
-    });
-    return await referral.save();
+      const referral = new this.referralModel({
+        ...createReferralDto,
+        commission,
+        conversionDate: new Date(),
+      });
+      return await referral.save();
+    } catch (error) {
+      console.error('Error in createReferral:', error);
+      throw new BadRequestException('Failed to create referral: ' + error.message);
+    }
   }
 
   async getAllReferrals(
@@ -377,46 +459,52 @@ export class AffiliateService {
     limit = 10,
     offset = 0,
   ): Promise<{ items: Referral[]; total: number; hasMore: boolean; totalCommission: number }> {
-    const query: any = {};
+    try {
+      const query: any = {};
 
-    if (affiliateId) {
-      query.affiliateId = affiliateId;
-    }
+      if (affiliateId) {
+        query.affiliateId = affiliateId;
+      }
 
-    if (status) {
-      query.status = status;
-    }
+      if (status) {
+        query.status = status;
+      }
 
-    const total = await this.referralModel.countDocuments(query);
-    const items = await this.referralModel
-      .find(query)
-      .sort({ conversionDate: -1 })
-      .limit(limit)
-      .skip(offset);
+      const total = await this.referralModel.countDocuments(query);
+      const items = await this.referralModel
+        .find(query)
+        .sort({ conversionDate: -1 })
+        .limit(limit)
+        .skip(offset)
+        .lean()
+        .exec();
 
-    // Calculate total commission
-    const commissionData = await this.referralModel.aggregate([
-      { $match: query },
-      { $group: { _id: null, totalCommission: { $sum: '$commission' } } },
-    ]);
+      // Calculate total commission
+      const commissionData = await this.referralModel.aggregate([
+        { $match: query },
+        { $group: { _id: null, totalCommission: { $sum: '$commission' } } },
+      ]);
 
-    const totalCommission = commissionData[0]?.totalCommission || 0;
+      const totalCommission = commissionData[0]?.totalCommission || 0;
 
-    const convertedItems = items.map((referral: any) => {
-      const doc = referral.toObject ? referral.toObject() : referral;
+      const convertedItems = items.map((referral: any) => {
+        return {
+          ...referral,
+          amount: this.toDisplayCurrency(referral.amount || 0, referral.amountCurrency || 'AED'),
+          commission: this.toDisplayCurrency(referral.commission || 0, referral.commissionCurrency || 'AED'),
+        };
+      });
+
       return {
-        ...doc,
-        amount: this.toDisplayCurrency(doc.amount || 0, doc.amountCurrency || 'AED'),
-        commission: this.toDisplayCurrency(doc.commission || 0, doc.commissionCurrency || 'AED'),
+        items: convertedItems as any,
+        total,
+        hasMore: offset + limit < total,
+        totalCommission: this.toDisplayCurrency(totalCommission, 'AED'),
       };
-    });
-
-    return {
-      items: convertedItems as any,
-      total,
-      hasMore: offset + limit < total,
-      totalCommission: this.toDisplayCurrency(totalCommission, 'AED'),
-    };
+    } catch (error) {
+      console.error('Error in getAllReferrals:', error);
+      throw new BadRequestException('Failed to fetch referrals: ' + error.message);
+    }
   }
 
   async getReferralById(id: string): Promise<Referral> {

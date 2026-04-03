@@ -61,6 +61,11 @@ export class CreateUserprofileDto {
   @ApiProperty({ required: false, default: true })
   @IsBoolean()
   @IsOptional()
+  quoteModificationRequested?: boolean;
+
+  @ApiProperty({ required: false, default: true })
+  @IsBoolean()
+  @IsOptional()
   quoteExpired?: boolean;
 
   @ApiProperty({ required: false, default: true })

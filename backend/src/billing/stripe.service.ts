@@ -859,29 +859,93 @@ export class StripeService {
   }
 
   async getBillingHistory(userId: string): Promise<any[]> {
-    const userObjectId = new Types.ObjectId(userId);
+    try {
+      const userObjectId = new Types.ObjectId(userId);
+      
+      this.logger.log(`Getting billing history for user: ${userId}`);
 
-    const transactions = await this.transactionModel
-      .find({
-        userId: userObjectId,
-      })
-      .sort({ transactionDate: -1 })
-      .limit(50)
-      .lean();
+      // First, check if user exists
+      const user = await this.userModel.findById(userObjectId);
+      if (!user) {
+        this.logger.warn(`User not found for billing history: ${userId}`);
+        return [];
+      }
 
-    return transactions.map((tx: any) => ({
-      id: tx._id?.toString?.() || tx._id,
-      transactionId: tx.transactionId,
-      amount: tx.amount,
-      currency: tx.currency,
-      status: tx.status,
-      type: tx.type,
-      provider: tx.provider,
-      plan: tx.plan,
-      billingCycle: tx.billingCycle || null,
-      transactionDate: tx.transactionDate,
-      createdAt: tx.createdAt,
-    }));
+      // Try to find transactions by userId
+      const transactions = await this.transactionModel
+        .find({
+          userId: userObjectId,
+        })
+        .sort({ transactionDate: -1 })
+        .limit(50)
+        .lean();
+
+      this.logger.log(`Found ${transactions.length} transactions for user ${userId}`);
+
+      // If no transactions found by userId, try finding by subscriberId or email
+      if (transactions.length === 0) {
+        this.logger.log(`No transactions found by userId, trying by subscriberId and email...`);
+        
+        const alternativeTransactions = await this.transactionModel
+          .find({
+            $or: [
+              { subscriberId: userId },
+              { subscriberEmail: user.email },
+            ],
+          })
+          .sort({ transactionDate: -1 })
+          .limit(50)
+          .lean();
+
+        this.logger.log(`Found ${alternativeTransactions.length} transactions by alternative query`);
+
+        // Update these transactions with userId for future queries
+        if (alternativeTransactions.length > 0) {
+          this.logger.log(`Updating ${alternativeTransactions.length} transactions with userId`);
+          await this.transactionModel.updateMany(
+            {
+              $or: [
+                { subscriberId: userId },
+                { subscriberEmail: user.email },
+              ],
+              userId: { $in: [null, undefined] },
+            },
+            { $set: { userId: userObjectId } }
+          );
+        }
+
+        return alternativeTransactions.map((tx: any) => ({
+          id: tx._id?.toString?.() || tx._id,
+          transactionId: tx.transactionId,
+          amount: tx.amount,
+          currency: tx.currency,
+          status: tx.status,
+          type: tx.type,
+          provider: tx.provider,
+          plan: tx.plan,
+          billingCycle: tx.billingCycle || null,
+          transactionDate: tx.transactionDate,
+          createdAt: tx.createdAt,
+        }));
+      }
+
+      return transactions.map((tx: any) => ({
+        id: tx._id?.toString?.() || tx._id,
+        transactionId: tx.transactionId,
+        amount: tx.amount,
+        currency: tx.currency,
+        status: tx.status,
+        type: tx.type,
+        provider: tx.provider,
+        plan: tx.plan,
+        billingCycle: tx.billingCycle || null,
+        transactionDate: tx.transactionDate,
+        createdAt: tx.createdAt,
+      }));
+    } catch (error) {
+      this.logger.error(`Error getting billing history for user ${userId}:`, error);
+      return [];
+    }
   }
 
   /**

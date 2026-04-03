@@ -439,15 +439,25 @@ export class UserService {
    * @returns Success message
    */
   async changePassword(userId: string, changePasswordDto: any): Promise<{ message: string }> {
+    // Get user from database
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Prevent Google OAuth users from changing password
+    if (user.authProvider === 'google' || user.googleId) {
+      throw new BadRequestException('Cannot change password for Google OAuth accounts. Please use Google to manage your password.');
+    }
+
     // Validate password match
     if (changePasswordDto.newPassword !== changePasswordDto.confirmPassword) {
       throw new BadRequestException('New password and confirm password do not match');
     }
 
-    // Get user from database
-    const user = await this.userModel.findById(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
+    // Verify current password exists
+    if (!user.password) {
+      throw new BadRequestException('No password set for this account');
     }
 
     // Verify current password
