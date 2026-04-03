@@ -15,7 +15,7 @@ jobs:
 
       - name: Pull and Deploy
         run: |
-          cd /var/www/projects/vaypr
+          cd /var/www/projects/vayper
           git fetch origin main
           git reset --hard origin/main
           docker compose up -d --build --remove-orphans
