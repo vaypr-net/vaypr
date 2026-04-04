@@ -908,7 +908,7 @@ export class StripeService {
                 { subscriberId: userId },
                 { subscriberEmail: user.email },
               ],
-              userId: { $in: [null, undefined] },
+              userId: { $in: [null] },
             },
             { $set: { userId: userObjectId } }
           );
