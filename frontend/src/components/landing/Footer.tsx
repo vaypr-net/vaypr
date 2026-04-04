@@ -104,7 +104,7 @@ export function Footer() {
     queryKey: ["public-social-links"],
     queryFn: async () => {
       const response = await axios.get<PublicSocialLink[]>(`${API_BASE_URL}/social-links`);
-      return response.data;
+      return Array.isArray(response.data) ? response.data : [];
     },
     staleTime: 5 * 60 * 1000,
   });
