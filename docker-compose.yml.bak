@@ -1,0 +1,100 @@
+services:
+  backend:
+    # build:
+    #   context: ./backend
+    image: pcr.salyhal.com/vayper-backend:latest
+    container_name: vayper-backend
+    ports:
+      - "127.0.0.1:4040:4040"
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - vayper-network
+      - coolify
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=coolify"
+
+      # HTTP router for redirect
+      - "traefik.http.routers.vaypr-api-http.rule=Host(`api.vaypr.net`)"
+      - "traefik.http.routers.vaypr-api-http.entrypoints=http"
+      - "traefik.http.routers.vaypr-api-http.middlewares=vaypr-api-https-redirect"
+
+      # HTTPS router
+      - "traefik.http.routers.vaypr-api.rule=Host(`api.vaypr.net`)"
+      - "traefik.http.routers.vaypr-api.entrypoints=https"
+      - "traefik.http.routers.vaypr-api.tls=true"
+      - "traefik.http.routers.vaypr-api.tls.certresolver=letsencrypt"
+
+      # Middleware
+      - "traefik.http.middlewares.vaypr-api-https-redirect.redirectscheme.scheme=https"
+
+      # Service port inside container
+      - "traefik.http.services.vaypr-api.loadbalancer.server.port=4040"
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  frontend:
+    # build:
+    #   context: ./frontend
+    image: pcr.salyhal.com/vayper-frontend:latest
+    container_name: vayper-frontend
+    ports:
+      - "127.0.0.1:3004:80"
+    environment:
+      - VITE_API_BASE_URL=https://api.vaypr.net
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - vayper-network
+      - coolify
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=coolify"
+
+      # HTTP router for redirect
+      - "traefik.http.routers.vaypr-http.rule=Host(`vaypr.net`)"
+      - "traefik.http.routers.vaypr-http.entrypoints=http"
+      - "traefik.http.routers.vaypr-http.middlewares=vaypr-https-redirect"
+
+      # HTTPS router
+      - "traefik.http.routers.vaypr.rule=Host(`vaypr.net`)"
+      - "traefik.http.routers.vaypr.entrypoints=https"
+      - "traefik.http.routers.vaypr.tls=true"
+      - "traefik.http.routers.vaypr.tls.certresolver=letsencrypt"
+
+      # Middleware
+      - "traefik.http.middlewares.vaypr-https-redirect.redirectscheme.scheme=https"
+
+      # Service port inside container
+      - "traefik.http.services.vaypr.loadbalancer.server.port=80"
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+networks:
+  vayper-network:
+    driver: bridge
+  coolify:
+    external: true
