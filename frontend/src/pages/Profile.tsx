@@ -559,10 +559,8 @@ export default function Profile() {
 
   const handleSaveNotifications = async (notificationsToSave?: typeof notifications) => {
     const prefsToSave = notificationsToSave || notifications;
-    
-    if (isSavingNotifications) return;
-    setIsSavingNotifications(true);
 
+    setIsSavingNotifications(true);
     try {
       await axios.patch('/userprofile', prefsToSave);
       toast({
@@ -1738,9 +1736,12 @@ export default function Profile() {
                           <span className="text-sm">{item.label}</span>
                           <Switch
                             checked={notifications[item.key as keyof typeof notifications]}
-                            onCheckedChange={(checked) => 
-                              setNotifications({ ...notifications, [item.key]: checked })
-                            }
+                            disabled={isSavingNotifications}
+                            onCheckedChange={(checked) => {
+                              const updated = { ...notifications, [item.key]: checked };
+                              setNotifications(updated);
+                              handleSaveNotifications(updated);
+                            }}
                           />
                         </div>
                       ))}
@@ -1763,9 +1764,12 @@ export default function Profile() {
                           <span className="text-sm">{item.label}</span>
                           <Switch
                             checked={notifications[item.key as keyof typeof notifications]}
-                            onCheckedChange={(checked) => 
-                              setNotifications({ ...notifications, [item.key]: checked })
-                            }
+                            disabled={isSavingNotifications}
+                            onCheckedChange={(checked) => {
+                              const updated = { ...notifications, [item.key]: checked };
+                              setNotifications(updated);
+                              handleSaveNotifications(updated);
+                            }}
                           />
                         </div>
                       ))}
@@ -1787,9 +1791,12 @@ export default function Profile() {
                           <span className="text-sm">{item.label}</span>
                           <Switch
                             checked={notifications[item.key as keyof typeof notifications]}
-                            onCheckedChange={(checked) => 
-                              setNotifications({ ...notifications, [item.key]: checked })
-                            }
+                            disabled={isSavingNotifications}
+                            onCheckedChange={(checked) => {
+                              const updated = { ...notifications, [item.key]: checked };
+                              setNotifications(updated);
+                              handleSaveNotifications(updated);
+                            }}
                           />
                         </div>
                       ))}
@@ -1809,9 +1816,12 @@ export default function Profile() {
                           <span className="text-sm">{item.label}</span>
                           <Switch
                             checked={notifications[item.key as keyof typeof notifications]}
-                            onCheckedChange={(checked) => 
-                              setNotifications({ ...notifications, [item.key]: checked })
-                            }
+                            disabled={isSavingNotifications}
+                            onCheckedChange={(checked) => {
+                              const updated = { ...notifications, [item.key]: checked };
+                              setNotifications(updated);
+                              handleSaveNotifications(updated);
+                            }}
                           />
                         </div>
                       ))}
