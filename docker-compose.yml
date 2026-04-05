@@ -14,22 +14,17 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=coolify"
 
-      # HTTP -> HTTPS redirect for API
       - "traefik.http.routers.vaypr-api-http.rule=Host(`api.vaypr.net`)"
       - "traefik.http.routers.vaypr-api-http.entrypoints=http"
       - "traefik.http.routers.vaypr-api-http.middlewares=vaypr-api-redirect"
 
-      # HTTPS API router
       - "traefik.http.routers.vaypr-api.rule=Host(`api.vaypr.net`)"
       - "traefik.http.routers.vaypr-api.entrypoints=https"
       - "traefik.http.routers.vaypr-api.tls=true"
       - "traefik.http.routers.vaypr-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.vaypr-api.service=vaypr-api-svc"
 
-      # Middleware
       - "traefik.http.middlewares.vaypr-api-redirect.redirectscheme.scheme=https"
-
-      # API service port inside container
       - "traefik.http.services.vaypr-api-svc.loadbalancer.server.port=4040"
 
   frontend:
@@ -49,28 +44,23 @@ services:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 5s
+      retries: 5
+      start_period: 20s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=coolify"
 
-      # HTTP -> HTTPS redirect for frontend
-      - "traefik.http.routers.vaypr-web-http.rule=Host(`vaypr.net`)"
+      - "traefik.http.routers.vaypr-web-http.rule=Host(`vaypr.net`) || Host(`www.vaypr.net`)"
       - "traefik.http.routers.vaypr-web-http.entrypoints=http"
       - "traefik.http.routers.vaypr-web-http.middlewares=vaypr-web-redirect"
 
-      # HTTPS frontend router
-      - "traefik.http.routers.vaypr-web.rule=Host(`vaypr.net`)"
+      - "traefik.http.routers.vaypr-web.rule=Host(`vaypr.net`) || Host(`www.vaypr.net`)"
       - "traefik.http.routers.vaypr-web.entrypoints=https"
       - "traefik.http.routers.vaypr-web.tls=true"
       - "traefik.http.routers.vaypr-web.tls.certresolver=letsencrypt"
       - "traefik.http.routers.vaypr-web.service=vaypr-web-svc"
 
-      # Middleware
       - "traefik.http.middlewares.vaypr-web-redirect.redirectscheme.scheme=https"
-
-      # Frontend service port inside container
       - "traefik.http.services.vaypr-web-svc.loadbalancer.server.port=80"
 
 networks:
