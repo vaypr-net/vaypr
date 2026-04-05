@@ -47,7 +47,7 @@ export class UserprofileService {
     const profile = await this.userProfileModel
       .findOneAndUpdate(
         { userId: new Types.ObjectId(userId) },
-        updateUserprofileDto,
+        { $set: updateUserprofileDto },
         { new: true }
       )
       .exec();

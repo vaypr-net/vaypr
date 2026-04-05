@@ -401,22 +401,23 @@ export default function Profile() {
           timezone: profile?.timeZone || 'UTC',
         }));
 
-        // Load notification preferences
+        // Load notification preferences — use explicit boolean check so that
+        // a saved `false` value is correctly reflected (not coerced back to true).
         setNotifications((prev) => ({
-          invoiceDueSoon: profile?.invoiceDueSoon !== false,
-          invoiceOverdue: profile?.invoiceOverdue !== false,
-          quoteViewed: profile?.quoteViewed !== false,
-          quoteAccepted: profile?.quoteAccepted !== false,
-          quoteRejected: profile?.quoteRejected !== false,
-          quoteModificationRequested: profile?.quoteModificationRequested !== false,
-          quoteExpired: profile?.quoteExpired !== false,
-          upcomingRenewal: profile?.upcomingRenewal !== false,
-          renewalSuccessful: profile?.renewalSuccessful !== false,
-          renewalPaymentFailed: profile?.renewalPaymentFailed !== false,
-          subscriptionChanged: profile?.subscriptionChanged !== false,
-          supportAgentReplied: profile?.supportAgentReplied !== false,
-          ticketResolved: profile?.ticketResolved !== false,
-          pushNotifications: profile?.pushNotifications !== false,
+          invoiceDueSoon: typeof profile?.invoiceDueSoon === 'boolean' ? profile.invoiceDueSoon : prev.invoiceDueSoon,
+          invoiceOverdue: typeof profile?.invoiceOverdue === 'boolean' ? profile.invoiceOverdue : prev.invoiceOverdue,
+          quoteViewed: typeof profile?.quoteViewed === 'boolean' ? profile.quoteViewed : prev.quoteViewed,
+          quoteAccepted: typeof profile?.quoteAccepted === 'boolean' ? profile.quoteAccepted : prev.quoteAccepted,
+          quoteRejected: typeof profile?.quoteRejected === 'boolean' ? profile.quoteRejected : prev.quoteRejected,
+          quoteModificationRequested: typeof profile?.quoteModificationRequested === 'boolean' ? profile.quoteModificationRequested : prev.quoteModificationRequested,
+          quoteExpired: typeof profile?.quoteExpired === 'boolean' ? profile.quoteExpired : prev.quoteExpired,
+          upcomingRenewal: typeof profile?.upcomingRenewal === 'boolean' ? profile.upcomingRenewal : prev.upcomingRenewal,
+          renewalSuccessful: typeof profile?.renewalSuccessful === 'boolean' ? profile.renewalSuccessful : prev.renewalSuccessful,
+          renewalPaymentFailed: typeof profile?.renewalPaymentFailed === 'boolean' ? profile.renewalPaymentFailed : prev.renewalPaymentFailed,
+          subscriptionChanged: typeof profile?.subscriptionChanged === 'boolean' ? profile.subscriptionChanged : prev.subscriptionChanged,
+          supportAgentReplied: typeof profile?.supportAgentReplied === 'boolean' ? profile.supportAgentReplied : prev.supportAgentReplied,
+          ticketResolved: typeof profile?.ticketResolved === 'boolean' ? profile.ticketResolved : prev.ticketResolved,
+          pushNotifications: typeof profile?.pushNotifications === 'boolean' ? profile.pushNotifications : prev.pushNotifications,
         }));
 
         // Set superadmin flag
