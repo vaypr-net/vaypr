@@ -8,12 +8,15 @@ RUN apk upgrade --no-cache
 COPY package.json ./
 RUN npm install
 COPY . .
+
+# Increase Node heap for Nest build
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 
 # Production image
 FROM node:20-alpine
 
-# Update packages for security patches (fix zlib CVE-2026-22184)
+# Update packages for security patches
 RUN apk upgrade --no-cache && \
     apk add --no-cache dumb-init
 
@@ -36,7 +39,7 @@ ENV PORT=4040
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:4040/', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+  CMD node -e "require('http').get('http://127.0.0.1:4040/', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 EXPOSE 4040
 

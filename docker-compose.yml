@@ -1,6 +1,9 @@
 services:
   backend:
-    image: pcr.salyhal.com/vayper-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: vayper-backend:latest
     container_name: vayper-backend
     env_file:
       - .env
@@ -28,7 +31,12 @@ services:
       - "traefik.http.services.vaypr-api-svc.loadbalancer.server.port=4040"
 
   frontend:
-    image: pcr.salyhal.com/vayper-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: https://api.vaypr.net
+    image: vayper-frontend:latest
     container_name: vayper-frontend
     environment:
       - VITE_API_BASE_URL=https://api.vaypr.net
