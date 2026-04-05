@@ -311,11 +311,22 @@ export function AdminHeader() {
             <div className="border-t p-2">
               <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" className="w-full text-sm" size="sm">
+                  <Button
+                    variant="ghost"
+                    className="w-full text-sm"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetOpen(true);
+                    }}
+                  >
                     View all notifications
                   </Button>
                 </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-lg">
+                <SheetContent
+                  className="w-full sm:max-w-lg"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <SheetHeader className="pb-4">
                     <div className="flex items-center justify-between">
                       <SheetTitle>All Notifications</SheetTitle>
@@ -402,10 +413,31 @@ export function AdminHeader() {
                     
                     <TabsContent value="unread">
                       <ScrollArea className="h-[calc(100vh-200px)]">
-                        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                          <CheckCircle2 className="w-12 h-12 mb-4 opacity-50" />
-                          <p>All caught up!</p>
-                        </div>
+                        {unreadNotifications.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                            <CheckCircle2 className="w-12 h-12 mb-4 opacity-50" />
+                            <p>All caught up!</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {unreadNotifications.map((notification) => (
+                              <div
+                                key={notification.id}
+                                className="flex gap-3 p-4 rounded-lg border border-border bg-muted/30 cursor-pointer"
+                                onClick={() => markAsRead(notification.id)}
+                              >
+                                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                                  {activityToNotificationIcon[notification.type] || <Bell className="w-4 h-4" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold">{notification.title}</p>
+                                  <p className="text-sm text-muted-foreground">{notification.description}</p>
+                                  <p className="text-xs text-muted-foreground mt-2">{notification.time}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </ScrollArea>
                     </TabsContent>
                   </Tabs>

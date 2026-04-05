@@ -1049,8 +1049,8 @@ export default function Quotes() {
         quoteNumber: generatedNumber,
         clientId: quote.clientId || undefined,
         status: 'draft',
-        quoteDate: new Date().toISOString(),
-        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        quoteDate: quote.quoteDate ? new Date(quote.quoteDate).toISOString() : new Date().toISOString(),
+        validUntil: quote.validUntil ? new Date(quote.validUntil).toISOString() : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         billTo: {
           name: quote.clientName,
           phone: quote.clientPhone || '',
