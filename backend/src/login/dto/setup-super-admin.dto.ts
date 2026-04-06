@@ -2,11 +2,6 @@ import { IsString, IsEmail, MinLength, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SetupSuperAdminDto {
-  @ApiProperty({ example: 'change-this-to-a-strong-random-secret' })
-  @IsString()
-  @IsNotEmpty()
-  setupSecret: string;
-
   @ApiProperty({ example: 'admin@vaypr.net' })
   @IsEmail()
   @IsNotEmpty()

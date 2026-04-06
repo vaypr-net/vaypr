@@ -1,5 +1,5 @@
-import { Controller, Post, Body, Get, UseGuards, Req, Res } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Controller, Post, Body, Get, UseGuards, Req, Res, Headers } from '@nestjs/common';
+import { ApiTags, ApiHeader } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { LoginService } from './login.service';
@@ -36,13 +36,23 @@ export class LoginController {
   /**
    * Bootstrap / override super admin credentials.
    * Endpoint: POST /auth/setup-super-admin
-   * Body: { setupSecret, email, password, fullName }
-   * Protected by SUPER_ADMIN_SETUP_SECRET env var — no JWT needed.
+   * Header: X-Setup-Secret (must match SUPER_ADMIN_SETUP_SECRET env var)
+   * Body: { email, password, fullName }
+   * No JWT needed — protected by secret header.
    */
   @Post('setup-super-admin')
-  async setupSuperAdmin(@Body() body: SetupSuperAdminDto) {
+  @ApiHeader({
+    name: 'X-Setup-Secret',
+    description: 'Setup secret from SUPER_ADMIN_SETUP_SECRET env var',
+    required: true,
+    schema: { type: 'string', example: '474abf57d71a5e26034208c16d006b0ccf7c2c475b37c697b4e10243ca971dd8' },
+  })
+  async setupSuperAdmin(
+    @Headers('x-setup-secret') setupSecret: string,
+    @Body() body: SetupSuperAdminDto,
+  ) {
     return this.loginService.setupSuperAdmin(
-      body.setupSecret,
+      setupSecret,
       body.email,
       body.password,
       body.fullName,
