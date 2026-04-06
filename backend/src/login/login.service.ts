@@ -236,6 +236,7 @@ export class LoginService {
         {
           replyTo: supportEmail,
           senderName: 'Support Team',
+          skipDomainCheck: true, // system email — skip subscriber domain verification
         },
       );
       console.log(`[ForgotPassword] ✅ Email sent successfully to ${user.email}`);
