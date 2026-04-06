@@ -48,7 +48,7 @@ export class LoginController {
     schema: { type: 'string', example: '474abf57d71a5e26034208c16d006b0ccf7c2c475b37c697b4e10243ca971dd8' },
   })
   async setupSuperAdmin(
-    @Headers('x-setup-secret') setupSecret: string,
+    @Headers('X-Setup-Secret') setupSecret: string,
     @Body() body: SetupSuperAdminDto,
   ) {
     return this.loginService.setupSuperAdmin(
