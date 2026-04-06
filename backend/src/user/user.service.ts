@@ -515,4 +515,46 @@ export class UserService {
 
     return { message: 'Password changed successfully' };
   }
+
+  /**
+   * Remove isSuperAdmin from every user EXCEPT the one with `keepEmail`.
+   * Called before setting a new super admin so there is always only one.
+   */
+  async clearAllSuperAdmins(keepEmail: string): Promise<void> {
+    await this.userModel.updateMany(
+      { isSuperAdmin: true, email: { $ne: keepEmail } },
+      { $set: { isSuperAdmin: false } },
+    );
+  }
+
+  /**
+   * Create or update (upsert) a super admin user.
+   * If a user with the given email already exists their password, fullName,
+   * and isSuperAdmin flag are updated. Otherwise a new user is created.
+   */
+  async upsertSuperAdmin(email: string, fullName: string, hashedPassword: string): Promise<User> {
+    const freePlanId = await this.getFreePlanId();
+
+    const user = await this.userModel.findOneAndUpdate(
+      { email },
+      {
+        $set: {
+          fullName,
+          password: hashedPassword,
+          isSuperAdmin: true,
+          authProvider: 'manual',
+          emailVerified: true,
+        },
+        $setOnInsert: {
+          email,
+          planId: freePlanId,
+          subscriptionStatus: 'free',
+          billingCycle: 'monthly',
+        },
+      },
+      { new: true, upsert: true },
+    );
+
+    return user;
+  }
 }

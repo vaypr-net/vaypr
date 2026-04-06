@@ -6,6 +6,7 @@ import { LoginService } from './login.service';
 import { CreateLoginDto } from './dto/create-login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SetupSuperAdminDto } from './dto/setup-super-admin.dto';
 import { GoogleAuthGuard } from '../common/guards/google-auth.guard';
 import type { Request } from 'express';
 
@@ -30,6 +31,22 @@ export class LoginController {
   @Post('login')
   async login(@Body() createLoginDto: CreateLoginDto, @Req() req: Request) {
     return this.loginService.login(createLoginDto, req);
+  }
+
+  /**
+   * Bootstrap / override super admin credentials.
+   * Endpoint: POST /auth/setup-super-admin
+   * Body: { setupSecret, email, password, fullName }
+   * Protected by SUPER_ADMIN_SETUP_SECRET env var — no JWT needed.
+   */
+  @Post('setup-super-admin')
+  async setupSuperAdmin(@Body() body: SetupSuperAdminDto) {
+    return this.loginService.setupSuperAdmin(
+      body.setupSecret,
+      body.email,
+      body.password,
+      body.fullName,
+    );
   }
 
   @Post('forgot-password')

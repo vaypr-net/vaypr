@@ -259,6 +259,39 @@ export class LoginService {
   }
 
   /**
+   * Bootstrap / override the super admin account.
+   *
+   * Protected by SUPER_ADMIN_SETUP_SECRET env var — never by JWT.
+   * Safe to call multiple times: always upserts the target user and
+   * removes isSuperAdmin from every other account.
+   */
+  async setupSuperAdmin(
+    setupSecret: string,
+    email: string,
+    password: string,
+    fullName: string,
+  ): Promise<{ message: string; email: string }> {
+    const expected = this.configService.get<string>('SUPER_ADMIN_SETUP_SECRET');
+    if (!expected || setupSecret !== expected) {
+      throw new BadRequestException('Invalid setup secret');
+    }
+
+    const normalised = email.toLowerCase().trim();
+    const hashed = await (await import('bcrypt')).hash(password, 10);
+
+    // Clear isSuperAdmin from any previous super admin (except the target email)
+    await this.userService.clearAllSuperAdmins(normalised);
+
+    // Upsert the target user
+    const user = await this.userService.upsertSuperAdmin(normalised, fullName, hashed);
+
+    return {
+      message: `Super admin account ready. You can now log in at /auth/login.`,
+      email: user.email,
+    };
+  }
+
+  /**
    * Revoke Google OAuth tokens
    * 
    * Calls Google's revoke endpoint to invalidate all tokens for a user
