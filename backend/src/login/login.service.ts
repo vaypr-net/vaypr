@@ -223,10 +223,14 @@ export class LoginService {
     `;
 
     try {
-      // FROM: always use BREVO_SENDER_EMAIL env var (must be a Brevo-verified domain).
-      const senderEmail =
-        this.configService.get<string>('BREVO_SENDER_EMAIL') || 'vaypr@caloriez.net';
-      const replyTo = senderEmail;
+      // FROM: read sender email from super admin settings (what super admin configured).
+      // Falls back to BREVO_SENDER_EMAIL env var if DB is unavailable.
+      let senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'vaypr@caloriez.net';
+      try {
+        senderEmail = await this.superadminSettingsService.getSystemSupportEmail();
+      } catch (_) {
+        // DB unavailable — fall back to env var
+      }
 
       console.log(`[ForgotPassword] FROM: ${senderEmail} | TO: ${user.email}`);
 
@@ -238,7 +242,7 @@ export class LoginService {
         undefined,
         undefined,
         {
-          replyTo,
+          replyTo: senderEmail,
           senderName: 'Vaypr Support',
           skipDomainCheck: true, // skip local domain sync — send directly via Brevo API key
         },
