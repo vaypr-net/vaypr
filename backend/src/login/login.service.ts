@@ -224,6 +224,7 @@ export class LoginService {
 
     try {
       const supportEmail = await this.superadminSettingsService.getSystemSupportEmail();
+      console.log(`[ForgotPassword] Sending reset email from: ${supportEmail} to: ${user.email}`);
 
       await this.brevoService.sendEmail(
         supportEmail,
@@ -237,7 +238,15 @@ export class LoginService {
           senderName: 'Support Team',
         },
       );
+      console.log(`[ForgotPassword] ✅ Email sent successfully to ${user.email}`);
     } catch (error) {
+      console.error(`[ForgotPassword] ❌ DETAILED ERROR:`, {
+        message: error?.message,
+        code: error?.code,
+        status: error?.status,
+        response: error?.response?.data || error?.response,
+        fullError: JSON.stringify(error, null, 2),
+      });
       await this.userService.clearPasswordResetToken(user._id.toString());
       throw new BadRequestException('Unable to send password reset email. Please try again.');
     }
