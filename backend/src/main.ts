@@ -26,6 +26,7 @@ async function bootstrap() {
   const allowedOrigins = [
     process.env.FRONTEND_URL || 'http://localhost:8080',
     'https://vaypr.net',
+    'https://api.vaypr.net',
     'https://test.vaypr.net',
     'http://localhost:5173',
     'http://localhost:8081',
