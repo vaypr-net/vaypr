@@ -49,6 +49,12 @@ export class User extends BaseEntity {
   @Prop({ required: false })
   twoFactorSecret: string; // TOTP secret (store encrypted in production)
 
+  @Prop({ required: false })
+  passwordResetTokenHash?: string;
+
+  @Prop({ required: false })
+  passwordResetExpiresAt?: Date;
+
   // Brevo Domain for email sending
   @Prop({ required: false })
   brandingDomain: string; // Verified Brevo domain (e.g., "example.com") - used as sender for invoices, receipts, quotes

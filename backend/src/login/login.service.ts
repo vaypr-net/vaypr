@@ -1,10 +1,14 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { CreateLoginDto } from './dto/create-login.dto';
 import { UserService } from '../user/user.service';
 import { SessionService } from '../user/session.service';
 import { Request } from 'express';
+import { SuperadminSettingsService } from '../superadmin-settings/superadmin-settings.service';
+import { BrevoService } from '../brevo/brevo.service';
 
 interface GoogleUser {
   googleId: string;
@@ -22,7 +26,16 @@ export class LoginService {
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly sessionService: SessionService,
+    private readonly configService: ConfigService,
+    private readonly superadminSettingsService: SuperadminSettingsService,
+    private readonly brevoService: BrevoService,
   ) {}
+
+  private getFrontendUrl(): string {
+    const raw = this.configService.get<string>('FRONTEND_URL') ?? '';
+    const firstUrl = raw.split(',')[0]?.trim();
+    return (firstUrl || 'http://localhost:8080').replace(/\/+$/, '');
+  }
 
   async login(createLoginDto: CreateLoginDto, req?: Request) {
     const user = await this.userService.findByEmail(createLoginDto.email);
@@ -177,6 +190,72 @@ export class LoginService {
         isSuperAdmin: user.isSuperAdmin || false,
       },
     };
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.userService.findByEmail(email.toLowerCase().trim());
+
+    if (!user) {
+      throw new BadRequestException('No account found with that email address. Please check and try again.');
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const expiresMinutes = Number(this.configService.get<string>('PASSWORD_RESET_EXPIRES_MINUTES') || '15');
+    const expiresAt = new Date(Date.now() + expiresMinutes * 60 * 1000);
+
+    await this.userService.setPasswordResetToken(user._id.toString(), tokenHash, expiresAt);
+
+    const resetUrl = `${this.getFrontendUrl()}/reset-password?token=${encodeURIComponent(resetToken)}`;
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
+        <h2>Password Reset Request</h2>
+        <p>Hello ${user.fullName || 'there'},</p>
+        <p>We received a request to reset your password. Click the button below to continue:</p>
+        <p>
+          <a href="${resetUrl}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
+            Reset Password
+          </a>
+        </p>
+        <p>This link expires in ${expiresMinutes} minutes.</p>
+        <p>If you did not request this, you can ignore this email.</p>
+      </div>
+    `;
+
+    try {
+      const supportEmail = await this.superadminSettingsService.getSystemSupportEmail();
+
+      await this.brevoService.sendEmail(
+        supportEmail,
+        user.email,
+        'Reset your password',
+        htmlBody,
+        undefined,
+        undefined,
+        {
+          replyTo: supportEmail,
+          senderName: 'Support Team',
+        },
+      );
+    } catch (error) {
+      await this.userService.clearPasswordResetToken(user._id.toString());
+      throw new BadRequestException('Unable to send password reset email. Please try again.');
+    }
+
+    return {
+      message: 'If an account with that email exists, a password reset link has been sent.',
+    };
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const didReset = await this.userService.resetPasswordWithToken(tokenHash, newPassword);
+
+    if (!didReset) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    return { message: 'Password reset successful. You can now sign in with your new password.' };
   }
 
   /**

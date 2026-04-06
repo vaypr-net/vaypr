@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { LoginService } from './login.service';
 import { CreateLoginDto } from './dto/create-login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { GoogleAuthGuard } from '../common/guards/google-auth.guard';
 import type { Request } from 'express';
 
@@ -28,6 +30,16 @@ export class LoginController {
   @Post('login')
   async login(@Body() createLoginDto: CreateLoginDto, @Req() req: Request) {
     return this.loginService.login(createLoginDto, req);
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.loginService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.loginService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
   }
 
   /**

@@ -184,6 +184,47 @@ export class UserService {
     return user;
   }
 
+  async setPasswordResetToken(
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.userModel.findByIdAndUpdate(userId, {
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: expiresAt,
+    });
+  }
+
+  async clearPasswordResetToken(userId: string): Promise<void> {
+    await this.userModel.findByIdAndUpdate(userId, {
+      $unset: {
+        passwordResetTokenHash: 1,
+        passwordResetExpiresAt: 1,
+      },
+    });
+  }
+
+  async resetPasswordWithToken(tokenHash: string, newPassword: string): Promise<boolean> {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const updatedUser = await this.userModel.findOneAndUpdate(
+      {
+        passwordResetTokenHash: tokenHash,
+        passwordResetExpiresAt: { $gt: new Date() },
+      },
+      {
+        password: hashedPassword,
+        authProvider: 'manual',
+        $unset: {
+          passwordResetTokenHash: 1,
+          passwordResetExpiresAt: 1,
+        },
+      },
+      { new: true },
+    );
+
+    return !!updatedUser;
+  }
+
   async remove(id: string): Promise<void> {
     const result = await this.userModel.findByIdAndDelete(id).exec();
     if (!result) {

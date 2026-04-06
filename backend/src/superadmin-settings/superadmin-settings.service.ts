@@ -61,6 +61,20 @@ export class SuperadminSettingsService {
     return settings;
   }
 
+  async getSystemSupportEmail(): Promise<string> {
+    const settings = await this.superAdminSettingsModel
+      .findOne({ supportEmail: { $exists: true, $ne: '' } })
+      .sort({ createdAt: 1 })
+      .lean()
+      .exec();
+
+    if (!settings?.supportEmail) {
+      throw new NotFoundException('Super admin support email is not configured');
+    }
+
+    return settings.supportEmail.trim().toLowerCase();
+  }
+
   async update(userId: string, updateDto: UpdateSuperadminSettingsDto): Promise<SuperAdminSettings> {
     const defaults = await this.buildDefaultSettings(userId);
     const setOnInsert = Object.fromEntries(

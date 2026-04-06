@@ -8,10 +8,16 @@ import { TwoFAService } from './twofa.service';
 import { TwoFAController } from './twofa.controller';
 import { UserModule } from '../user/user.module';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { EmailModule } from '../email/email.module';
+import { SuperadminSettingsModule } from '../superadmin-settings/superadmin-settings.module';
+import { BrevoModule } from '../brevo/brevo.module';
 
 @Module({
   imports: [
     UserModule,
+    EmailModule,
+    SuperadminSettingsModule,
+    BrevoModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

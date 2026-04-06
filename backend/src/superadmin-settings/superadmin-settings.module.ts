@@ -21,5 +21,6 @@ import { UserModule } from '../user/user.module';
   ],
   controllers: [SuperadminSettingsController],
   providers: [SuperadminSettingsService],
+  exports: [SuperadminSettingsService],
 })
 export class SuperadminSettingsModule {}
