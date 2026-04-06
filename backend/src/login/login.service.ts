@@ -223,18 +223,12 @@ export class LoginService {
     `;
 
     try {
-      // Use the support email configured by super admin as the FROM address.
-      // Falls back to BREVO_SENDER_EMAIL env var if DB is unavailable.
-      // NOTE: the FROM domain must be verified in Brevo (Settings > Domains).
-      let senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'vaypr@caloriez.net';
-      try {
-        senderEmail = await this.superadminSettingsService.getSystemSupportEmail();
-      } catch (_) {
-        // DB unavailable — use env var fallback
-      }
-
+      // FROM: always use BREVO_SENDER_EMAIL env var (must be a Brevo-verified domain).
+      const senderEmail =
+        this.configService.get<string>('BREVO_SENDER_EMAIL') || 'vaypr@caloriez.net';
       const replyTo = senderEmail;
-      console.log(`[ForgotPassword] Sending via Brevo from: ${senderEmail} to: ${user.email}`);
+
+      console.log(`[ForgotPassword] FROM: ${senderEmail} | TO: ${user.email}`);
 
       const sendResult = await this.brevoService.sendEmail(
         senderEmail,
@@ -246,9 +240,10 @@ export class LoginService {
         {
           replyTo,
           senderName: 'Vaypr Support',
+          skipDomainCheck: true, // skip local domain sync — send directly via Brevo API key
         },
       );
-      console.log(`[ForgotPassword] ✅ Brevo accepted email for ${user.email}. messageId=${sendResult?.messageId || 'n/a'}`);
+      console.log(`[ForgotPassword] ✅ Email sent to ${user.email}. messageId=${sendResult?.messageId || 'n/a'}`);
     } catch (error) {
       console.error(`[ForgotPassword] ❌ Send failed: ${error?.message}`);
       await this.userService.clearPasswordResetToken(user._id.toString());
