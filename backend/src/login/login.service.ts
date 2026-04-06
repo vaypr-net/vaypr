@@ -223,31 +223,34 @@ export class LoginService {
     `;
 
     try {
-      const supportEmail = await this.superadminSettingsService.getSystemSupportEmail();
-      console.log(`[ForgotPassword] Sending reset email from: ${supportEmail} to: ${user.email}`);
+      // Use the support email configured by super admin as the FROM address.
+      // Falls back to BREVO_SENDER_EMAIL env var if DB is unavailable.
+      // NOTE: the FROM domain must be verified in Brevo (Settings > Domains).
+      let senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'vaypr@caloriez.net';
+      try {
+        senderEmail = await this.superadminSettingsService.getSystemSupportEmail();
+      } catch (_) {
+        // DB unavailable — use env var fallback
+      }
 
-      await this.brevoService.sendEmail(
-        supportEmail,
+      const replyTo = senderEmail;
+      console.log(`[ForgotPassword] Sending via Brevo from: ${senderEmail} to: ${user.email}`);
+
+      const sendResult = await this.brevoService.sendEmail(
+        senderEmail,
         user.email,
         'Reset your password',
         htmlBody,
         undefined,
         undefined,
         {
-          replyTo: supportEmail,
-          senderName: 'Support Team',
-          skipDomainCheck: true, // system email — skip subscriber domain verification
+          replyTo,
+          senderName: 'Vaypr Support',
         },
       );
-      console.log(`[ForgotPassword] ✅ Email sent successfully to ${user.email}`);
+      console.log(`[ForgotPassword] ✅ Brevo accepted email for ${user.email}. messageId=${sendResult?.messageId || 'n/a'}`);
     } catch (error) {
-      console.error(`[ForgotPassword] ❌ DETAILED ERROR:`, {
-        message: error?.message,
-        code: error?.code,
-        status: error?.status,
-        response: error?.response?.data || error?.response,
-        fullError: JSON.stringify(error, null, 2),
-      });
+      console.error(`[ForgotPassword] ❌ Send failed: ${error?.message}`);
       await this.userService.clearPasswordResetToken(user._id.toString());
       throw new BadRequestException('Unable to send password reset email. Please try again.');
     }
