@@ -47,6 +47,7 @@ import Settings from "./pages/super-admin/Settings";
 import BillingSuccess from "./pages/BillingSuccess";
 import BillingCancel from "./pages/BillingCancel";
 import Pricing from "./pages/Pricing";
+import ResetPassword from "./pages/ResetPassword";
 import PaymentSuccess from "./pages/payment/Success";
 import PaymentCancel from "./pages/payment/Cancel";
 import PublicMarketingLayout from "@/components/layout/PublicMarketingLayout";
@@ -111,6 +112,8 @@ function AppRoutes() {
       />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" replace /> : <Signup />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      {/* Always public — never redirected regardless of auth state */}
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/payment/success" element={<PaymentSuccess />} />
       <Route path="/payment/cancel" element={<PaymentCancel />} />

@@ -11,6 +11,15 @@ interface SignupData {
   password: string;
 }
 
+interface ForgotPasswordData {
+  email: string;
+}
+
+interface ResetPasswordData {
+  token: string;
+  newPassword: string;
+}
+
 interface AuthResponse {
   access_token: string;
   user: {
@@ -42,6 +51,16 @@ export const AuthService = {
 
   async getProfile(userId: string): Promise<UserResponse> {
     const response = await axios.get<UserResponse>(`/user/${userId}`);
+    return response.data;
+  },
+
+  async forgotPassword(data: ForgotPasswordData): Promise<{ message: string }> {
+    const response = await axios.post<{ message: string }>('/auth/forgot-password', data);
+    return response.data;
+  },
+
+  async resetPassword(data: ResetPasswordData): Promise<{ message: string }> {
+    const response = await axios.post<{ message: string }>('/auth/reset-password', data);
     return response.data;
   },
 
