@@ -42,6 +42,7 @@ export class LoginController {
    * Safe to call multiple times: always upserts existing super admin instead of creating a new one.
    */
   @Post('setup-super-admin')
+  @ApiExcludeEndpoint()
   @ApiHeader({
     name: 'X-Setup-Secret',
     description: 'Setup secret — must match SUPER_ADMIN_SETUP_SECRET on the server. Enter it manually; never stored or logged.',
