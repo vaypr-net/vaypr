@@ -861,32 +861,61 @@ export class StripeService {
   async getBillingHistory(userId: string): Promise<any[]> {
     try {
       const userObjectId = new Types.ObjectId(userId);
-      
+
       this.logger.log(`Getting billing history for user: ${userId}`);
 
-      // First, check if user exists
       const user = await this.userModel.findById(userObjectId);
       if (!user) {
         this.logger.warn(`User not found for billing history: ${userId}`);
         return [];
       }
 
-      // Try to find transactions by userId
-      const transactions = await this.transactionModel
-        .find({
-          userId: userObjectId,
-        })
+      // Helper to map a DB transaction doc to the response shape.
+      // Converts AED stored amounts to the app display currency (KWD) so the
+      // frontend always shows the correct local currency — never raw Stripe AED.
+      const displayCurrency = this.currencyService.getDisplayCurrency(); // 'KWD'
+      // kwdOverride: exact KWD price from the billing plan record, bypasses float-rate conversion
+      const mapTx = (tx: any, kwdOverride?: number) => {
+        const rawCurrency = (tx.currency || 'AED').toUpperCase();
+        let displayAmount = Number(tx.amount || 0);
+        let finalCurrency = rawCurrency;
+
+        if (rawCurrency === 'AED') {
+          displayAmount =
+            kwdOverride != null && kwdOverride > 0
+              ? kwdOverride
+              : this.currencyService.convert(displayAmount, 'AED', displayCurrency);
+          finalCurrency = displayCurrency;
+        }
+
+        return {
+          id: tx._id?.toString?.() || tx._id,
+          transactionId: tx.transactionId,
+          amount: displayAmount,
+          currency: finalCurrency,
+          status: tx.status,
+          type: tx.type,
+          provider: tx.provider,
+          plan: tx.plan,
+          billingCycle: tx.billingCycle || null,
+          transactionDate: tx.transactionDate,
+          createdAt: tx.createdAt,
+        };
+      };
+
+      // 1. Try exact userId match
+      let transactions = await this.transactionModel
+        .find({ userId: userObjectId })
         .sort({ transactionDate: -1 })
         .limit(50)
         .lean();
 
-      this.logger.log(`Found ${transactions.length} transactions for user ${userId}`);
+      this.logger.log(`Found ${transactions.length} transactions by userId for ${userId}`);
 
-      // If no transactions found by userId, try finding by subscriberId or email
+      // 2. Fallback: subscriberId or email match
       if (transactions.length === 0) {
-        this.logger.log(`No transactions found by userId, trying by subscriberId and email...`);
-        
-        const alternativeTransactions = await this.transactionModel
+        this.logger.log(`Trying fallback query by subscriberId / email...`);
+        transactions = await this.transactionModel
           .find({
             $or: [
               { subscriberId: userId },
@@ -897,51 +926,160 @@ export class StripeService {
           .limit(50)
           .lean();
 
-        this.logger.log(`Found ${alternativeTransactions.length} transactions by alternative query`);
+        this.logger.log(`Found ${transactions.length} transactions by fallback query`);
 
-        // Update these transactions with userId for future queries
-        if (alternativeTransactions.length > 0) {
-          this.logger.log(`Updating ${alternativeTransactions.length} transactions with userId`);
+        // Patch userId on these orphaned records so future queries are fast
+        if (transactions.length > 0) {
           await this.transactionModel.updateMany(
             {
-              $or: [
-                { subscriberId: userId },
-                { subscriberEmail: user.email },
-              ],
-              userId: { $in: [null] },
-            },
-            { $set: { userId: userObjectId } }
+              $or: [{ subscriberId: userId }, { subscriberEmail: user.email }],
+              userId: { $exists: false },
+            } as any,
+            { $set: { userId: userObjectId } },
           );
         }
-
-        return alternativeTransactions.map((tx: any) => ({
-          id: tx._id?.toString?.() || tx._id,
-          transactionId: tx.transactionId,
-          amount: tx.amount,
-          currency: tx.currency,
-          status: tx.status,
-          type: tx.type,
-          provider: tx.provider,
-          plan: tx.plan,
-          billingCycle: tx.billingCycle || null,
-          transactionDate: tx.transactionDate,
-          createdAt: tx.createdAt,
-        }));
       }
 
-      return transactions.map((tx: any) => ({
-        id: tx._id?.toString?.() || tx._id,
-        transactionId: tx.transactionId,
-        amount: tx.amount,
-        currency: tx.currency,
-        status: tx.status,
-        type: tx.type,
-        provider: tx.provider,
-        plan: tx.plan,
-        billingCycle: tx.billingCycle || null,
-        transactionDate: tx.transactionDate,
-        createdAt: tx.createdAt,
-      }));
+      // 3. If still nothing and the user has a stripeCustomerId, sync from Stripe directly
+      //    (covers cases where the webhook transaction-write failed silently)
+      if (transactions.length === 0 && user.stripeCustomerId && this.stripe) {
+        this.logger.log(
+          `No DB transactions found. Fetching from Stripe for customer ${user.stripeCustomerId}...`,
+        );
+        try {
+          const stripeInvoices = await this.stripe.invoices.list({
+            customer: user.stripeCustomerId,
+            limit: 50,
+          });
+
+          const resolvedTransactions: any[] = [];
+
+          for (const inv of stripeInvoices.data) {
+            if (inv.status !== 'paid' && inv.status !== 'open') continue;
+
+            const stripeInvoiceId = `stripe_${inv.id}`;
+            const invAny = inv as any;
+
+            // Find associated plan name from subscription metadata or billing plan
+            let planName = 'Unknown';
+            let billingCycleFromStripe: string | undefined;
+
+            // Try to resolve plan name from the Stripe subscription's price ID
+            if (invAny.subscription) {
+              try {
+                const sub = await this.stripe.subscriptions.retrieve(
+                  typeof invAny.subscription === 'string' ? invAny.subscription : invAny.subscription.id,
+                );
+                billingCycleFromStripe = (sub as any).metadata?.billingCycle || undefined;
+                const priceId = sub.items.data[0]?.price?.id;
+                if (priceId) {
+                  // stripePrices uses hyphenated keys e.g. 'AED-monthly', 'AED-yearly'
+                  const matchedPlan = await this.billingPlanModel.findOne({
+                    $or: [
+                      { 'stripePrices.AED-monthly': priceId },
+                      { 'stripePrices.AED-yearly': priceId },
+                      { 'stripePrices.USD-monthly': priceId },
+                      { 'stripePrices.USD-yearly': priceId },
+                      { 'stripePrices.KWD-monthly': priceId },
+                      { 'stripePrices.KWD-yearly': priceId },
+                      { 'stripePrices.QAR-monthly': priceId },
+                      { 'stripePrices.QAR-yearly': priceId },
+                      { stripeMonthlyPriceId: priceId },
+                      { stripeYearlyPriceId: priceId },
+                    ],
+                  }).lean();
+                  if (matchedPlan) planName = (matchedPlan as any).name;
+                }
+              } catch (_) {
+                // Subscription may belong to a different Stripe account — fall through to user fallback
+              }
+            }
+
+            // Fallback: use the plan already recorded on the user document
+            if (planName === 'Unknown' && user.planId) {
+              const userPlan = await this.billingPlanModel.findById(user.planId).lean().catch(() => null);
+              if (userPlan) planName = (userPlan as any).name;
+            }
+            if (!billingCycleFromStripe && user.billingCycle) {
+              billingCycleFromStripe = user.billingCycle;
+            }
+
+            const txAmount = (invAny.amount_paid || 0) / 100;
+            const txCurrency = (inv.currency || 'usd').toUpperCase();
+            const txDate = new Date((inv.created || 0) * 1000);
+            const txStatus = inv.status === 'paid' ? 'succeeded' : 'pending';
+            // Only values in the Transaction enum are: 'subscription' | 'refund' | 'chargeback'
+            const txType = 'subscription';
+
+            // Upsert into DB so future calls hit the DB path
+            let dbTx = await this.transactionModel.findOne({ transactionId: stripeInvoiceId }).lean();
+            if (!dbTx) {
+              try {
+                dbTx = await this.transactionModel.create({
+                  transactionId: stripeInvoiceId,
+                  userId: userObjectId,
+                  subscriberId: userId,
+                  subscriberName: user.fullName?.trim() || user.email || 'Unknown',
+                  subscriberEmail: user.email,
+                  amount: txAmount,
+                  currency: txCurrency,
+                  type: txType,
+                  provider: 'Stripe',
+                  status: txStatus,
+                  plan: planName,
+                  ...(billingCycleFromStripe ? { billingCycle: billingCycleFromStripe } : {}),
+                  transactionDate: txDate,
+                  stripeEventId: inv.id,
+                  ...(invAny.subscription ? { stripeSubscriptionId: typeof invAny.subscription === 'string' ? invAny.subscription : invAny.subscription.id } : {}),
+                });
+                this.logger.log(`Backfilled transaction from Stripe invoice ${inv.id}`);
+              } catch (createErr: any) {
+                if (createErr.code !== 11000) {
+                  this.logger.error(`Failed to backfill transaction for invoice ${inv.id}: ${createErr.message}`);
+                }
+                dbTx = await this.transactionModel.findOne({ transactionId: stripeInvoiceId }).lean();
+              }
+            }
+
+            if (dbTx) {
+              resolvedTransactions.push(dbTx);
+            } else {
+              // Return synthetic record even if DB write failed
+              resolvedTransactions.push({
+                _id: inv.id,
+                transactionId: stripeInvoiceId,
+                amount: txAmount,
+                currency: txCurrency,
+                status: txStatus,
+                type: txType,
+                provider: 'Stripe',
+                plan: planName,
+                billingCycle: billingCycleFromStripe,
+                transactionDate: txDate,
+                createdAt: txDate,
+              });
+            }
+          }
+
+          this.logger.log(`Returning ${resolvedTransactions.length} transactions synced from Stripe`);
+          // Build plan-price map keyed by "PlanName-interval" so we show the exact KWD plan price
+          const rPlanNames = [...new Set(resolvedTransactions.map((t: any) => t.plan).filter(Boolean))];
+          const rPlanDocs = await this.billingPlanModel.find({ name: { $in: rPlanNames } }).lean();
+          const rPlanPriceMap: Record<string, number> = {};
+          for (const p of rPlanDocs) rPlanPriceMap[`${p.name}-${p.interval}`] = p.price;
+          return resolvedTransactions.map((tx: any) => mapTx(tx, rPlanPriceMap[`${tx.plan}-${tx.billingCycle}`]));
+        } catch (stripeErr: any) {
+          this.logger.error(`Failed to fetch billing history from Stripe: ${stripeErr.message}`);
+          // Fall through and return empty array
+        }
+      }
+
+      // Build plan-price map keyed by "PlanName-interval" so we show the exact KWD plan price
+      const tPlanNames = [...new Set(transactions.map((t: any) => t.plan).filter(Boolean))];
+      const tPlanDocs = await this.billingPlanModel.find({ name: { $in: tPlanNames } }).lean();
+      const tPlanPriceMap: Record<string, number> = {};
+      for (const p of tPlanDocs) tPlanPriceMap[`${p.name}-${p.interval}`] = p.price;
+      return transactions.map((tx: any) => mapTx(tx, tPlanPriceMap[`${tx.plan}-${tx.billingCycle}`]));
     } catch (error) {
       this.logger.error(`Error getting billing history for user ${userId}:`, error);
       return [];
@@ -1566,82 +1704,86 @@ export class StripeService {
     }
     // ==================== END REFERRAL CODE HANDLING ====================
 
-    // Create transaction record
-    const plan = await this.billingPlanModel.findById(planId);
-    const transactionAmount = (session.amount_total || 0) / 100; // Convert cents
-    
-    this.logger.log(
-      `Webhook: Creating transaction - Session Amount: ${transactionAmount}, Calculated Subscription Amount: ${subscriptionAmount}, Billing Cycle: ${billingCycle}`,
-    );
-    
-    // Check if transaction already exists (idempotency)
-    this.logger.log(`Webhook: Checking for existing transaction with session ID: ${session.id}`);
-    const existingTransaction = await this.transactionModel.findOne({
-      stripeCheckoutSessionId: session.id,
-    });
-    
-    if (existingTransaction) {
+    // Create transaction record — entire block is wrapped so no silent exit before activityService
+    let planName = 'Unknown';
+    const transactionAmount = (session.amount_total ?? 0) / 100; // Convert cents
+    try {
+      // Resolve plan name (safe — a cast error here must NOT escape the block)
+      const plan = await this.billingPlanModel.findById(planId).catch(() => null);
+      planName = plan?.name || 'Unknown';
+
       this.logger.log(
-        `Webhook: Transaction for checkout session ${session.id} already exists, skipping duplicate`,
+        `Webhook: Creating transaction - Session Amount: ${transactionAmount}, Calculated Subscription Amount: ${subscriptionAmount}, Billing Cycle: ${billingCycle}`,
       );
-    } else {
-      this.logger.log(`Webhook: No existing transaction found. Creating new transaction...`);
-      try {
-        // Extract payment intent ID from session
-        const paymentIntentId = typeof session.payment_intent === 'string' 
-          ? session.payment_intent 
-          : session.payment_intent?.id;
-          
+
+      // Idempotency: skip if we already recorded this checkout session
+      this.logger.log(`Webhook: Checking for existing transaction with session ID: ${session.id}`);
+      const existingTransaction = await this.transactionModel
+        .findOne({ stripeCheckoutSessionId: session.id })
+        .catch(() => null);
+
+      if (existingTransaction) {
         this.logger.log(
-          `Webhook: Transaction data - userId: ${userId}, amount: ${transactionAmount}, currency: ${session.currency?.toUpperCase() || 'KWD'}, plan: ${plan?.name || 'Unknown'}, paymentIntent: ${paymentIntentId || 'N/A'}`
+          `Webhook: Transaction for checkout session ${session.id} already exists, skipping duplicate`,
         );
-        
+      } else {
+        this.logger.log(`Webhook: No existing transaction found. Creating new transaction...`);
+
+        const paymentIntentId =
+          typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : (session.payment_intent as any)?.id;
+
+        // subscriberName is required:true — guard against empty/null fullName
+        const subscriberName = user.fullName?.trim() || user.email || 'Unknown';
+
+        this.logger.log(
+          `Webhook: Transaction data — userId: ${userId}, amount: ${transactionAmount}, currency: ${session.currency?.toUpperCase() || 'AED'}, plan: ${planName}, paymentIntent: ${paymentIntentId || 'N/A'}`,
+        );
+
         const newTransaction = await this.transactionModel.create({
           transactionId: `stripe_${session.id}`,
           userId: new Types.ObjectId(userId),
           subscriberId: userId,
-          subscriberName: user.fullName,
+          subscriberName,
           subscriberEmail: user.email,
-          amount: transactionAmount, // Amount from checkout session
-          currency: session.currency?.toUpperCase() || 'KWD',
+          amount: transactionAmount,
+          currency: session.currency?.toUpperCase() || 'AED',
           type: 'subscription',
           provider: 'Stripe',
           status: 'succeeded',
-          plan: plan?.name || 'Unknown',
+          plan: planName,
           transactionDate: new Date(),
           stripeEventId: session.id,
           stripeCheckoutSessionId: session.id,
           stripeSubscriptionId: subscription.id,
-          stripePaymentIntentId: paymentIntentId || undefined,
-          billingCycle: billingCycle,
+          ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
+          ...(billingCycle ? { billingCycle } : {}),
         });
 
         this.logger.log(
           `Webhook: ✅ Transaction created successfully! ID: ${newTransaction._id}, Session: ${session.id}`,
         );
-      } catch (transactionError: any) {
-        // If duplicate key error, it's likely already processed
-        if (transactionError.code === 11000) {
-          this.logger.warn(
-            `Webhook: Transaction already exists for checkout session ${session.id}, skipping`,
-          );
-        } else {
-          this.logger.error(
-            `Webhook: ❌ Failed to create transaction for session ${session.id}`,
-          );
-          this.logger.error(`Webhook: Error code: ${transactionError.code}`);
-          this.logger.error(`Webhook: Error message: ${transactionError.message}`);
-          this.logger.error(`Webhook: Full error:`, transactionError);
-          // Don't throw - subscription is already created, just log the error
-        }
+      }
+    } catch (transactionError: any) {
+      if (transactionError.code === 11000) {
+        this.logger.warn(
+          `Webhook: Transaction already exists for checkout session ${session.id} (duplicate key), skipping`,
+        );
+      } else {
+        this.logger.error(`Webhook: ❌ Failed to create transaction for session ${session.id}`);
+        this.logger.error(`Webhook: Error code: ${transactionError.code}`);
+        this.logger.error(`Webhook: Error message: ${transactionError.message}`);
+        this.logger.error(`Webhook: Stack: ${transactionError.stack}`);
+        // Do NOT throw — subscription is already activated; transaction failure is non-fatal
       }
     }
 
     // Log activity
     await this.activityService.create({
       type: 'payment',
-      title: `Subscription activated: ${plan?.name || 'Plan'}`,
-      description: `${user.fullName} (${user.email}) subscribed to ${plan?.name || 'a plan'} (${billingCycle}) for ${transactionAmount} ${session.currency?.toUpperCase()}`,
+      title: `Subscription activated: ${planName}`,
+      description: `${user.fullName || user.email} (${user.email}) subscribed to ${planName} (${billingCycle}) for ${transactionAmount} ${session.currency?.toUpperCase() || 'AED'}`,
       relatedEntityId: userId,
     });
 

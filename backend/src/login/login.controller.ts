@@ -36,16 +36,17 @@ export class LoginController {
   /**
    * Bootstrap / override super admin credentials.
    * Endpoint: POST /auth/setup-super-admin
-   * Header: X-Setup-Secret (must match SUPER_ADMIN_SETUP_SECRET env var)
+   * Header: X-Setup-Secret (must match SUPER_ADMIN_SETUP_SECRET env var — never shown in docs)
    * Body: { email, password, fullName }
-   * No JWT needed — protected by secret header.
+   * No JWT needed — protected by the secret header.
+   * Safe to call multiple times: always upserts existing super admin instead of creating a new one.
    */
   @Post('setup-super-admin')
   @ApiHeader({
     name: 'X-Setup-Secret',
-    description: 'Setup secret from SUPER_ADMIN_SETUP_SECRET env var',
+    description: 'Setup secret — must match SUPER_ADMIN_SETUP_SECRET on the server. Enter it manually; never stored or logged.',
     required: true,
-    schema: { type: 'string', example: '474abf57d71a5e26034208c16d006b0ccf7c2c475b37c697b4e10243ca971dd8' },
+    schema: { type: 'string', example: '' },
   })
   async setupSuperAdmin(
     @Headers('X-Setup-Secret') setupSecret: string,
