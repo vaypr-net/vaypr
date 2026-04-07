@@ -99,7 +99,7 @@ export default function SuperAdminResetPassword() {
           </Link>
           <div className="space-y-6">
             <h1 className="font-display text-4xl xl:text-5xl font-bold text-white leading-tight">
-              Secure your admin account
+              Secure your corporate account
             </h1>
             <p className="text-white/80 text-lg max-w-md">
               Set a strong new password. All active sessions will be revoked immediately.
@@ -131,7 +131,7 @@ export default function SuperAdminResetPassword() {
                 </div>
               </div>
               <CardTitle className="text-2xl font-display">
-                {isDone ? 'Password Updated' : 'Set New Admin Password'}
+                {isDone ? 'Password Updated' : 'Set New Corporate Password'}
               </CardTitle>
               <CardDescription>
                 {isDone
