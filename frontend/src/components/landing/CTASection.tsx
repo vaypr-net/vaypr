@@ -26,13 +26,7 @@ export function CTASection() {
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-accent to-primary animate-gradient opacity-80" />
           
           <div className="relative rounded-3xl bg-card/95 backdrop-blur-xl p-8 md:p-12 lg:p-16 text-center">
-            {/* Decorative Elements */}
-            <div className="absolute top-8 left-8 animate-pulse-slow">
-              <Sparkles className="w-8 h-8 text-primary/50" />
-            </div>
-            <div className="absolute bottom-8 right-8 animate-pulse-slow" style={{ animationDelay: "1s" }}>
-              <Sparkles className="w-6 h-6 text-accent/50" />
-            </div>
+           
 
             <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
               {headline.split('finances?').map((part, idx) => (
