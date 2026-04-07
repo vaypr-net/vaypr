@@ -134,8 +134,9 @@ export class SuperadminSettingsService {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
-    const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
-    await this.userService.update(userId, { password: hashedPassword });
+    // Pass plain password — userService.update() hashes it internally.
+    // Do NOT pre-hash here or the password will be double-hashed and login will always fail.
+    await this.userService.update(userId, { password: changePasswordDto.newPassword } as any);
 
     return { message: 'Password changed successfully' };
   }

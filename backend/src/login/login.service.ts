@@ -250,7 +250,7 @@ export class LoginService {
       );
       console.log(`[ForgotPassword] ✅ Email sent to ${user.email}. messageId=${sendResult?.messageId || 'n/a'}`);
     } catch (error) {
-      console.error(`[ForgotPassword] ❌ Send failed: ${error?.message}`);
+      console.error(`[ForgotPassword] ❌ Send failed: ${(error as any)?.message}`);
       await this.userService.clearPasswordResetToken(user._id.toString());
       throw new BadRequestException('Unable to send password reset email. Please try again.');
     }
@@ -322,9 +322,8 @@ export class LoginService {
 
       console.log(`[SuperAdminForgotPassword] Reset link sent to ${admin.email}`);
     } catch (error) {
-      console.error(`[SuperAdminForgotPassword] Email send failed: ${error?.message}`);
-      await this.userService.clearPasswordResetToken(admin._id.toString());
-      // Return generic response — do not leak failure details
+      // Log the error but do NOT clear the token — keep it alive so a retry can still work.
+      console.error(`[SuperAdminForgotPassword] Email send failed: ${(error as any)?.message}`);
     }
 
     return GENERIC;
@@ -421,7 +420,7 @@ export class LoginService {
         message: `Google tokens revoked for ${email}. Next login will request fresh tokens including refresh_token.`,
       };
     } catch (error) {
-      throw new Error(`Failed to revoke Google tokens: ${error.message}`);
+      throw new Error(`Failed to revoke Google tokens: ${(error as any)?.message}`);
     }
   }
 }
