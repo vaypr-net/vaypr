@@ -96,6 +96,24 @@ export class SuperadminSettingsService {
       )
       .exec();
 
+    // Sync changes back to the User auth record so that login email and
+    // fullName stay consistent with what the super admin set in the UI.
+    // This ensures: one source of truth for auth, no ghost super admin records.
+    const userUpdate: Record<string, string> = {};
+
+    if (updateDto.email) {
+      userUpdate.email = updateDto.email.toLowerCase().trim();
+    }
+    if (updateDto.firstName !== undefined || updateDto.lastName !== undefined) {
+      const firstName = updateDto.firstName ?? settings.firstName ?? '';
+      const lastName  = updateDto.lastName  ?? settings.lastName  ?? '';
+      userUpdate.fullName = `${firstName} ${lastName}`.trim();
+    }
+
+    if (Object.keys(userUpdate).length > 0) {
+      await this.userService.updateUserAuthFields(userId, userUpdate);
+    }
+
     return settings;
   }
 

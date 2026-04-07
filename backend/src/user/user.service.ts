@@ -528,6 +528,60 @@ export class UserService {
   }
 
   /**
+   * Sync auth-level fields (email, fullName) on the User record when the
+   * super admin updates their profile in the Settings UI.
+   *
+   * Only allows email and fullName — isSuperAdmin and password are never
+   * touched here. Ensures there is always exactly one User record that is
+   * the super admin, and its email/name stays in sync with the settings UI.
+   */
+  async updateUserAuthFields(
+    userId: string,
+    fields: { email?: string; fullName?: string },
+  ): Promise<void> {
+    const safe: Record<string, string> = {};
+    if (fields.email)    safe.email    = fields.email.toLowerCase().trim();
+    if (fields.fullName) safe.fullName = fields.fullName.trim();
+
+    if (Object.keys(safe).length === 0) return;
+
+    await this.userModel.findByIdAndUpdate(userId, { $set: safe });
+  }
+
+  /**
+   * Find the single super admin user.
+   * Returns null if none exists.
+   */
+  async findSuperAdmin(): Promise<User | null> {
+    return this.userModel.findOne({ isSuperAdmin: true }).exec();
+  }
+
+  /**
+   * Reset password using a hashed token, but ONLY if the linked user is
+   * still a super admin. Returns the userId string on success, null otherwise.
+   */
+  async resetSuperAdminPasswordWithToken(tokenHash: string, newPassword: string): Promise<string | null> {
+    const user = await this.userModel.findOne({
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: { $gt: new Date() },
+      isSuperAdmin: true,
+    });
+
+    if (!user) return null;
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.userModel.findByIdAndUpdate(user._id, {
+      password: hashedPassword,
+      $unset: {
+        passwordResetTokenHash: 1,
+        passwordResetExpiresAt: 1,
+      },
+    });
+
+    return (user._id as any).toString();
+  }
+
+  /**
    * Create or update (upsert) a super admin user.
    * If a user with the given email already exists their password, fullName,
    * and isSuperAdmin flag are updated. Otherwise a new user is created.

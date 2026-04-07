@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Get, UseGuards, Req, Res, Headers } from '@nestjs/common';
-import { ApiTags, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiHeader, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { LoginService } from './login.service';
@@ -68,6 +68,35 @@ export class LoginController {
   @Post('reset-password')
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.loginService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
+  }
+
+  /**
+   * Super Admin — Forgot Password
+   * POST /auth/super-admin/forgot-password
+   *
+   * No email input required — target is always the single DB super admin.
+   * Always returns a generic response regardless of outcome.
+   * Hidden from Swagger docs.
+   */
+  @Post('super-admin/forgot-password')
+  @ApiExcludeEndpoint()
+  async superAdminForgotPassword() {
+    return this.loginService.superAdminForgotPassword();
+  }
+
+  /**
+   * Super Admin — Reset Password
+   * POST /auth/super-admin/reset-password
+   * Body: { token: string, newPassword: string }
+   *
+   * Validates token, checks user is still super admin, updates password,
+   * and revokes all active sessions.
+   * Hidden from Swagger docs.
+   */
+  @Post('super-admin/reset-password')
+  @ApiExcludeEndpoint()
+  async superAdminResetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.loginService.superAdminResetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
   }
 
   /**

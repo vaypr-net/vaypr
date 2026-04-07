@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { CreateLoginDto } from './dto/create-login.dto';
@@ -268,6 +269,85 @@ export class LoginService {
     }
 
     return { message: 'Password reset successful. You can now sign in with your new password.' };
+  }
+
+  /**
+   * Super Admin — Forgot Password
+   *
+   * Does NOT accept an email input. Fetches the super admin from DB by role.
+   * Always returns a generic response to prevent information leakage.
+   */
+  async superAdminForgotPassword(): Promise<{ message: string }> {
+    const GENERIC = { message: 'If the account is eligible, a reset link has been sent.' };
+
+    const admin = await this.userService.findSuperAdmin();
+    if (!admin) return GENERIC;
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    await this.userService.setPasswordResetToken(admin._id.toString(), tokenHash, expiresAt);
+
+    const resetUrl = `https://vaypr.net/super-admin/reset-password?token=${encodeURIComponent(resetToken)}`;
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
+        <h2>Super Admin Password Reset</h2>
+        <p>A password reset was requested for the super admin account.</p>
+        <p>
+          <a href="${resetUrl}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
+            Reset Password
+          </a>
+        </p>
+        <p>This link expires in <strong>15 minutes</strong>.</p>
+        <p>If you did not request this, someone may be attempting to access your account. Ignore this email and your password will remain unchanged.</p>
+      </div>
+    `;
+
+    try {
+      let senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'vaypr@caloriez.net';
+      try {
+        senderEmail = await this.superadminSettingsService.getSystemSupportEmail();
+      } catch (_) {}
+
+      await this.brevoService.sendEmail(
+        senderEmail,
+        admin.email,
+        'Super Admin Password Reset',
+        htmlBody,
+        undefined,
+        undefined,
+        { replyTo: senderEmail, senderName: 'Vaypr Security', skipDomainCheck: true },
+      );
+
+      console.log(`[SuperAdminForgotPassword] Reset link sent to ${admin.email}`);
+    } catch (error) {
+      console.error(`[SuperAdminForgotPassword] Email send failed: ${error?.message}`);
+      await this.userService.clearPasswordResetToken(admin._id.toString());
+      // Return generic response — do not leak failure details
+    }
+
+    return GENERIC;
+  }
+
+  /**
+   * Super Admin — Reset Password
+   *
+   * Validates token, confirms user is still super admin, updates password,
+   * then revokes ALL active sessions so old JWTs cannot be reused.
+   */
+  async superAdminResetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const userId = await this.userService.resetSuperAdminPasswordWithToken(tokenHash, newPassword);
+
+    if (!userId) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Revoke every active session — all existing JWTs are now dead
+    await this.sessionService.revokeAllSessions(new Types.ObjectId(userId));
+
+    return { message: 'Super admin password reset successful. All active sessions have been revoked.' };
   }
 
   /**

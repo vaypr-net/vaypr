@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -43,6 +43,7 @@ import { SuperAdminOverviewModule } from './super-admin-overview/super-admin-ove
 import { SuperAdminReportsModule } from './super-admin-reports/super-admin-reports.module';
 import { SuperAdminAuditModule } from './super-admin-audit/super-admin-audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { SwaggerAuthMiddleware } from './common/middleware/swagger-auth.middleware';
 
 @Module({
   imports: [
@@ -155,4 +156,9 @@ import { NotificationsModule } from './notifications/notifications.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  // Swagger Basic Auth is enforced in main.ts as a raw Express middleware
+  // applied directly before SwaggerModule.setup(), ensuring it intercepts
+  // every Swagger route including static UI assets.
+  configure(_consumer: MiddlewareConsumer): void {}
+}
