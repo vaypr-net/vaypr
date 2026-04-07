@@ -280,8 +280,12 @@ export default function Login() {
                       )}
                     </button>
                   </div>
-                  {!isCorporateLogin && (
-                    <div className="flex justify-end">
+                  <div className="flex justify-end">
+                    {isCorporateLogin ? (
+                      <Link to="/super-admin/forgot-password" className="text-sm text-primary hover:underline">
+                        Forgot password?
+                      </Link>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => setIsForgotDialogOpen(true)}
@@ -289,8 +293,8 @@ export default function Login() {
                       >
                         Forgot password?
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
                 <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 shadow-glow" disabled={submitting}>
                   {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

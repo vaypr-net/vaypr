@@ -64,6 +64,18 @@ export const AuthService = {
     return response.data;
   },
 
+  /** Trigger super admin password reset — no email body needed. */
+  async superAdminForgotPassword(): Promise<{ message: string }> {
+    const response = await axios.post<{ message: string }>('/auth/super-admin/forgot-password');
+    return response.data;
+  },
+
+  /** Complete super admin password reset with token from email. */
+  async superAdminResetPassword(data: ResetPasswordData): Promise<{ message: string }> {
+    const response = await axios.post<{ message: string }>('/auth/super-admin/reset-password', data);
+    return response.data;
+  },
+
   async updateProfile(userId: string, data: Partial<SignupData>): Promise<UserResponse> {
     const response = await axios.patch<UserResponse>(`/user/${userId}`, data);
     return response.data;
