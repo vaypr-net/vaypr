@@ -1,10 +1,15 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { CreateLoginDto } from './dto/create-login.dto';
 import { UserService } from '../user/user.service';
 import { SessionService } from '../user/session.service';
 import { Request } from 'express';
+import { SuperadminSettingsService } from '../superadmin-settings/superadmin-settings.service';
+import { BrevoService } from '../brevo/brevo.service';
 
 interface GoogleUser {
   googleId: string;
@@ -22,7 +27,16 @@ export class LoginService {
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly sessionService: SessionService,
+    private readonly configService: ConfigService,
+    private readonly superadminSettingsService: SuperadminSettingsService,
+    private readonly brevoService: BrevoService,
   ) {}
+
+  private getFrontendUrl(): string {
+    const raw = this.configService.get<string>('FRONTEND_URL') ?? '';
+    const firstUrl = raw.split(',')[0]?.trim();
+    return (firstUrl || 'http://localhost:8080').replace(/\/+$/, '');
+  }
 
   async login(createLoginDto: CreateLoginDto, req?: Request) {
     const user = await this.userService.findByEmail(createLoginDto.email);
@@ -176,6 +190,196 @@ export class LoginService {
         profilePicture: user.profilePicture,
         isSuperAdmin: user.isSuperAdmin || false,
       },
+    };
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.userService.findByEmail(email.toLowerCase().trim());
+
+    if (!user) {
+      throw new BadRequestException('No account found with that email address. Please check and try again.');
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const expiresMinutes = Number(this.configService.get<string>('PASSWORD_RESET_EXPIRES_MINUTES') || '15');
+    const expiresAt = new Date(Date.now() + expiresMinutes * 60 * 1000);
+
+    await this.userService.setPasswordResetToken(user._id.toString(), tokenHash, expiresAt);
+
+    const resetUrl = `${this.getFrontendUrl()}/reset-password?token=${encodeURIComponent(resetToken)}`;
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
+        <h2>Password Reset Request</h2>
+        <p>Hello ${user.fullName || 'there'},</p>
+        <p>We received a request to reset your password. Click the button below to continue:</p>
+        <p>
+          <a href="${resetUrl}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
+            Reset Password
+          </a>
+        </p>
+        <p>This link expires in ${expiresMinutes} minutes.</p>
+        <p>If you did not request this, you can ignore this email.</p>
+      </div>
+    `;
+
+    try {
+      // FROM: read sender email from super admin settings (what super admin configured).
+      // Falls back to BREVO_SENDER_EMAIL env var if DB is unavailable.
+      let senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'vaypr@caloriez.net';
+      try {
+        senderEmail = await this.superadminSettingsService.getSystemSupportEmail();
+      } catch (_) {
+        // DB unavailable — fall back to env var
+      }
+
+      console.log(`[ForgotPassword] FROM: ${senderEmail} | TO: ${user.email}`);
+
+      const sendResult = await this.brevoService.sendEmail(
+        senderEmail,
+        user.email,
+        'Reset your password',
+        htmlBody,
+        undefined,
+        undefined,
+        {
+          replyTo: senderEmail,
+          senderName: 'Vaypr Support',
+          skipDomainCheck: true, // skip local domain sync — send directly via Brevo API key
+        },
+      );
+      console.log(`[ForgotPassword] ✅ Email sent to ${user.email}. messageId=${sendResult?.messageId || 'n/a'}`);
+    } catch (error) {
+      console.error(`[ForgotPassword] ❌ Send failed: ${error?.message}`);
+      await this.userService.clearPasswordResetToken(user._id.toString());
+      throw new BadRequestException('Unable to send password reset email. Please try again.');
+    }
+
+    return {
+      message: 'If an account with that email exists, a password reset link has been sent.',
+    };
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const didReset = await this.userService.resetPasswordWithToken(tokenHash, newPassword);
+
+    if (!didReset) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    return { message: 'Password reset successful. You can now sign in with your new password.' };
+  }
+
+  /**
+   * Super Admin — Forgot Password
+   *
+   * Does NOT accept an email input. Fetches the super admin from DB by role.
+   * Always returns a generic response to prevent information leakage.
+   */
+  async superAdminForgotPassword(): Promise<{ message: string }> {
+    const GENERIC = { message: 'If the account is eligible, a reset link has been sent.' };
+
+    const admin = await this.userService.findSuperAdmin();
+    if (!admin) return GENERIC;
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    await this.userService.setPasswordResetToken(admin._id.toString(), tokenHash, expiresAt);
+
+    const resetUrl = `https://vaypr.net/super-admin/reset-password?token=${encodeURIComponent(resetToken)}`;
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
+        <h2>Super Admin Password Reset</h2>
+        <p>A password reset was requested for the super admin account.</p>
+        <p>
+          <a href="${resetUrl}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
+            Reset Password
+          </a>
+        </p>
+        <p>This link expires in <strong>15 minutes</strong>.</p>
+        <p>If you did not request this, someone may be attempting to access your account. Ignore this email and your password will remain unchanged.</p>
+      </div>
+    `;
+
+    try {
+      let senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'vaypr@caloriez.net';
+      try {
+        senderEmail = await this.superadminSettingsService.getSystemSupportEmail();
+      } catch (_) {}
+
+      await this.brevoService.sendEmail(
+        senderEmail,
+        admin.email,
+        'Super Admin Password Reset',
+        htmlBody,
+        undefined,
+        undefined,
+        { replyTo: senderEmail, senderName: 'Vaypr Security', skipDomainCheck: true },
+      );
+
+      console.log(`[SuperAdminForgotPassword] Reset link sent to ${admin.email}`);
+    } catch (error) {
+      console.error(`[SuperAdminForgotPassword] Email send failed: ${error?.message}`);
+      await this.userService.clearPasswordResetToken(admin._id.toString());
+      // Return generic response — do not leak failure details
+    }
+
+    return GENERIC;
+  }
+
+  /**
+   * Super Admin — Reset Password
+   *
+   * Validates token, confirms user is still super admin, updates password,
+   * then revokes ALL active sessions so old JWTs cannot be reused.
+   */
+  async superAdminResetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const userId = await this.userService.resetSuperAdminPasswordWithToken(tokenHash, newPassword);
+
+    if (!userId) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Revoke every active session — all existing JWTs are now dead
+    await this.sessionService.revokeAllSessions(new Types.ObjectId(userId));
+
+    return { message: 'Super admin password reset successful. All active sessions have been revoked.' };
+  }
+
+  /**
+   * Bootstrap / override the super admin account.
+   *
+   * Protected by SUPER_ADMIN_SETUP_SECRET env var — never by JWT.
+   * Safe to call multiple times: always upserts the target user and
+   * removes isSuperAdmin from every other account.
+   */
+  async setupSuperAdmin(
+    setupSecret: string,
+    email: string,
+    password: string,
+    fullName: string,
+  ): Promise<{ message: string; email: string }> {
+    const expected = this.configService.get<string>('SUPER_ADMIN_SETUP_SECRET');
+    if (!expected || setupSecret !== expected) {
+      throw new BadRequestException('Invalid setup secret');
+    }
+
+    const normalised = email.toLowerCase().trim();
+    const hashed = await (await import('bcrypt')).hash(password, 10);
+
+    // Clear isSuperAdmin from any previous super admin (except the target email)
+    await this.userService.clearAllSuperAdmins(normalised);
+
+    // Upsert the target user
+    const user = await this.userService.upsertSuperAdmin(normalised, fullName, hashed);
+
+    return {
+      message: `Super admin account ready. You can now log in at /auth/login.`,
+      email: user.email,
     };
   }
 

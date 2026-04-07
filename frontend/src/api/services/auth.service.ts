@@ -11,6 +11,15 @@ interface SignupData {
   password: string;
 }
 
+interface ForgotPasswordData {
+  email: string;
+}
+
+interface ResetPasswordData {
+  token: string;
+  newPassword: string;
+}
+
 interface AuthResponse {
   access_token: string;
   user: {
@@ -42,6 +51,28 @@ export const AuthService = {
 
   async getProfile(userId: string): Promise<UserResponse> {
     const response = await axios.get<UserResponse>(`/user/${userId}`);
+    return response.data;
+  },
+
+  async forgotPassword(data: ForgotPasswordData): Promise<{ message: string }> {
+    const response = await axios.post<{ message: string }>('/auth/forgot-password', data);
+    return response.data;
+  },
+
+  async resetPassword(data: ResetPasswordData): Promise<{ message: string }> {
+    const response = await axios.post<{ message: string }>('/auth/reset-password', data);
+    return response.data;
+  },
+
+  /** Trigger super admin password reset — no email body needed. */
+  async superAdminForgotPassword(): Promise<{ message: string }> {
+    const response = await axios.post<{ message: string }>('/auth/super-admin/forgot-password');
+    return response.data;
+  },
+
+  /** Complete super admin password reset with token from email. */
+  async superAdminResetPassword(data: ResetPasswordData): Promise<{ message: string }> {
+    const response = await axios.post<{ message: string }>('/auth/super-admin/reset-password', data);
     return response.data;
   },
 

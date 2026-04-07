@@ -36,6 +36,9 @@ export default function Login() {
   const [twoFACode, setTwoFACode] = useState('');
   const [verifying2FA, setVerifying2FA] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isForgotDialogOpen, setIsForgotDialogOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isSendingResetLink, setIsSendingResetLink] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +100,32 @@ export default function Login() {
       toast({ title: '2FA failed', description: err.response?.data?.message || 'Invalid code', variant: 'destructive' });
     } finally {
       setVerifying2FA(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail) {
+      toast({ title: 'Email required', description: 'Please enter your email address.', variant: 'destructive' });
+      return;
+    }
+
+    setIsSendingResetLink(true);
+    try {
+      const response = await AuthService.forgotPassword({ email: forgotEmail });
+      toast({
+        title: 'Check your email',
+        description: response.message || 'If your account exists, we sent a password reset link.',
+      });
+      setIsForgotDialogOpen(false);
+      setForgotEmail('');
+    } catch (err: any) {
+      toast({
+        title: 'Reset request failed',
+        description: err.response?.data?.message || 'Unable to process your request right now.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingResetLink(false);
     }
   };
 
@@ -251,12 +280,52 @@ export default function Login() {
                       )}
                     </button>
                   </div>
+                  <div className="flex justify-end">
+                    {isCorporateLogin ? (
+                      <Link to="/super-admin/forgot-password" className="text-sm text-primary hover:underline">
+                        Forgot password?
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsForgotDialogOpen(true)}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 shadow-glow" disabled={submitting}>
                   {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isCorporateLogin ? 'Sign In as Corporate User' : 'Sign In'}
                 </Button>
               </form>
+              <Dialog open={isForgotDialogOpen} onOpenChange={setIsForgotDialogOpen}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Forgot Password</DialogTitle>
+                    <DialogDescription>Enter your email to receive a password reset link.</DialogDescription>
+                  </DialogHeader>
+                  <div className="py-2 space-y-2">
+                    <Label htmlFor="forgot-email">Email</Label>
+                    <Input
+                      id="forgot-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsForgotDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleForgotPassword} disabled={isSendingResetLink}>
+                      {isSendingResetLink ? 'Sending...' : 'Send reset link'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
               <Dialog open={is2FAPromptOpen} onOpenChange={setIs2FAPromptOpen}>
                 <DialogContent className="max-w-sm">
                   <DialogHeader>

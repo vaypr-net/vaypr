@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
+import { formatCurrency } from '@/lib/currency';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { SubscriptionPlan, Subscription } from '@/types/app';
@@ -1304,7 +1305,7 @@ export default function Profile() {
                         </div>
                         <div className="text-right">
                           <p className="font-semibold">
-                            {item.currency} {Number(item.amount || 0).toFixed(2)}
+                            {formatCurrency(item.amount, { decimals: 3 })}
                           </p>
                           <Badge
                             variant={item.status === 'succeeded' ? 'default' : 'secondary'}

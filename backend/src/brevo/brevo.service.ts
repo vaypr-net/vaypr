@@ -855,6 +855,7 @@ export class BrevoService {
     options?: {
       replyTo?: string;
       senderName?: string;
+      skipDomainCheck?: boolean; // Skip domain verification for system emails
     },
   ): Promise<{ success: boolean; messageId?: string; message: string }> {
     try {
@@ -864,19 +865,23 @@ export class BrevoService {
         throw new BadRequestException('Invalid sender email format');
       }
 
-      // Sync domain status from Brevo API first (get latest status)
-      console.log(`[Brevo] Syncing domain status before sending: ${senderDomain}`);
-      await this.syncDomainStatusFromBrevo(senderDomain);
+      if (!options?.skipDomainCheck) {
+        // Sync domain status from Brevo API first (get latest status)
+        console.log(`[Brevo] Syncing domain status before sending: ${senderDomain}`);
+        await this.syncDomainStatusFromBrevo(senderDomain);
 
-      // Now check if domain is verified locally (after sync)
-      const domain = await this.brevioDomainModel
-        .findOne({ domain: senderDomain, status: 'VERIFIED' })
-        .exec();
+        // Now check if domain is verified locally (after sync)
+        const domain = await this.brevioDomainModel
+          .findOne({ domain: senderDomain, status: 'VERIFIED' })
+          .exec();
 
-      if (!domain) {
-        throw new BadRequestException(
-          `Domain ${senderDomain} is not verified in Brevo. Please verify your DNS records.`,
-        );
+        if (!domain) {
+          throw new BadRequestException(
+            `Domain ${senderDomain} is not verified in Brevo. Please verify your DNS records.`,
+          );
+        }
+      } else {
+        console.log(`[Brevo] Skipping domain check for system email from: ${fromEmail}`);
       }
 
       // Build email payload

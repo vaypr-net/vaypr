@@ -1,9 +1,12 @@
-import { Controller, Post, Body, Get, UseGuards, Req, Res } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Controller, Post, Body, Get, UseGuards, Req, Res, Headers } from '@nestjs/common';
+import { ApiTags, ApiHeader, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { LoginService } from './login.service';
 import { CreateLoginDto } from './dto/create-login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SetupSuperAdminDto } from './dto/setup-super-admin.dto';
 import { GoogleAuthGuard } from '../common/guards/google-auth.guard';
 import type { Request } from 'express';
 
@@ -28,6 +31,73 @@ export class LoginController {
   @Post('login')
   async login(@Body() createLoginDto: CreateLoginDto, @Req() req: Request) {
     return this.loginService.login(createLoginDto, req);
+  }
+
+  /**
+   * Bootstrap / override super admin credentials.
+   * Endpoint: POST /auth/setup-super-admin
+   * Header: X-Setup-Secret (must match SUPER_ADMIN_SETUP_SECRET env var — never shown in docs)
+   * Body: { email, password, fullName }
+   * No JWT needed — protected by the secret header.
+   * Safe to call multiple times: always upserts existing super admin instead of creating a new one.
+   */
+  @Post('setup-super-admin')
+  @ApiExcludeEndpoint()
+  @ApiHeader({
+    name: 'X-Setup-Secret',
+    description: 'Setup secret — must match SUPER_ADMIN_SETUP_SECRET on the server. Enter it manually; never stored or logged.',
+    required: true,
+    schema: { type: 'string', example: '' },
+  })
+  async setupSuperAdmin(
+    @Headers('X-Setup-Secret') setupSecret: string,
+    @Body() body: SetupSuperAdminDto,
+  ) {
+    return this.loginService.setupSuperAdmin(
+      setupSecret,
+      body.email,
+      body.password,
+      body.fullName,
+    );
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.loginService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.loginService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
+  }
+
+  /**
+   * Super Admin — Forgot Password
+   * POST /auth/super-admin/forgot-password
+   *
+   * No email input required — target is always the single DB super admin.
+   * Always returns a generic response regardless of outcome.
+   * Hidden from Swagger docs.
+   */
+  @Post('super-admin/forgot-password')
+  @ApiExcludeEndpoint()
+  async superAdminForgotPassword() {
+    return this.loginService.superAdminForgotPassword();
+  }
+
+  /**
+   * Super Admin — Reset Password
+   * POST /auth/super-admin/reset-password
+   * Body: { token: string, newPassword: string }
+   *
+   * Validates token, checks user is still super admin, updates password,
+   * and revokes all active sessions.
+   * Hidden from Swagger docs.
+   */
+  @Post('super-admin/reset-password')
+  @ApiExcludeEndpoint()
+  async superAdminResetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.loginService.superAdminResetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
   }
 
   /**
