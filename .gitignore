@@ -10,6 +10,9 @@ build/
 
 # Environment variables
 .env
+.env.production
+.env.staging
+.env.backup.*
 .env.local
 .env.*.local
 */.env

@@ -11,6 +11,7 @@ import { Model, Types } from 'mongoose';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { Invoice } from './entities/invoice.entity';
+import { InvoiceStatus } from './enums/invoice-status.enum';
 import { Client } from '../clients/entities/client.entity';
 import { User } from '../user/entities/user.entity';
 import { NotificationPreferencesHelper } from '../userprofile/notification-preferences.helper';
@@ -330,7 +331,7 @@ export class InvoiceService implements OnModuleInit {
     return this.invoiceModel
       .find({
         userId: new Types.ObjectId(userId),
-        status,
+        status: status as InvoiceStatus,
         isDeleted: false,
       })
       .populate('clientId', 'name email phone clientType')

@@ -325,7 +325,7 @@ export class QuotesService implements OnModuleInit {
     return this.quoteModel
       .find({
         userId: new Types.ObjectId(userId),
-        status,
+        status: status as QuoteStatus,
         isDeleted: false,
       })
       .populate('clientId', 'name email phone clientType')

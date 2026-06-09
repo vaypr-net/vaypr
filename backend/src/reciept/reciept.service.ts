@@ -9,6 +9,7 @@ import { Model, Types } from 'mongoose';
 import { CreateReceiptDto } from './dto/create-reciept.dto';
 import { UpdateReceiptDto } from './dto/update-reciept.dto';
 import { Receipt } from './entities/reciept.entity';
+import { ReceiptStatus } from './enums/receipt-status.enum';
 import { Client } from '../clients/entities/client.entity';
 import { Invoice } from '../invoice/entities/invoice.entity';
 import { PlanLimitService } from '../common/services/plan-limit.service';
@@ -281,7 +282,7 @@ export class RecieptService {
     return this.receiptModel
       .find({
         userId: new Types.ObjectId(userId),
-        status,
+        status: status as ReceiptStatus,
         isDeleted: false,
       })
       .populate('clientId', 'name email phone clientType')
