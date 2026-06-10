@@ -32,6 +32,7 @@ import RefundPolicy from "./pages/RefundPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import Guides from "./pages/Guides";
 import AboutUs from "./pages/AboutUs";
+import UserManual from "./pages/UserManual";
 import B2BServices from "./pages/B2BServices";
 import CorporatePage from "./pages/CorporatePage";
 import SupportPage from "./pages/SupportPage";
@@ -90,6 +91,7 @@ function AppRoutes() {
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/guides" element={<Guides />} />
         <Route path="/about" element={<AboutUs />} />
+        <Route path="/user-manual" element={<UserManual />} />
         <Route path="/b2b" element={<B2BServices />} />
         <Route path="/corporate/:slug" element={<CorporatePage />} />
         <Route path="/support/:slug" element={<SupportPage />} />

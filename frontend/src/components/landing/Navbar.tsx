@@ -61,6 +61,12 @@ export function Navbar() {
             >
               Pricing
             </button>
+            <Link
+              to="/user-manual"
+              className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
+            >
+              User Manual
+            </Link>
           </div>
 
           {/* Desktop CTA */}
@@ -107,6 +113,13 @@ export function Navbar() {
               >
                 Pricing
               </button>
+              <Link
+                to="/user-manual"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-left text-muted-foreground hover:text-foreground transition-colors py-2"
+              >
+                User Manual
+              </Link>
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 <Button variant="outline" asChild className="w-full">
                   <Link to="/login">Sign In</Link>
