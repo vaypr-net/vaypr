@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from '../common/dto/change-password.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { SuperAdminGuard } from '../common/guards/super-admin.guard';
 
 @ApiTags('auth')
 @Controller('user')
@@ -58,24 +59,23 @@ export class UserController {
   }
 
   @Get()
+  @UseGuards(SuperAdminGuard)
   async findAll() {
     return this.userService.findAll();
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard)
+  async findOne(@Param('id') id: string, @Request() req: any) {
+    if (req.user.userId !== id && !req.user.isSuperAdmin) throw new ForbiddenException('Account access denied');
     return this.userService.findOne(id);
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+  @UseGuards(JwtAuthGuard)
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Request() req: any) {
+    if (req.user.userId !== id && !req.user.isSuperAdmin) throw new ForbiddenException('Account access denied');
     return this.userService.update(id, updateUserDto);
-  }
-
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string) {
-    return this.userService.remove(id);
   }
 
   @Patch('change-password/self')

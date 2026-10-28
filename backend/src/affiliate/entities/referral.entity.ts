@@ -3,6 +3,7 @@ import { Document, Types } from 'mongoose';
 
 @Schema()
 export class Referral extends Document {
+  @Prop() subscriberDeletedAt?: Date;
   @Prop({ type: Types.ObjectId, ref: 'Affiliate', required: true })
   affiliateId: Types.ObjectId;
 

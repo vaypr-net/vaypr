@@ -96,21 +96,19 @@ export class TranscationsService {
   }
 
   async update(id: string, updateTranscationDto: UpdateTranscationDto) {
+    const current = await this.findOne(id);
+    if (current.subscriberDeletedAt) throw new BadRequestException('Retained payment records for deleted subscribers are read-only');
     const update: any = { ...updateTranscationDto };
     if (update.transactionDate) update.transactionDate = new Date(update.transactionDate as any);
-    const updated = await this.transactionModel.findByIdAndUpdate(id, update, { new: true }).lean();
+    const updated = await this.transactionModel.findOneAndUpdate({ _id: current._id, subscriberDeletedAt: null }, update, { new: true }).lean();
     if (!updated) throw new BadRequestException('Transaction not found');
     return this.mapTransactionForDisplay(updated);
   }
 
   async remove(id: string) {
-    if (!Types.ObjectId.isValid(id)) {
-      // try by transactionId
-      const res = await this.transactionModel.findOneAndDelete({ transactionId: id });
-      if (!res) throw new BadRequestException('Transaction not found');
-      return { success: true };
-    }
-    const res = await this.transactionModel.findByIdAndDelete(id);
+    const current = await this.findOne(id);
+    if (current.subscriberDeletedAt) throw new BadRequestException('Retained payment records for deleted subscribers are read-only');
+    const res = await this.transactionModel.findOneAndDelete({ _id: current._id, subscriberDeletedAt: null });
     if (!res) throw new BadRequestException('Transaction not found');
     return { success: true };
   }

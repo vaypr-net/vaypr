@@ -276,6 +276,7 @@ export default function Transactions() {
         <div>
           <p className="font-medium">{row.subscriberName}</p>
           <p className="text-sm text-muted-foreground">{row.subscriberEmail}</p>
+          {row.subscriberDeletedAt && <Badge variant="outline">Deleted subscriber · Retained record</Badge>}
         </div>
       ),
     },

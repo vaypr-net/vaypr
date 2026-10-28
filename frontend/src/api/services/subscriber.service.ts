@@ -88,6 +88,42 @@ export interface ManageSubscriberRequest {
   mode?: 'immediately' | 'period_end';
 }
 
+export interface SubscriberDeletionPreview {
+  subscriberId: string;
+  name: string;
+  email: string;
+  canDelete: boolean;
+  blockers: string[];
+  deletedCounts: Record<string, number>;
+  retainedCounts: Record<string, number>;
+  expiresAt: string;
+  previewToken: string | null;
+}
+export interface DeleteSubscriberRequest {
+  previewToken: string;
+  confirmEmail: string;
+  confirmation: string;
+  acknowledgeIrreversible: boolean;
+  acknowledgeRetention: boolean;
+  reason: string;
+}
+export interface SubscriberDeletionReceipt {
+  subscriberId: string;
+  subscriberName: string;
+  subscriberEmail: string;
+  deletedAt: string;
+  actorEmail: string;
+  reason: string;
+  deletedCounts: Record<string, number>;
+  retainedCounts: Record<string, number>;
+}
+export interface RetainedSubscriberPayments {
+  transactions: Array<{ transactionId: string; amount: number; currency: string; status: string; type: string;
+    provider: string; transactionDate: string; isSandbox?: boolean; needsManualReconciliation?: boolean }>;
+  orders: Array<{ reference: string; amountFils: number; currency: string; state: string; environment: string;
+    createdAt: string; needsManualReconciliation?: boolean }>;
+}
+
 // ==================== SERVICE ====================
 
 const BASE_URL = '/super-admin/subscribers';
@@ -121,6 +157,19 @@ export const SubscriberService = {
   async manageSubscriber(id: string, data: ManageSubscriberRequest): Promise<Subscriber> {
     const response = await axios.patch<Subscriber>(`${BASE_URL}/${id}/management`, data);
     return response.data;
+  },
+
+  async getDeletionPreview(id: string): Promise<SubscriberDeletionPreview> {
+    return (await axios.get(`${BASE_URL}/${id}/deletion-preview`)).data;
+  },
+  async deleteSubscriber(id: string, data: DeleteSubscriberRequest): Promise<{ subscriberId: string }> {
+    return (await axios.delete(`${BASE_URL}/${id}`, { data })).data;
+  },
+  async getDeletionHistory(): Promise<SubscriberDeletionReceipt[]> {
+    return (await axios.get(`${BASE_URL}/deletion-history`)).data;
+  },
+  async getRetainedPayments(id: string): Promise<RetainedSubscriberPayments> {
+    return (await axios.get(`${BASE_URL}/deletion-history/${id}/payments`)).data;
   },
 
   async getStats(): Promise<SubscriberStats> {

@@ -14,6 +14,18 @@ import { Recurring, RecurringSchema } from '../recurring/entities/recurring.enti
 import { Transaction, TransactionSchema } from '../transcations/entities/transcation.entity';
 import { CurrencyService } from '../common/services/currency.service';
 import { CommonModule } from '../common/common.module';
+import { SubscriberDeletionService } from './subscriber-deletion.service';
+import { SubscriberDeletion, SubscriberDeletionSchema } from './entities/subscriber-deletion.entity';
+import { UserProfile, UserProfileSchema } from '../userprofile/entities/userprofile.entity';
+import { Session, SessionSchema } from '../user/entities/session.entity';
+import { Expense, ExpenseSchema } from '../expense/entities/expense.entity';
+import { UserSender, UserSenderSchema } from '../sender/entities/user-sender.entity';
+import { EmailSettings, EmailSettingsSchema } from '../email-settings/entities/email-settings.entity';
+import { BrevoDomain, BrevoSchema } from '../brevo/entities/brevo.entity';
+import { Notification, NotificationSchema } from '../notifications/notification.schema';
+import { Ticket, TicketSchema } from '../tickets/entities/ticket.entity';
+import { HesabeOrder, HesabeOrderSchema } from '../billing/entities/hesabe-order.entity';
+import { Referral, ReferralSchema } from '../affiliate/entities/referral.entity';
 
 @Module({
   imports: [
@@ -28,6 +40,17 @@ import { CommonModule } from '../common/common.module';
       { name: Recurring.name, schema: RecurringSchema },
       { name: Transaction.name, schema: TransactionSchema },
       { name: 'HesabeSandboxTransaction', schema: TransactionSchema, collection: 'hesabe_sandbox_transactions' },
+      { name: SubscriberDeletion.name, schema: SubscriberDeletionSchema },
+      { name: UserProfile.name, schema: UserProfileSchema },
+      { name: Session.name, schema: SessionSchema },
+      { name: Expense.name, schema: ExpenseSchema },
+      { name: UserSender.name, schema: UserSenderSchema },
+      { name: EmailSettings.name, schema: EmailSettingsSchema },
+      { name: BrevoDomain.name, schema: BrevoSchema },
+      { name: Notification.name, schema: NotificationSchema },
+      { name: Ticket.name, schema: TicketSchema },
+      { name: HesabeOrder.name, schema: HesabeOrderSchema },
+      { name: Referral.name, schema: ReferralSchema },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -41,7 +64,7 @@ import { CommonModule } from '../common/common.module';
     }),
   ],
   controllers: [SubscribersController],
-  providers: [SubscribersService, CurrencyService],
+  providers: [SubscribersService, CurrencyService, SubscriberDeletionService],
   exports: [SubscribersService],
 })
 export class SubscribersModule {}

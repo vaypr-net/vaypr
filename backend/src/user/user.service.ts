@@ -225,13 +225,6 @@ export class UserService {
     return !!updatedUser;
   }
 
-  async remove(id: string): Promise<void> {
-    const result = await this.userModel.findByIdAndDelete(id).exec();
-    if (!result) {
-      throw new NotFoundException('User not found');
-    }
-  }
-
   /**
    * Create a new user from Google OAuth data
    * 

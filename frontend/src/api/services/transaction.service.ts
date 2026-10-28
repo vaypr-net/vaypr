@@ -22,6 +22,7 @@ export interface Transaction {
   stripeInvoiceId?: string;
   stripePaymentIntentId?: string;
   billingCycle?: string;
+  subscriberDeletedAt?: string;
 }
 
 export interface TransactionFilters {
