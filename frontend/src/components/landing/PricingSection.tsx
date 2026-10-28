@@ -7,6 +7,9 @@ import { useNavigate } from "react-router-dom";
 import { CURRENCY_CONFIG } from "@/config/currency.config";
 import { ReferralCodeModal } from "@/components/billing/ReferralCodeModal";
 import { useLandingPage } from "@/hooks/useLandingPage";
+import { useQuery } from '@tanstack/react-query';
+import { billingService } from '@/api/services/billing.service';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface Plan {
   _id: string;
@@ -76,6 +79,8 @@ const ENTERPRISE_PLAN_DESCRIPTION =
 // Features, description, CTA text and link all come from the database
 
 export function PricingSection() {
+  const billingConfiguration = useQuery({ queryKey: ['billing-configuration'], queryFn: billingService.getConfiguration });
+  const hesabeSandbox = billingConfiguration.data?.provider === 'hesabe';
   const { data: landingPage } = useLandingPage();
   const [isYearly, setIsYearly] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState(CURRENCY_CONFIG.displayCurrency); // Default to KWD
@@ -232,16 +237,15 @@ export function PricingSection() {
       console.log('Response status:', response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Checkout error:', errorText);
-        throw new Error(`Checkout failed: ${response.status}`);
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || 'Checkout is temporarily unavailable');
       }
       
       const data = await response.json();
       console.log('✅ Got checkout URL:', data.url ? 'YES' : 'NO');
       
       if (data.url) {
-        console.log('🔄 Redirecting to Stripe checkout...');
+        console.log('Redirecting to secure checkout');
         window.location.href = data.url;
       } else {
         console.error('No URL in response');
@@ -257,7 +261,7 @@ export function PricingSection() {
   // Calculate yearly price with 15% discount
   // Formula: (monthlyPrice * 12) * 0.85 = yearly price with 15% savings
   const calculateYearlyPrice = (monthlyPrice: number): number => {
-    return Math.round((monthlyPrice * 12 * 0.85) * 100) / 100;
+    return Math.round(Math.round(monthlyPrice * 1000) * 12 * 85 / 100) / 1000;
   };
 
   // Get display price based on billing cycle
@@ -345,6 +349,10 @@ export function PricingSection() {
           <p className="text-[#6b6b76] text-lg whitespace-pre-line">
             {pricingDescription}
           </p>
+          {hesabeSandbox && <p className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            Hesabe sandbox payments · Test only, no real money charged. Monthly and yearly terms require manual renewal.
+          </p>}
+          {billingConfiguration.isError && <p role="alert" className="mt-4 text-sm text-red-700">Payment options could not be loaded. Please refresh to try again.</p>}
         </div>
 
         {/* Billing Toggle */}
@@ -402,7 +410,7 @@ export function PricingSection() {
           {displayPlans.map((plan, index) => {
             const isEnterprise = plan.price === -1;
             const price = getDisplayPrice(plan);
-            const formattedPrice = price === 0 ? 'Free' : (Number.isInteger(price) ? price.toString() : price.toFixed(2));
+            const formattedPrice = price === 0 ? 'Free' : (Number.isInteger(price) ? price.toString() : price.toFixed(hesabeSandbox ? 3 : 2));
 
             // Enterprise / "Let's Talk" card (price === -1)
             if (isEnterprise) {
@@ -500,7 +508,7 @@ export function PricingSection() {
 
                       <Button
                         onClick={() => handleGetStarted(plan)}
-                        disabled={checkoutLoading === plan._id}
+                        disabled={checkoutLoading === plan._id || billingConfiguration.isLoading || billingConfiguration.isError}
                         className="w-full mt-auto bg-primary hover:bg-primary/90 border border-primary text-primary-foreground py-3 rounded-lg"
                       >
                         {checkoutLoading === plan._id ? 'Processing...' : (plan.ctaText || 'Get Started')}
@@ -553,7 +561,7 @@ export function PricingSection() {
                   ))}
                 </ul>
 
-                <Button onClick={() => handleGetStarted(plan)} disabled={checkoutLoading === plan._id} className="w-full mt-auto bg-white border border-[#e5e5ef] hover:bg-[#f7f7fb] text-[#151520] py-3 rounded-lg">
+                <Button onClick={() => handleGetStarted(plan)} disabled={checkoutLoading === plan._id || billingConfiguration.isLoading || billingConfiguration.isError} className="w-full mt-auto bg-white border border-[#e5e5ef] hover:bg-[#f7f7fb] text-[#151520] py-3 rounded-lg">
                   {checkoutLoading === plan._id ? 'Processing...' : (plan.ctaText || 'Get Started')}
                 </Button>
               </div>
@@ -563,12 +571,22 @@ export function PricingSection() {
       </div>
 
       {/* Referral Code Modal */}
-      <ReferralCodeModal
+      {hesabeSandbox ? <Dialog open={showReferralModal} onOpenChange={setShowReferralModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Test checkout with Hesabe</DialogTitle>
+            <DialogDescription>No real money will be charged. Use only Hesabe sandbox test cards.</DialogDescription>
+          </DialogHeader>
+          <p>{selectedPlan?.name}: KWD {(isYearly ? calculateYearlyPrice(selectedPlan?.price || 0) : selectedPlan?.price || 0).toFixed(3)} for {isYearly ? 'one year' : 'one month'}.</p>
+          <p className="text-sm text-muted-foreground">This test term expires automatically. Automatic renewal and referral commissions are not enabled.</p>
+          <Button onClick={() => handleProceedWithCheckout()} disabled={!!checkoutLoading}>Continue to Hesabe sandbox</Button>
+        </DialogContent>
+      </Dialog> : <ReferralCodeModal
         open={showReferralModal}
         onOpenChange={setShowReferralModal}
         onContinue={handleProceedWithCheckout}
         isLoading={!!checkoutLoading}
-      />
+      />}
     </section>
   );
 }
