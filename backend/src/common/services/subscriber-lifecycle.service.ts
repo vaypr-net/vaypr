@@ -89,7 +89,9 @@ export class SubscriberLifecycleService
   private async target(id: string, actor?: SubscriberActor) {
     if (!Types.ObjectId.isValid(id))
       throw new BadRequestException('Invalid subscriber');
-    const user = await this.users.findById(id).populate('planId');
+    // Compare stored values, before population or hydration can replace a missing
+    // plan reference with null or apply defaults absent from legacy records.
+    const user = await this.users.findById(id).lean();
     if (!user) throw new NotFoundException('Subscriber not found');
     if (user.isSuperAdmin || actor?.userId === id)
       throw new ForbiddenException(
@@ -112,7 +114,7 @@ export class SubscriberLifecycleService
         isSuperAdmin: { $ne: true },
         updatedAt: user.updatedAt,
         planId: user.planId?._id || user.planId || null,
-        subscriptionStatus: user.subscriptionStatus,
+        subscriptionStatus: user.subscriptionStatus ?? null,
         currentPeriodEnd: user.currentPeriodEnd || null,
         paidAccessEndsAt: user.paidAccessEndsAt || null,
         subscriberArchivedAt: user.subscriberArchivedAt || null,
@@ -197,7 +199,9 @@ export class SubscriberLifecycleService
         reason,
       );
     }
-    const plan: any = user.planId;
+    const plan: any = user.planId
+      ? await this.plans.findById(user.planId?._id || user.planId)
+      : null;
     if (!plan || plan.price === 0 || needsFreePlan(user))
       throw new BadRequestException(
         'This subscriber has no current paid access to end',
@@ -248,11 +252,13 @@ export class SubscriberLifecycleService
       throw new BadRequestException('Invalid subscriber');
     if (!id) this.running = true;
     try {
-      const due = await this.users.find({
-        ...(id ? { _id: id } : {}),
-        isSuperAdmin: { $ne: true },
-        paidAccessEndsAt: { $lte: new Date(), $ne: null },
-      });
+      const due = await this.users
+        .find({
+          ...(id ? { _id: id } : {}),
+          isSuperAdmin: { $ne: true },
+          paidAccessEndsAt: { $lte: new Date(), $ne: null },
+        })
+        .lean();
       if (!due.length) return;
       const free = await this.freePlan();
       for (const user of due) {

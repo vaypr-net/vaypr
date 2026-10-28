@@ -41,12 +41,17 @@ function harness(overrides: any = {}) {
     ...overrides,
   };
   const users: any = {
-    findById: jest.fn(() => ({ populate: jest.fn(async () => user) })),
-    find: jest.fn(async () =>
-      user.paidAccessEndsAt && new Date(user.paidAccessEndsAt) <= new Date()
-        ? [user]
-        : [],
-    ),
+    findById: jest.fn(() => ({
+      lean: jest.fn(async () => user),
+      populate: jest.fn(async () => user),
+    })),
+    find: jest.fn(() => ({
+      lean: jest.fn(async () =>
+        user.paidAccessEndsAt && new Date(user.paidAccessEndsAt) <= new Date()
+          ? [user]
+          : [],
+      ),
+    })),
     findOneAndUpdate: jest.fn(async (_filter, update) => {
       Object.assign(user, update.$set);
       user.subscriberManagementHistory.push(
@@ -57,6 +62,7 @@ function harness(overrides: any = {}) {
   };
   const plans: any = {
     findOne: jest.fn(() => ({ sort: jest.fn(async () => free) })),
+    findById: jest.fn(async () => paid),
   };
   return {
     user,
@@ -69,6 +75,59 @@ function harness(overrides: any = {}) {
 }
 
 describe('Subscriber visibility and paid-access lifecycle', () => {
+  it.each([
+    { hasPlan: true, status: 'free' },
+    { hasPlan: true, status: undefined },
+    { hasPlan: false, status: 'free' },
+    { hasPlan: false, status: undefined },
+  ])(
+    'archives and restores legacy records with stored plan=$hasPlan and status=$status',
+    async ({ hasPlan, status }) => {
+      const storedPlanId = hasPlan ? new Types.ObjectId() : undefined;
+      const h = harness({ planId: storedPlanId, subscriptionStatus: status });
+      // A populated read would turn this stored reference into null, making the
+      // atomic update miss the unchanged record. Hydration would default status.
+      h.plans.findById.mockResolvedValue(null);
+      h.users.findOneAndUpdate.mockImplementation(async (filter, update) => {
+        if (
+          String(filter.planId ?? '') !== String(storedPlanId ?? '') ||
+          filter.subscriptionStatus !== (status ?? null)
+        )
+          return null;
+        Object.assign(h.user, update.$set);
+        h.user.subscriberManagementHistory.push(
+          update.$push.subscriberManagementHistory,
+        );
+        return h.user;
+      });
+      await h.service.manage(
+        id,
+        actor,
+        'archive',
+        'Archive legacy record',
+        undefined,
+        now.toISOString(),
+      );
+      expect(h.user.subscriberArchivedAt).toEqual(now);
+      await h.service.manage(
+        id,
+        actor,
+        'restore',
+        'Restore legacy record',
+        undefined,
+        now.toISOString(),
+      );
+      expect(h.user.subscriberArchivedAt).toBeNull();
+      expect(h.user.planId).toEqual(storedPlanId);
+      expect(h.user.subscriptionStatus).toBe(status);
+      expect(h.plans.findById).not.toHaveBeenCalled();
+      expect(h.user.subscriberManagementHistory).toHaveLength(2);
+      expect(h.users.findById.mock.results[0].value.lean).toHaveBeenCalled();
+      expect(
+        h.users.findById.mock.results[0].value.populate,
+      ).not.toHaveBeenCalled();
+    },
+  );
   it('rejects a stale confirmation after a subscriber or paid term changes', async () => {
     const h = harness();
     await expect(
