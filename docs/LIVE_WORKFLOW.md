@@ -1,7 +1,7 @@
 # VAYPR live publishing
 
-Website: https://vaypr.net  
-API: https://api.vaypr.net  
+Website: https://vaypr.net
+API: https://api.vaypr.net
 Source: https://github.com/vaypr-net/vaypr
 
 The owner's default request is to implement and publish website changes to production, then verify the visible result. A local edit alone does not update the website. The path is:
