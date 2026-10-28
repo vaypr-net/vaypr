@@ -35,6 +35,12 @@ export class Transaction {
   @Prop({ required: true, default: 'Stripe' })
   provider: string;
 
+  @Prop({ default: false })
+  isSandbox: boolean;
+
+  @Prop()
+  hesabeOrderReference?: string;
+
   @Prop({
     required: true,
     enum: ['succeeded', 'failed', 'refunded', 'pending'],
