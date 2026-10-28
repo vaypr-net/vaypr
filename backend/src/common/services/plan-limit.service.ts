@@ -63,6 +63,10 @@ export class PlanLimitService {
       }
 
       let plan = user.planId as any;
+      if (user.paymentProvider === 'hesabe' && user.currentPeriodEnd && user.currentPeriodEnd <= new Date()) {
+        plan = await this.billingPlanModel.findOne({ price: 0, status: 'active' });
+        if (!plan) throw new BadRequestException('Free plan is missing');
+      }
       
       // If user doesn't have a plan, assign the default Free plan
       if (!plan) {
@@ -180,7 +184,9 @@ export class PlanLimitService {
       throw new NotFoundException('User not found');
     }
 
-    const plan = user.planId as any;
+    const plan = user.paymentProvider === 'hesabe' && user.currentPeriodEnd && user.currentPeriodEnd <= new Date()
+      ? await this.billingPlanModel.findOne({ price: 0, status: 'active' })
+      : user.planId as any;
     const limits = plan?.limits || {};
 
     const [invoicesCount, quotesCount, clientsCount, receiptsCount, recurringCount] =

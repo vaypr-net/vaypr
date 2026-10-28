@@ -12,7 +12,7 @@ import {
   Param,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { StripeService } from './stripe.service';
+import { BillingService } from './billing.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import {
@@ -24,15 +24,18 @@ import {
 } from './dto/cancel-subscription.dto';
 
 @Controller('billing')
-@ApiTags('Billing - Stripe Checkout Subscriptions')
+@ApiTags('Billing')
 @ApiBearerAuth()
 export class BillingController {
   private logger = new Logger(BillingController.name);
 
-  constructor(private stripeService: StripeService) {}
+  constructor(private billingService: BillingService) {}
+
+  @Get('config')
+  configuration() { return this.billingService.configuration(); }
 
   /**
-   * Create Stripe checkout session for plan subscription
+   * Create hosted checkout session for plan subscription
    * User is redirected to Stripe Checkout page
    */
   @Post('checkout-session')
@@ -40,22 +43,22 @@ export class BillingController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Create checkout session for subscription',
-    description: 'Creates a Stripe checkout session and returns the URL to redirect user to payment',
+    description: 'Creates a hosted checkout session and returns the URL to redirect user to payment',
   })
-  @ApiResponse({ status: 200, description: 'Checkout session created', schema: { example: { url: 'https://checkout.stripe.com/...' } } })
+  @ApiResponse({ status: 200, description: 'Checkout session created', schema: { example: { url: 'https://sandbox.hesabe.com/payment?data=...' } } })
   @ApiResponse({ status: 400, description: 'Invalid plan or billing cycle' })
   async createCheckoutSession(
     @Body() body: CreateCheckoutSessionDto,
     @Request() req: any,
   ) {
-    const { planId, billingCycle, currency = 'USD', referralCode } = body;
+    const { planId, billingCycle, currency, referralCode } = body;
 
     if (!planId || !billingCycle) {
       throw new BadRequestException('planId and billingCycle are required');
     }
 
     try {
-      const result = await this.stripeService.createCheckoutSession(
+      const result = await this.billingService.createCheckoutSession(
         req.user.sub, // userId from JWT
         planId,
         billingCycle,
@@ -71,13 +74,13 @@ export class BillingController {
 
   /**
    * Verify checkout session after payment
-   * Called by frontend after Stripe redirects to success page
+   * Called by frontend after the payment provider redirects to success page
    */
   @Get('verify-session/:sessionId')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: 'Verify checkout session',
-    description: 'Verifies the Stripe checkout session and returns subscription details',
+    description: 'Verifies the provider checkout session and returns subscription details',
   })
   @ApiResponse({ status: 200, description: 'Session verified successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or expired session' })
@@ -90,7 +93,7 @@ export class BillingController {
         throw new BadRequestException('Session ID is required');
       }
 
-      const result = await this.stripeService.verifyCheckoutSession(sessionId, req.user.sub);
+      const result = await this.billingService.verifyCheckoutSession(sessionId, req.user.sub);
       return result;
     } catch (error) {
       this.logger.error(`Session verification error: ${error.message}`);
@@ -112,7 +115,7 @@ export class BillingController {
   @ApiResponse({ status: 200, description: 'Portal session created', schema: { example: { url: 'https://billing.stripe.com/...' } } })
   async createBillingPortal(@Request() req: any) {
     try {
-      const result = await this.stripeService.createBillingPortalSession(
+      const result = await this.billingService.createBillingPortalSession(
         req.user.sub, // userId from JWT
       );
       return result;
@@ -133,7 +136,7 @@ export class BillingController {
   })
   async getSubscriptionInfo(@Request() req: any) {
     try {
-      const result = await this.stripeService.getSubscriptionInfo(req.user.sub);
+      const result = await this.billingService.getSubscriptionInfo(req.user.sub);
       return result;
     } catch (error) {
       this.logger.error(`Get subscription error: ${error.message}`);
@@ -152,7 +155,7 @@ export class BillingController {
   })
   async getBillingHistory(@Request() req: any) {
     try {
-      return await this.stripeService.getBillingHistory(req.user.sub);
+      return await this.billingService.getBillingHistory(req.user.sub);
     } catch (error) {
       this.logger.error(`Get billing history error: ${error.message}`);
       throw error;
@@ -228,7 +231,7 @@ export class BillingController {
     @Request() req: any,
   ) {
     try {
-      return await this.stripeService.getCancellationPreview(
+      return await this.billingService.getCancellationPreview(
         req.user.sub,
         method,
       );
@@ -266,7 +269,7 @@ export class BillingController {
     try {
       const { method, refundStrategy, reason, feedback } = body;
 
-      return await this.stripeService.cancelSubscription(
+      return await this.billingService.cancelSubscription(
         req.user.sub,
         method,
         refundStrategy,

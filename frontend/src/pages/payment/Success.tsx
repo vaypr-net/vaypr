@@ -27,6 +27,7 @@ export default function PaymentSuccess() {
           `/billing/verify-session/${sessionId}`
         );
         
+        if (response.data?.success !== true) throw new Error('Payment has not been confirmed');
         setSessionDetails(response.data);
         setVerifying(false);
       } catch (err: any) {
@@ -85,7 +86,7 @@ export default function PaymentSuccess() {
           <CheckCircle className="w-10 h-10 text-green-600" />
         </div>
         
-        <h1 className="text-3xl font-bold mb-2">Payment Successful! 🎉</h1>
+        <h1 className="text-3xl font-bold mb-2">{sessionDetails?.environment === 'sandbox' ? 'Sandbox Payment Verified' : 'Payment Successful!'}</h1>
         <p className="text-muted-foreground mb-6">
           {sessionDetails?.message || 'Your subscription is now active.'}
         </p>
@@ -112,9 +113,7 @@ export default function PaymentSuccess() {
           </Button>
         </div>
 
-        <p className="text-xs text-muted-foreground mt-6">
-          A confirmation email has been sent to your registered email address.
-        </p>
+        {sessionDetails?.environment === 'sandbox' && <p className="text-xs text-muted-foreground mt-6">Test payment only. No real money was charged.</p>}
       </div>
     </div>
   );

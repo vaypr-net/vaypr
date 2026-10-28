@@ -20,36 +20,13 @@ import { CommonModule } from '../common/common.module';
 import { CurrencyService } from '../common/services/currency.service';
 import { BillingPlanModule } from '../billing-plan/billing-plan.module';
 import { UserprofileModule } from '../userprofile/userprofile.module';
+import { HesabeGateway } from './hesabe.gateway';
+import { HesabeService } from './hesabe.service';
+import { HesabeController } from './hesabe.controller';
+import { BillingService } from './billing.service';
+import { HesabeOrder, HesabeOrderSchema } from './entities/hesabe-order.entity';
 
-/**
- * BillingModule - Stripe Checkout subscriptions
- * 
- * Features:
- * - Create checkout sessions for plan upgrades
- * - Manage subscriptions via Stripe Billing Portal
- * - Handle webhook events for subscription lifecycle
- * 
- * Configuration:
- * Required env vars:
- * - STRIPE_SECRET_KEY (from Stripe dashboard)
- * - STRIPE_WEBHOOK_SECRET (from Webhook settings or Stripe CLI)
- * - APP_URL (application URL, for redirect URLs)
- * 
- * Webhook Setup (Local):
- * 1. Install Stripe CLI: https://stripe.com/docs/stripe-cli
- * 2. Run: stripe listen --forward-to localhost:8081/billing/webhook
- * 3. Copy signing secret to STRIPE_WEBHOOK_SECRET in .env
- * 
- * Webhook Setup (Production):
- * 1. In Stripe dashboard, go to Webhooks
- * 2. Add endpoint: https://yourdomain.com/billing/webhook
- * 3. Select events:
- *    - checkout.session.completed
- *    - customer.subscription.updated
- *    - customer.subscription.deleted
- *    - invoice.payment_failed
- * 4. Copy signing secret to STRIPE_WEBHOOK_SECRET in env variables
- */
+/** New checkout is selected by PAYMENT_PROVIDER; legacy Stripe subscriptions retain their lifecycle handler. */
 @Module({
   imports: [
     ConfigModule,
@@ -65,6 +42,8 @@ import { UserprofileModule } from '../userprofile/userprofile.module';
       }),
     }),
     MongooseModule.forFeature([
+      { name: HesabeOrder.name, schema: HesabeOrderSchema },
+      { name: 'HesabeSandboxTransaction', schema: TransactionSchema, collection: 'hesabe_sandbox_transactions' },
       { name: User.name, schema: UserSchema },
       { name: BillingPlan.name, schema: BillingPlanSchema },
       { name: Transaction.name, schema: TransactionSchema },
@@ -74,8 +53,8 @@ import { UserprofileModule } from '../userprofile/userprofile.module';
     ]),
     ActivityModule,
   ],
-  controllers: [BillingController, BillingWebhookController],
-  providers: [StripeService, JwtAuthGuard, CurrencyService],
+  controllers: [BillingController, BillingWebhookController, HesabeController],
+  providers: [StripeService, BillingService, HesabeGateway, HesabeService, JwtAuthGuard, CurrencyService],
   exports: [StripeService],
 })
 export class BillingModule {}
