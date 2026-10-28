@@ -67,6 +67,15 @@ export class User extends BaseEntity {
   pendingDomains: string[]; // Domains pending verification
 
   // ==================== STRIPE SUBSCRIPTION FIELDS ====================
+  @Prop({ enum: ['stripe', 'hesabe'], required: false })
+  paymentProvider?: string;
+
+  @Prop({ enum: ['sandbox', 'production'], required: false })
+  paymentEnvironment?: string;
+
+  @Prop()
+  hesabeOrderReference?: string;
+
   @Prop({ required: false, sparse: true })
   stripeCustomerId: string; // Stripe customer ID
 
