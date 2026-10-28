@@ -6,10 +6,12 @@ import {
   Param,
   Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { SubscribersService } from './subscribers.service';
 import { UpdateSubscriberDto } from './dto/update-subscriber.dto';
 import { SuperAdminGuard } from '../common/guards/super-admin.guard';
+import { ManageSubscriberDto } from './dto/manage-subscriber.dto';
 
 @Controller('super-admin/subscribers')
 @UseGuards(SuperAdminGuard)
@@ -23,6 +25,7 @@ export class SubscribersController {
     @Query('subscriptionType') subscriptionType?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('visibility') visibility?: string,
   ) {
     return this.subscribersService.findAll(
       search,
@@ -30,6 +33,7 @@ export class SubscribersController {
       subscriptionType,
       limit ? parseInt(limit) : 50,
       offset ? parseInt(offset) : 0,
+      visibility,
     );
   }
 
@@ -44,7 +48,12 @@ export class SubscribersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateSubscriberDto: UpdateSubscriberDto) {
-    return this.subscribersService.update(id, updateSubscriberDto);
+  update(@Param('id') id: string, @Body() updateSubscriberDto: UpdateSubscriberDto, @Request() req: any) {
+    return this.subscribersService.update(id, updateSubscriberDto, req.user);
+  }
+
+  @Patch(':id/management')
+  manage(@Param('id') id: string, @Body() body: ManageSubscriberDto, @Request() req: any) {
+    return this.subscribersService.manage(id, body, req.user);
   }
 }

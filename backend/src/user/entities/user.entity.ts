@@ -4,6 +4,32 @@ import { BaseEntity } from '../../common/entities/base.entity';
 
 @Schema({ timestamps: true })
 export class User extends BaseEntity {
+  // Administrative visibility is independent of login, entitlements and payments.
+  @Prop({ type: Date, default: null })
+  subscriberArchivedAt?: Date | null;
+
+  @Prop({ default: '' })
+  subscriberArchivedBy?: string;
+
+  @Prop({ default: '' })
+  subscriberArchiveReason?: string;
+
+  @Prop({ type: Date, default: null, index: true })
+  paidAccessEndsAt?: Date | null;
+
+  @Prop({ type: Date, default: null })
+  paidAccessEndedAt?: Date | null;
+
+  @Prop({ default: '' })
+  paidAccessEndReason?: string;
+
+  // Appended atomically with each administrative change; never touches a payment ledger.
+  @Prop({ type: [Object], default: [] })
+  subscriberManagementHistory?: Array<{
+    action: string; at: Date; actorId: string; actorEmail: string; reason: string;
+    before: Record<string, unknown>; after: Record<string, unknown>;
+  }>;
+
   @Prop({ required: true })
   fullName: string;
 

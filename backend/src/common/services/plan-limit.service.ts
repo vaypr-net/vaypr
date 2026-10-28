@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Logger } from '@nestjs/common';
 import { User } from '../../user/entities/user.entity';
 import { BillingPlan } from '../../billing-plan/entities/billing-plan.entity';
+import { SubscriberLifecycleService } from './subscriber-lifecycle.service';
 
 /**
  * PlanLimitService
@@ -31,7 +32,16 @@ export class PlanLimitService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(BillingPlan.name) private billingPlanModel: Model<BillingPlan>,
+    private readonly lifecycle: SubscriberLifecycleService,
   ) {}
+
+  async enforceFeature(userId: string, feature: 'expenseTracking' | 'customEmailDomain') {
+    await this.lifecycle.expireDueAccess(userId);
+    const user = await this.userModel.findById(userId).populate('planId');
+    if (!user) throw new NotFoundException('User not found');
+    const plan = await this.lifecycle.effectivePlan(user);
+    if (!plan?.limits?.[feature]) throw new BadRequestException(`Your ${plan?.name || 'Free'} plan does not include this feature`);
+  }
 
   /**
    * Check if user has reached their plan limit for a resource
@@ -53,6 +63,7 @@ export class PlanLimitService {
     message?: string;
   }> {
     try {
+      await this.lifecycle.expireDueAccess(userId);
       // Fetch user with plan details
       const user = await this.userModel
         .findById(userId)
@@ -62,11 +73,7 @@ export class PlanLimitService {
         throw new NotFoundException('User not found');
       }
 
-      let plan = user.planId as any;
-      if (user.paymentProvider === 'hesabe' && user.currentPeriodEnd && user.currentPeriodEnd <= new Date()) {
-        plan = await this.billingPlanModel.findOne({ price: 0, status: 'active' });
-        if (!plan) throw new BadRequestException('Free plan is missing');
-      }
+      let plan = await this.lifecycle.effectivePlan(user);
       
       // If user doesn't have a plan, assign the default Free plan
       if (!plan) {
@@ -176,6 +183,7 @@ export class PlanLimitService {
     receiptModel: any,
     recurringModel: any,
   ): Promise<any> {
+    await this.lifecycle.expireDueAccess(userId);
     const user = await this.userModel
       .findById(userId)
       .populate('planId', 'limits');
@@ -184,9 +192,7 @@ export class PlanLimitService {
       throw new NotFoundException('User not found');
     }
 
-    const plan = user.paymentProvider === 'hesabe' && user.currentPeriodEnd && user.currentPeriodEnd <= new Date()
-      ? await this.billingPlanModel.findOne({ price: 0, status: 'active' })
-      : user.planId as any;
+    const plan = await this.lifecycle.effectivePlan(user);
     const limits = plan?.limits || {};
 
     const [invoicesCount, quotesCount, clientsCount, receiptsCount, recurringCount] =

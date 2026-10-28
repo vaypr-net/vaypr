@@ -1,3 +1,4 @@
+import { SubscriberLifecycleService } from '../common/services/subscriber-lifecycle.service';
 import { BadRequestException, Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -46,6 +47,7 @@ export class HesabeService implements OnModuleInit, OnModuleDestroy {
     @InjectModel(User.name) private readonly users: Model<User>,
     @InjectModel(BillingPlan.name) private readonly plans: Model<BillingPlan>,
     @InjectModel('HesabeSandboxTransaction') private readonly transactions: Model<Transaction>,
+    private readonly lifecycle: SubscriberLifecycleService,
   ) {}
 
   onModuleInit() {
@@ -169,7 +171,7 @@ export class HesabeService implements OnModuleInit, OnModuleDestroy {
         await this.users.updateOne({ _id: user._id }, { $set: { paymentProvider: 'hesabe', paymentEnvironment: 'sandbox',
           hesabeOrderReference: order.reference, planId: order.planId, subscriptionStatus: 'active', billingCycle: order.billingCycle,
           subscriptionAmount: order.amountFils / 1000, subscriptionStartedAt: now, currentPeriodEnd: periodEnd },
-          $unset: { subscriptionCanceledAt: '', cancellationMethod: '', cancellationScheduledFor: '', cancellationReason: '', cancellationFeedback: '' } }, { session });
+          $unset: { paidAccessEndsAt: '', paidAccessEndedAt: '', paidAccessEndReason: '', subscriptionCanceledAt: '', cancellationMethod: '', cancellationScheduledFor: '', cancellationReason: '', cancellationFeedback: '' } }, { session });
         await this.transactions.updateOne({ transactionId: order.reference }, { $setOnInsert: {
           transactionId: order.reference, userId: user._id, subscriberId: String(user._id), subscriberName: user.fullName,
           subscriberEmail: user.email, amount: order.amountFils / 1000, currency: 'KWD', type: 'subscription',
@@ -200,15 +202,16 @@ export class HesabeService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getSubscriptionInfo(userId: string) {
+    await this.lifecycle.expireDueAccess(userId);
     await this.expireTerms();
     const user = await this.users.findById(userId).populate('planId');
     if (!user) throw new NotFoundException('User not found');
-    const plan: any = user.planId;
+    const plan: any = await this.lifecycle.effectivePlan(user);
     return { plan: plan ? { ...plan.toObject(), price: user.subscriptionStatus === 'active' ? user.subscriptionAmount : 0,
         priceInDisplayCurrency: user.subscriptionStatus === 'active' ? user.subscriptionAmount : 0, displayCurrency: 'KWD' } : null,
       status: user.subscriptionStatus, billingCycle: user.billingCycle, currentPeriodEnd: user.currentPeriodEnd,
       subscriptionStartedAt: user.subscriptionStartedAt, provider: 'hesabe', environment: 'sandbox', autoRenew: false,
-      cancellationDate: user.subscriptionCanceledAt || null, accessUntilDate: user.cancellationScheduledFor || null };
+      cancellationDate: user.subscriptionCanceledAt || null, accessUntilDate: user.paidAccessEndsAt || user.cancellationScheduledFor || null };
   }
 
   async getBillingHistory(userId: string) {

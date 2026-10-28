@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsIn } from 'class-validator';
 
 export class UpdateSubscriberDto {
   @IsOptional()
@@ -18,11 +18,11 @@ export class UpdateSubscriberDto {
   plan?: string;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['monthly', 'yearly'])
   subscriptionType?: 'monthly' | 'yearly';
 
   @IsOptional()
-  @IsString()
+  @IsIn(['active', 'inactive', 'free', 'canceled'])
   status?: 'active' | 'inactive' | 'free' | 'canceled';
 
   @IsOptional()

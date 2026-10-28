@@ -1,6 +1,7 @@
+import { useGetPlans } from '@/hooks/api/useBillingPlans';
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Eye, Pencil, MoreVertical, Loader2 } from "lucide-react";
+import { Users, Eye, Pencil, MoreVertical, Loader2, Archive, RotateCcw, ShieldOff, CalendarClock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, isValid } from "date-fns";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
@@ -26,7 +27,9 @@ import { EditSubscriberDialog } from "@/components/super-admin/subscribers/EditS
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useGetSubscriberById, useGetSubscribers, useGetSubscriberStats, useUpdateSubscriber } from "@/hooks/api/useSubscribers";
-import { Subscriber, SubscriberService } from "@/api/services/subscriber.service";
+import { Subscriber, SubscriberService, SubscriberAction } from "@/api/services/subscriber.service";
+
+import { SubscriberManagementDialog, accessDate, hasPaidAccess } from '@/components/super-admin/subscribers/SubscriberManagementDialog';
 
 // Helper function to safely format dates
 const safeFormatDate = (date: string | null | undefined): string => {
@@ -36,17 +39,16 @@ const safeFormatDate = (date: string | null | undefined): string => {
   return format(dateObj, 'd MMM yyyy');
 };
 
-const isCanceledStatus = (status?: string): boolean => {
-  const normalizedStatus = (status || "").trim().toLowerCase();
-  return normalizedStatus === "canceled" || normalizedStatus === "cancelled";
-};
-
 export default function Subscribers() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [visibility, setVisibility] = useState<'active' | 'archived' | 'all'>('active');
+  const [page, setPage] = useState(1);
+  const [management, setManagement] = useState<{ subscriber: Subscriber; action: SubscriberAction } | null>(null);
+  useEffect(() => setPage(1), [searchValue, statusFilter, typeFilter, visibility]);
   const [selectedSubscriberId, setSelectedSubscriberId] = useState<string | null>(null);
   const [internalNotes, setInternalNotes] = useState("");
   const [editSubscriber, setEditSubscriber] = useState<Subscriber | null>(null);
@@ -57,7 +59,8 @@ export default function Subscribers() {
     statusFilter !== "all" ? statusFilter : undefined,
     typeFilter !== "all" ? typeFilter : undefined,
     50,
-    0
+    (page - 1) * 50,
+    visibility
   );
 
   const { data: stats } = useGetSubscriberStats();
@@ -67,7 +70,11 @@ export default function Subscribers() {
   );
 
   const displaySubscribers = subscribersData?.items || [];
-  const availablePlans = ["Free", "Starter", "Professional", "Enterprise"];
+  useEffect(() => {
+    if (subscribersData) setPage(current => Math.min(current, Math.max(1, Math.ceil(subscribersData.total / 50))));
+  }, [subscribersData?.total]);
+  const { data: plansData } = useGetPlans('active', 500);
+  const availablePlans = useMemo(() => (plansData?.items || []).slice().sort((a, b) => (a.price < 0 ? Infinity : a.price) - (b.price < 0 ? Infinity : b.price)).map(plan => plan.name), [plansData]);
 
   useEffect(() => {
     if (selectedSubscriber) {
@@ -115,14 +122,6 @@ export default function Subscribers() {
     });
   };
 
-  const handleCancelSubscription = async () => {
-    if (!selectedSubscriber) return;
-    await updateSubscriberMutation.mutateAsync({
-      id: selectedSubscriber._id,
-      data: { status: "canceled" },
-    });
-  };
-
   const handleExportCsv = async () => {
     try {
       const search = searchValue || undefined;
@@ -140,7 +139,8 @@ export default function Subscribers() {
           status,
           subscriptionType,
           limit,
-          offset
+          offset,
+          visibility
         );
 
         allSubscribers.push(...page.items);
@@ -193,7 +193,9 @@ export default function Subscribers() {
         "Status",
         "Lifetime Spend",
         "Last Payment Date",
-        "Next Renewal Date",
+        "Paid Period End",
+        "Visibility",
+        "Paid Access Scheduled End",
       ];
 
       const rows = allSubscribers.map((sub) => [
@@ -207,6 +209,8 @@ export default function Subscribers() {
         sub.lifetimeSpend,
         formatDateForCsv(sub.lastPaymentDate),
         formatDateForCsv(sub.nextRenewalDate),
+        sub.archivedAt ? "Archived" : "Active record",
+        sub.paidAccessEndsAt || "",
       ]);
 
       const csvContent = [
@@ -255,7 +259,11 @@ export default function Subscribers() {
         </div>
       ),
     },
-    { header: "Plan", accessor: "plan" as keyof Subscriber },
+    { header: "Plan", accessor: (row: Subscriber) => <div className="space-y-1"><p>{row.plan}</p>
+      {row.paidAccessEndsAt && <p className="text-xs text-amber-700">Paid access ends {accessDate(row.paidAccessEndsAt)}</p>}
+      {row.paymentProvider === 'hesabe' && <p className="text-xs text-muted-foreground">Hesabe{row.paymentEnvironment === 'sandbox' ? ' · Sandbox' : ''}</p>}
+    </div> },
+    { header: "Visibility", accessor: (row: Subscriber) => <Badge variant={row.archivedAt ? 'secondary' : 'outline'}>{row.archivedAt ? 'Archived' : 'Active record'}</Badge> },
     {
       header: "Type",
       accessor: (row: Subscriber) => (
@@ -285,7 +293,7 @@ export default function Subscribers() {
       accessor: (row: Subscriber) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label={`Actions for ${row.email}`}>
               <MoreVertical className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -295,6 +303,16 @@ export default function Subscribers() {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setEditSubscriber(row)}>
               <Pencil className="w-4 h-4 mr-2" /> Edit Subscriber Profile
+            </DropdownMenuItem>
+            {hasPaidAccess(row) && <DropdownMenuItem onClick={() => setManagement({ subscriber: row, action: 'end_paid_access' })}>
+              <ShieldOff className="w-4 h-4 mr-2" /> End Paid Access
+            </DropdownMenuItem>}
+            {row.paidAccessEndsAt && <DropdownMenuItem onClick={() => setManagement({ subscriber: row, action: 'undo_scheduled_end' })}>
+              <CalendarClock className="w-4 h-4 mr-2" /> Undo Scheduled Change
+            </DropdownMenuItem>}
+            <DropdownMenuItem onClick={() => setManagement({ subscriber: row, action: row.archivedAt ? 'restore' : 'archive' })}>
+              {row.archivedAt ? <RotateCcw className="w-4 h-4 mr-2" /> : <Archive className="w-4 h-4 mr-2" />}
+              {row.archivedAt ? 'Restore Subscriber' : 'Archive Subscriber'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -319,6 +337,9 @@ export default function Subscribers() {
           searchValue={searchValue}
           onSearchChange={setSearchValue}
           filters={[
+            { name: 'Visibility', options: [
+              { label: 'Active records', value: 'active' }, { label: 'Archived', value: 'archived' }, { label: 'All records', value: 'all' },
+            ], value: visibility, onChange: value => setVisibility(value as typeof visibility) },
             {
               name: "Status",
               options: [
@@ -349,7 +370,10 @@ export default function Subscribers() {
           columns={columns}
           data={displaySubscribers}
           isLoading={subscribersLoading}
-          emptyMessage="No subscribers found"
+          currentPage={page}
+          totalPages={Math.max(1, Math.ceil((subscribersData?.total || 0) / 50))}
+          onPageChange={setPage}
+          emptyMessage={visibility === 'archived' ? 'No archived subscribers' : 'No subscribers found'}
           emptyIcon={<Users className="w-12 h-12" />}
         />
       </motion.div>
@@ -377,6 +401,10 @@ export default function Subscribers() {
                 </SheetTitle>
               </SheetHeader>
 
+              {selectedSubscriber.archivedAt && <div className="mt-4 rounded-lg border bg-muted p-3 text-sm">
+                <strong>Archived</strong> · {accessDate(selectedSubscriber.archivedAt)}<p>{selectedSubscriber.archiveReason}</p>
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => setManagement({ subscriber: selectedSubscriber, action: 'restore' })}>Restore Subscriber</Button>
+              </div>}
               <Tabs defaultValue="profile" className="mt-6">
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="profile">Profile</TabsTrigger>
@@ -424,6 +452,15 @@ export default function Subscribers() {
                       </Button>
                     </div>
                   </div>
+                  <details className="rounded-lg border p-3 text-sm"><summary className="cursor-pointer font-medium">Administrative history ({selectedSubscriber.managementHistory?.length || 0})</summary>
+                    <div className="mt-3 space-y-3">{!selectedSubscriber.managementHistory?.length && <p className="text-muted-foreground">No administrative changes recorded.</p>}
+                    {selectedSubscriber.managementHistory?.map((event, index) => <div key={`${event.at}-${index}`} className="border-b pb-3 last:border-0">
+                      <p className="font-medium capitalize">{event.action.replace(/_/g, ' ')}</p>
+                      <p className="text-xs text-muted-foreground">{accessDate(event.at)} · {event.actorEmail}</p><p className="mt-1">{event.reason}</p>
+                      <p className="text-xs text-muted-foreground">{event.before.archived ? 'Archived' : 'Active record'} → {event.after.archived ? 'Archived' : 'Active record'} · {event.before.status} → {event.after.status}</p>
+                      {event.after.paidAccessEndsAt && <p className="text-xs text-muted-foreground">Scheduled end: {accessDate(event.after.paidAccessEndsAt)}</p>}
+                    </div>)}</div>
+                  </details>
                 </TabsContent>
 
                 <TabsContent value="subscription" className="space-y-4 mt-4">
@@ -468,16 +505,12 @@ export default function Subscribers() {
                       Downgrade Plan
                     </Button>
                   </div>
-                  {!isCanceledStatus(selectedSubscriber.status) && (
-                    <Button
-                      variant="destructive"
-                      className="w-full"
-                      onClick={handleCancelSubscription}
-                      disabled={updateSubscriberMutation.isPending}
-                    >
-                      Cancel Subscription
-                    </Button>
-                  )}
+                  {selectedSubscriber.paidAccessEndsAt && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <p>Paid access ends on {accessDate(selectedSubscriber.paidAccessEndsAt)}</p>
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => setManagement({ subscriber: selectedSubscriber, action: 'undo_scheduled_end' })}>Undo Scheduled Change</Button>
+                  </div>}
+                  {hasPaidAccess(selectedSubscriber) && <Button variant="destructive" className="w-full" onClick={() => setManagement({ subscriber: selectedSubscriber, action: 'end_paid_access' })}>End Paid Access</Button>}
+                  <p className="text-xs text-muted-foreground">Access changes preserve documents and payment history. Refunds are managed separately.</p>
                 </TabsContent>
 
                 <TabsContent value="billing" className="space-y-4 mt-4">
@@ -504,9 +537,10 @@ export default function Subscribers() {
                     <p className="text-xs text-muted-foreground mt-1">
                       {selectedSubscriber.billing?.paymentMethodDetails || "-"}
                     </p>
+                    <p className="text-xs text-muted-foreground mt-2">Sandbox test payments are excluded from lifetime spend and revenue totals.</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium mb-3">Recent Invoices</p>
+                    <p className="text-sm font-medium mb-3">Recent Transactions</p>
                     <div className="space-y-2">
                       {(selectedSubscriber.billing?.recentInvoices || []).length === 0 ? (
                         <div className="p-3 border border-border rounded-lg text-sm text-muted-foreground">
@@ -526,6 +560,7 @@ export default function Subscribers() {
                                 {formatCurrency(invoice.amount, { decimals: 2 })}
                               </p>
                               <StatusBadge status={invoice.status} />
+                              {invoice.environment === 'sandbox' && <p className="text-xs text-amber-700">Hesabe Sandbox · Test payment</p>}
                             </div>
                           </div>
                         ))
@@ -601,7 +636,9 @@ export default function Subscribers() {
         subscriber={editSubscriber}
         open={!!editSubscriber}
         onOpenChange={(open) => !open && setEditSubscriber(null)}
+        onEndPaidAccess={subscriber => { setEditSubscriber(null); setManagement({ subscriber, action: 'end_paid_access' }); }}
       />
+      <SubscriberManagementDialog subscriber={management?.subscriber || null} action={management?.action || null} onClose={() => setManagement(null)} />
     </div>
   );
 }

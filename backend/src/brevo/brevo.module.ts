@@ -1,3 +1,4 @@
+import { CommonModule } from '../common/common.module';
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -15,6 +16,7 @@ import { ActivityModule } from '../activity/activity.module';
 @Module({
   imports: [
     ConfigModule,
+    CommonModule,
     HttpModule,
     MongooseModule.forFeature([
       { name: BrevoDomain.name, schema: BrevoSchema },
