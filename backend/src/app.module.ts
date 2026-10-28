@@ -74,8 +74,7 @@ import { SwaggerAuthMiddleware } from './common/middleware/swagger-auth.middlewa
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const FALLBACK_URI = 'mongodb://softwareforgeteam2_db_user:M8Gbq5CssbupvyZq@ac-wiz7uaj-shard-00-00.bi0zshe.mongodb.net:27017,ac-wiz7uaj-shard-00-01.bi0zshe.mongodb.net:27017,ac-wiz7uaj-shard-00-02.bi0zshe.mongodb.net:27017/test?ssl=true&replicaSet=atlas-126bpv-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0';
-        const raw = configService.get<string>('MONGODB_URI') || FALLBACK_URI;
+        const raw = configService.get<string>('MONGODB_URI');
         const defaultDb = configService.get<string>('MONGODB_DB') || 'test';
 
         if (!raw) {
