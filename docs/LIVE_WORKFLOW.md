@@ -12,14 +12,14 @@ Codex project → feature branch → validated pull request → merge into main 
 
 The Codex VAYPR project is /Users/fahadmacmini/Documents/ChatGPT/VAYPR, with origin set to https://github.com/vaypr-net/vaypr.git. The project-local official GitHub CLI is .codex/bin/gh. Its local configuration is .codex/github/; both are ignored and not part of the source repository. OS keychain storage is preferred; never paste a token into chat or commit credentials.
 
-Use the wrapper from the repository root:
+Linked Git worktrees reuse the primary checkout's local CLI and authentication. Use the wrapper from the repository root:
 
 ```bash
 scripts/github.sh auth status
 scripts/github.sh repo view vaypr-net/vaypr
 ```
 
-Git's local HTTPS credential helper invokes that wrapper. This connection is machine-local. New clones or other machines need their own GitHub authentication. A browser login alone does not authenticate terminal Git.
+Git's local HTTPS credential helper invokes that wrapper. The current login can publish code and manage PRs; changes to workflow files can use the already signed-in GitHub browser when the CLI token does not have the separate workflow scope. This connection is machine-local. New clones or other machines need their own GitHub authentication. A browser login alone does not authenticate terminal Git.
 
 ## Routine change
 
