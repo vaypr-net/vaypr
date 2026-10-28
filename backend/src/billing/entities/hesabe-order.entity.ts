@@ -21,6 +21,10 @@ export class HesabeOrder {
   @Prop() periodEnd?: Date;
   @Prop() referralCode?: string;
   @Prop() createdAt: Date;
+  @Prop() subscriberDeletedAt?: Date;
+  @Prop() deletedSubscriberName?: string;
+  @Prop() deletedSubscriberEmail?: string;
+  @Prop({ default: false }) needsManualReconciliation?: boolean;
 }
 export const HesabeOrderSchema = SchemaFactory.createForClass(HesabeOrder);
 HesabeOrderSchema.index({ userId: 1 }, { unique: true, partialFilterExpression: { activeCheckout: true } });

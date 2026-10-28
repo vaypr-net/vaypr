@@ -38,6 +38,9 @@ export class Transaction {
   @Prop({ default: false })
   isSandbox: boolean;
 
+  @Prop() subscriberDeletedAt?: Date;
+  @Prop({ default: false }) needsManualReconciliation?: boolean;
+
   @Prop()
   hesabeOrderReference?: string;
 

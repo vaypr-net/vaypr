@@ -1,7 +1,7 @@
 import { useGetPlans } from '@/hooks/api/useBillingPlans';
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Eye, Pencil, MoreVertical, Loader2, Archive, RotateCcw, ShieldOff, CalendarClock } from "lucide-react";
+import { Users, Eye, Pencil, MoreVertical, Loader2, Archive, RotateCcw, ShieldOff, CalendarClock, Trash2, History } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, isValid } from "date-fns";
 import { SearchFilter } from "@/components/super-admin/SearchFilter";
@@ -13,6 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Sheet,
@@ -30,6 +31,8 @@ import { useGetSubscriberById, useGetSubscribers, useGetSubscriberStats, useUpda
 import { Subscriber, SubscriberService, SubscriberAction } from "@/api/services/subscriber.service";
 
 import { SubscriberManagementDialog, accessDate, hasPaidAccess } from '@/components/super-admin/subscribers/SubscriberManagementDialog';
+import { DeleteSubscriberDialog } from '@/components/super-admin/subscribers/DeleteSubscriberDialog';
+import { SubscriberDeletionHistory } from '@/components/super-admin/subscribers/SubscriberDeletionHistory';
 
 // Helper function to safely format dates
 const safeFormatDate = (date: string | null | undefined): string => {
@@ -48,6 +51,8 @@ export default function Subscribers() {
   const [visibility, setVisibility] = useState<'active' | 'archived' | 'all'>('active');
   const [page, setPage] = useState(1);
   const [management, setManagement] = useState<{ subscriber: Subscriber; action: SubscriberAction } | null>(null);
+  const [deletingSubscriber, setDeletingSubscriber] = useState<Subscriber | null>(null);
+  const [deletionHistoryOpen, setDeletionHistoryOpen] = useState(false);
   useEffect(() => setPage(1), [searchValue, statusFilter, typeFilter, visibility]);
   const [selectedSubscriberId, setSelectedSubscriberId] = useState<string | null>(null);
   const [internalNotes, setInternalNotes] = useState("");
@@ -314,6 +319,10 @@ export default function Subscribers() {
               {row.archivedAt ? <RotateCcw className="w-4 h-4 mr-2" /> : <Archive className="w-4 h-4 mr-2" />}
               {row.archivedAt ? 'Restore Subscriber' : 'Archive Subscriber'}
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-destructive focus:text-destructive" disabled={!row.archivedAt} onClick={() => setDeletingSubscriber(row)}>
+              <Trash2 className="w-4 h-4 mr-2" /> {row.archivedAt ? 'Delete Permanently' : 'Delete Permanently (archive first)'}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -326,6 +335,7 @@ export default function Subscribers() {
         <h1 className="page-title">Subscribers</h1>
         <p className="page-subtitle">Manage all your platform subscribers</p>
       </div>
+      <div className="flex justify-end"><Button variant="outline" onClick={() => setDeletionHistoryOpen(true)}><History className="w-4 h-4 mr-2" />Deletion History</Button></div>
 
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
@@ -404,6 +414,7 @@ export default function Subscribers() {
               {selectedSubscriber.archivedAt && <div className="mt-4 rounded-lg border bg-muted p-3 text-sm">
                 <strong>Archived</strong> · {accessDate(selectedSubscriber.archivedAt)}<p>{selectedSubscriber.archiveReason}</p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => setManagement({ subscriber: selectedSubscriber, action: 'restore' })}>Restore Subscriber</Button>
+                <Button variant="destructive" size="sm" className="mt-2 ml-2" onClick={() => { setSelectedSubscriberId(null); setDeletingSubscriber(selectedSubscriber); }}>Delete Permanently</Button>
               </div>}
               <Tabs defaultValue="profile" className="mt-6">
                 <TabsList className="grid w-full grid-cols-4">
@@ -639,6 +650,8 @@ export default function Subscribers() {
         onEndPaidAccess={subscriber => { setEditSubscriber(null); setManagement({ subscriber, action: 'end_paid_access' }); }}
       />
       <SubscriberManagementDialog subscriber={management?.subscriber || null} action={management?.action || null} onClose={() => setManagement(null)} />
+      {deletingSubscriber && <DeleteSubscriberDialog key={deletingSubscriber._id} subscriber={deletingSubscriber} onClose={() => setDeletingSubscriber(null)} />}
+      {deletionHistoryOpen && <SubscriberDeletionHistory onClose={() => setDeletionHistoryOpen(false)} />}
     </div>
   );
 }

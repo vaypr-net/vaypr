@@ -97,14 +97,26 @@ export class HesabeService implements OnModuleInit, OnModuleDestroy {
       }
       throw new BadRequestException('A checkout is already open. Finish or cancel it before starting another.');
     }
-    let order: HesabeOrderDocument;
+    let order: HesabeOrderDocument | undefined;
+    const reservation = await this.orders.db.startSession();
     try {
-      order = await this.orders.create({ reference: `HSB${randomUUID().replace(/-/g, '')}`, userId, planId,
-        planName: plan.name, amountFils, currency: 'KWD', billingCycle: cycle, activeCheckout: true, state: 'creating' });
+      await reservation.withTransaction(async () => {
+        const account = await this.users.findById(userId).session(reservation);
+        if (!account) throw new NotFoundException('User not found');
+        if (account.stripeSubscriptionId || ['active', 'trialing', 'past_due', 'incomplete'].includes(account.subscriptionStatus))
+          throw new BadRequestException('An existing subscription must finish before starting a new Hesabe term.');
+        // Share a document write with deletion so an order cannot slip between
+        // its pending-checkout check and the account removal transaction.
+        const locked = await this.users.updateOne({ _id: account._id }, { $inc: { __v: 1 } }, { session: reservation });
+        if (!locked.matchedCount) throw new NotFoundException('User not found');
+        [order] = await this.orders.create([{ reference: `HSB${randomUUID().replace(/-/g, '')}`, userId, planId,
+          planName: plan.name, amountFils, currency: 'KWD', billingCycle: cycle, activeCheckout: true, state: 'creating' }], { session: reservation });
+      });
     } catch (error) {
       if (error.code === 11000) throw new BadRequestException('A checkout is already being created. Please try again.');
       throw error;
-    }
+    } finally { await reservation.endSession(); }
+    if (!order) throw new BadRequestException('Checkout could not be reserved. Please try again.');
     try {
       const reference = order.reference;
       const checkout = await this.gateway.checkout({ amount: (amountFils / 1000).toFixed(3), currency: 'KWD',
@@ -163,6 +175,24 @@ export class HesabeService implements OnModuleInit, OnModuleDestroy {
         const current = await this.orders.findById(order._id).session(session);
         if (!current || current.state === 'paid') return;
         const user = await this.users.findById(order.userId).session(session);
+        if (!user && current.subscriberDeletedAt) {
+          const now = new Date();
+          // A late successful payment on an old terminal order remains visible
+          // for manual reconciliation; it must never recreate the account.
+          await this.transactions.updateOne({ transactionId: order.reference }, { $setOnInsert: {
+            transactionId: order.reference, userId: order.userId, subscriberId: String(order.userId),
+            subscriberName: current.deletedSubscriberName || 'Deleted subscriber',
+            subscriberEmail: current.deletedSubscriberEmail || 'deleted@example.invalid',
+            amount: order.amountFils / 1000, currency: 'KWD', type: 'subscription', provider: 'Hesabe Sandbox',
+            status: 'succeeded', transactionDate: now, plan: order.planName, billingCycle: order.billingCycle,
+            isSandbox: true, hesabeOrderReference: order.reference, subscriberDeletedAt: current.subscriberDeletedAt,
+            needsManualReconciliation: true,
+          } }, { upsert: true, session });
+          await this.orders.updateOne({ _id: current._id }, { $set: {
+            state: 'paid', paidOn: now, activeCheckout: false, needsManualReconciliation: true,
+          } }, { session });
+          return;
+        }
         if (!user || user.stripeSubscriptionId) throw new BadRequestException('This payment needs manual subscription reconciliation');
         const now = new Date();
         const base = user.paymentProvider === 'hesabe' && user.subscriptionStatus === 'active' && user.currentPeriodEnd > now

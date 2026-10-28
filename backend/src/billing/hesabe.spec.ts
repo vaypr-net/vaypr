@@ -130,6 +130,19 @@ describe('Hesabe fulfilment', () => {
     await expect(h.service.verifyCheckoutSession(reference, 'other-user')).rejects.toThrow('Payment not found');
     expect(h.gateway.enquire).not.toHaveBeenCalled();
   });
+  it('retains a late verified payment after deletion without recreating or activating an account', async () => {
+    const h = harness();
+    Object.assign(h.order, { state: 'expired', subscriberDeletedAt: new Date(), deletedSubscriberName: 'Deleted QA', deletedSubscriberEmail: 'deleted.qa@example.invalid' });
+    h.users.findById.mockReturnValue({ session: jest.fn(async () => null) });
+    await h.service.reconcile(h.order);
+    await h.service.reconcile(h.order);
+    expect(h.users.updateOne).not.toHaveBeenCalled();
+    expect(h.transactions.updateOne).toHaveBeenCalledTimes(1);
+    expect(h.transactions.updateOne.mock.calls[0][1].$setOnInsert).toMatchObject({
+      amount: 20, currency: 'KWD', subscriberEmail: 'deleted.qa@example.invalid', needsManualReconciliation: true,
+    });
+    expect(h.order).toMatchObject({ state: 'paid', activeCheckout: false, needsManualReconciliation: true });
+  });
   it('does not trust a forged webhook status or an unknown token', async () => {
     const h = harness();
     h.orders.findOne = jest.fn(async () => null);
