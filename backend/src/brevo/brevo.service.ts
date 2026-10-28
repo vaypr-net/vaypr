@@ -1,3 +1,4 @@
+import { SubscriberLifecycleService } from '../common/services/subscriber-lifecycle.service';
 import { Injectable, NotFoundException, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { InjectModel } from '@nestjs/mongoose';
@@ -27,6 +28,7 @@ export class BrevoService {
     private configService: ConfigService,
     private httpService: HttpService,
     private activityService: ActivityService,
+    private readonly lifecycle: SubscriberLifecycleService,
   ) {
     this.brevoApiUrl = this.configService.get('BREVO_API_URL') || 'https://api.brevo.com/v3';
     this.brevoApiKey = this.configService.get('BREVO_API_KEY') as string;
@@ -86,7 +88,7 @@ export class BrevoService {
       throw new NotFoundException('User not found');
     }
 
-    const plan = user.planId as any;
+    const plan = await this.lifecycle.effectivePlan(user);
     const domainLimit = plan?.limits?.domains ?? 0;
     const canUseCustomDomain = plan?.limits?.customEmailDomain ?? false;
 
@@ -226,7 +228,7 @@ export class BrevoService {
       throw new NotFoundException('User not found');
     }
 
-    const plan = user.planId as any;
+    const plan = await this.lifecycle.effectivePlan(user);
     const limit = plan?.limits?.domains ?? 0;
     const verifiedCount = (user.verifiedDomains || []).length;
     const pendingCount = (user.pendingDomains || []).length;

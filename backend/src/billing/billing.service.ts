@@ -6,11 +6,12 @@ import { User } from '../user/entities/user.entity';
 import { StripeService } from './stripe.service';
 import { HesabeService } from './hesabe.service';
 import { CancellationMethod, RefundStrategy, CancellationReason } from './dto/cancel-subscription.dto';
+import { SubscriberLifecycleService } from '../common/services/subscriber-lifecycle.service';
 
 @Injectable()
 export class BillingService {
   constructor(private config: ConfigService, private stripe: StripeService, private hesabe: HesabeService,
-    @InjectModel(User.name) private users: Model<User>) {}
+    @InjectModel(User.name) private users: Model<User>, private lifecycle: SubscriberLifecycleService) {}
 
   configuration() {
     return this.config.get('PAYMENT_PROVIDER') === 'hesabe'
@@ -27,7 +28,18 @@ export class BillingService {
     return this.stripe.verifyCheckoutSession(reference, userId);
   }
   async getSubscriptionInfo(userId: string) {
-    const user = await this.users.findById(userId).select('paymentProvider');
+    await this.lifecycle.expireDueAccess(userId);
+    const user = await this.users.findById(userId).populate('planId');
+    // Administrative app-access changes are authoritative locally, not payment cancellations.
+    if (user && (user.paidAccessEndsAt || user.paidAccessEndedAt)) {
+      const plan: any = await this.lifecycle.effectivePlan(user);
+      const object = plan?.toObject?.() || plan;
+      return { plan: object ? { ...object, priceInDisplayCurrency: object.price, displayCurrency: object.currency || 'KWD' } : null,
+        status: user.subscriptionStatus, billingCycle: user.billingCycle, currentPeriodEnd: user.currentPeriodEnd,
+        subscriptionStartedAt: user.subscriptionStartedAt, cancellationDate: user.paidAccessEndedAt || null,
+        accessUntilDate: user.paidAccessEndsAt || null, provider: user.paymentProvider || this.configuration().provider,
+        environment: user.paymentEnvironment, autoRenew: user.paymentProvider === 'hesabe' ? false : undefined };
+    }
     return user?.paymentProvider === 'hesabe' ? this.hesabe.getSubscriptionInfo(userId) : this.stripe.getSubscriptionInfo(userId);
   }
   async getBillingHistory(userId: string) {

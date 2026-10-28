@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Recurring } from '../entities/recurring.entity';
 import { Invoice } from '../../invoice/entities/invoice.entity';
 import { User } from '../../user/entities/user.entity';
+import { PlanLimitService } from '../../common/services/plan-limit.service';
 import { Client } from '../../clients/entities/client.entity';
 import { UserProfile } from '../../userprofile/entities/userprofile.entity';
 import { EmailRouterService } from '../../email/email-router.service';
@@ -23,6 +24,7 @@ export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
     @InjectModel(UserProfile.name) private userProfileModel: Model<UserProfile>,
     private readonly emailRouterService: EmailRouterService,
     private readonly pdfGeneratorService: PdfGeneratorService,
+    private readonly planLimits: PlanLimitService,
   ) {}
 
   onModuleInit() {
@@ -189,6 +191,7 @@ export class RecurringAutomailService implements OnModuleInit, OnModuleDestroy {
       }));
 
       // Generate invoice for this recurring billing
+      await this.planLimits.enforceLimit(user._id.toString(), 'invoices', this.invoiceModel, { isDeleted: { $ne: true } });
       const invoiceData = {
         userId: recurring.userId,
         clientId: recurring.clientId,

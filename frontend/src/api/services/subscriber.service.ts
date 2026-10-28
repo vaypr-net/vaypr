@@ -15,6 +15,18 @@ export interface Subscriber {
   lastPaymentDate: string;
   nextRenewalDate?: string | null;
   internalNotes?: string;
+  version?: string;
+  archivedAt?: string | null;
+  archiveReason?: string;
+  paidAccessEndsAt?: string | null;
+  paidAccessEndedAt?: string | null;
+  paymentProvider?: string;
+  paymentEnvironment?: string;
+  managementHistory?: Array<{
+    action: string; at: string; actorId: string; actorEmail: string; reason: string;
+    before: { status?: string; archived?: boolean; planId?: string; paidAccessEndsAt?: string | null };
+    after: { status?: string; archived?: boolean; planId?: string; paidAccessEndsAt?: string | null };
+  }>;
   usage?: {
     invoices: { used: number; limit: number };
     quotes: { used: number; limit: number };
@@ -33,6 +45,8 @@ export interface Subscriber {
       amount: number;
       currency: string;
       status: 'succeeded' | 'failed' | 'refunded' | 'pending';
+      environment?: string;
+      provider?: string;
     }>;
   };
   createdAt: string;
@@ -66,6 +80,14 @@ export interface UpdateSubscriberDto {
   internalNotes?: string;
 }
 
+export type SubscriberAction = 'archive' | 'restore' | 'end_paid_access' | 'undo_scheduled_end';
+export interface ManageSubscriberRequest {
+  expectedUpdatedAt: string;
+  action: SubscriberAction;
+  reason: string;
+  mode?: 'immediately' | 'period_end';
+}
+
 // ==================== SERVICE ====================
 
 const BASE_URL = '/super-admin/subscribers';
@@ -79,8 +101,9 @@ export const SubscriberService = {
     subscriptionType?: string,
     limit: number = 50,
     offset: number = 0,
+    visibility: 'active' | 'archived' | 'all' = 'active',
   ): Promise<PaginatedResponse<Subscriber>> {
-    const params = { search, status, subscriptionType, limit, offset };
+    const params = { search, status, subscriptionType, limit, offset, visibility };
     const response = await axios.get<PaginatedResponse<Subscriber>>(BASE_URL, { params });
     return response.data;
   },
@@ -92,6 +115,11 @@ export const SubscriberService = {
 
   async updateSubscriber(id: string, data: UpdateSubscriberDto): Promise<Subscriber> {
     const response = await axios.patch<Subscriber>(`${BASE_URL}/${id}`, data);
+    return response.data;
+  },
+
+  async manageSubscriber(id: string, data: ManageSubscriberRequest): Promise<Subscriber> {
+    const response = await axios.patch<Subscriber>(`${BASE_URL}/${id}/management`, data);
     return response.data;
   },
 

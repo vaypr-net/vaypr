@@ -6,11 +6,13 @@ import { ExpenseService } from './expense.service';
 import { ExpenseController } from './expense.controller';
 import { Expense, ExpenseSchema } from './entities/expense.entity';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Expense.name, schema: ExpenseSchema }]),
     CloudinaryModule,
+    CommonModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

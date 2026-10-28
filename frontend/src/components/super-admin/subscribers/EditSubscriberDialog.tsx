@@ -1,3 +1,4 @@
+import { useGetPlans } from '@/hooks/api/useBillingPlans';
 import { useEffect, useState } from "react";
 import { Subscriber } from "@/api/services/subscriber.service";
 import {
@@ -17,16 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { hasPaidAccess } from './SubscriberManagementDialog';
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { ArrowUp, ArrowDown, XCircle } from "lucide-react";
@@ -36,25 +28,22 @@ interface EditSubscriberDialogProps {
   subscriber: Subscriber | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEndPaidAccess: (subscriber: Subscriber) => void;
 }
 
-const availablePlans = ["Free", "Starter", "Professional", "Enterprise"];
-
-const isCanceledStatus = (status?: string): boolean => {
-  const normalizedStatus = (status || "").trim().toLowerCase();
-  return normalizedStatus === "canceled" || normalizedStatus === "cancelled";
-};
 
 export function EditSubscriberDialog({
   subscriber,
   open,
   onOpenChange,
+  onEndPaidAccess,
 }: EditSubscriberDialogProps) {
+  const { data: plansData } = useGetPlans('active', 500);
+  const availablePlans = (plansData?.items || []).slice().sort((a, b) => (a.price < 0 ? Infinity : a.price) - (b.price < 0 ? Infinity : b.price)).map(plan => plan.name);
   const [name, setName] = useState(subscriber?.name || "");
   const [email, setEmail] = useState(subscriber?.email || "");
   const [mobile, setMobile] = useState("");
   const [selectedPlan, setSelectedPlan] = useState(subscriber?.plan || "");
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const updateSubscriberMutation = useUpdateSubscriber();
 
   // Reset form when subscriber changes
@@ -82,8 +71,7 @@ export function EditSubscriberDialog({
       data: {
         name,
         email,
-        plan: selectedPlan,
-        status: mapPlanToStatus(selectedPlan),
+        ...(selectedPlan !== subscriber.plan ? { plan: selectedPlan, status: mapPlanToStatus(selectedPlan) } : {}),
       },
     });
     toast.success("Subscriber profile updated successfully");
@@ -97,17 +85,6 @@ export function EditSubscriberDialog({
     } else if (direction === "downgrade" && currentIndex > 0) {
       setSelectedPlan(availablePlans[currentIndex - 1]);
     }
-  };
-
-  const handleCancelSubscription = async () => {
-    if (!subscriber) return;
-    await updateSubscriberMutation.mutateAsync({
-      id: subscriber._id,
-      data: { status: "canceled" },
-    });
-    toast.success("Subscription cancelled successfully");
-    setShowCancelConfirm(false);
-    onOpenChange(false);
   };
 
   if (!subscriber) return null;
@@ -218,20 +195,11 @@ export function EditSubscriberDialog({
 
             <Separator />
 
-            {/* Cancel Subscription */}
-            {!isCanceledStatus(subscriber?.status) && (
-              <div className="space-y-2">
-                <Label className="text-destructive">Danger Zone</Label>
-                <Button
-                  variant="destructive"
-                  className="w-full"
-                  onClick={() => setShowCancelConfirm(true)}
-                >
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Cancel Subscription
-                </Button>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>Paid Access</Label>
+              <p className="text-sm text-muted-foreground">Access changes and refunds are managed separately.</p>
+              {hasPaidAccess(subscriber) && <Button variant="destructive" className="w-full" onClick={() => onEndPaidAccess(subscriber)}><XCircle className="w-4 h-4 mr-2" />End Paid Access</Button>}
+            </div>
           </div>
 
           <DialogFooter>
@@ -245,28 +213,6 @@ export function EditSubscriberDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Confirmation Dialog */}
-      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel the subscription for{" "}
-              <span className="font-semibold">{subscriber.name}</span>? This
-              action will immediately revoke their access to premium features.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleCancelSubscription}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Yes, Cancel Subscription
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

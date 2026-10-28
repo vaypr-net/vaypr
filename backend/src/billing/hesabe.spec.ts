@@ -86,7 +86,7 @@ describe('Hesabe fulfilment', () => {
       updateOne: jest.fn(async (_filter, update) => Object.assign(order, update.$set)) };
     const users: any = { findById: jest.fn(() => query(user)), updateOne: jest.fn() };
     const transactions: any = { updateOne: jest.fn() };
-    const service = new HesabeService(gateway, new ConfigService(settings), orders, users, {} as any, transactions);
+    const service = new HesabeService(gateway, new ConfigService(settings), orders, users, {} as any, transactions, {} as any);
     return { service, order, gateway, orders, users, transactions, session };
   }
   it.each([{ amount: '0.200' }, { reference_number: 'another-order' }, { token: 'wrong-token' }, { currency: 'AED' }])(
@@ -113,6 +113,16 @@ describe('Hesabe fulfilment', () => {
     expect(h.users.updateOne.mock.calls[0][1].$set).toMatchObject({ paymentProvider: 'hesabe', paymentEnvironment: 'sandbox', subscriptionAmount: 20 });
     expect(h.session.withTransaction).toHaveBeenCalledTimes(1);
     expect(h.session.endSession).toHaveBeenCalled();
+  });
+  it('a new authoritative payment clears old access-end markers without restoring archived visibility or deleting history', async () => {
+    const h = harness();
+    await h.service.reconcile(h.order);
+    const update = h.users.updateOne.mock.calls[0][1];
+    expect(update.$unset).toMatchObject({ paidAccessEndsAt: '', paidAccessEndedAt: '', paidAccessEndReason: '' });
+    expect(update.$unset).not.toHaveProperty('subscriberArchivedAt');
+    expect(update.$unset).not.toHaveProperty('subscriberManagementHistory');
+    expect(update.$set).not.toHaveProperty('subscriberArchivedAt');
+    expect(h.transactions.updateOne.mock.calls[0][1]).toHaveProperty('$setOnInsert');
   });
   it('checks ownership before querying the provider', async () => {
     const h = harness();

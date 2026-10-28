@@ -13,9 +13,11 @@ import { Receipt, ReceiptSchema } from '../reciept/entities/reciept.entity';
 import { Recurring, RecurringSchema } from '../recurring/entities/recurring.entity';
 import { Transaction, TransactionSchema } from '../transcations/entities/transcation.entity';
 import { CurrencyService } from '../common/services/currency.service';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
+    CommonModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: BillingPlan.name, schema: BillingPlanSchema },
@@ -25,6 +27,7 @@ import { CurrencyService } from '../common/services/currency.service';
       { name: Receipt.name, schema: ReceiptSchema },
       { name: Recurring.name, schema: RecurringSchema },
       { name: Transaction.name, schema: TransactionSchema },
+      { name: 'HesabeSandboxTransaction', schema: TransactionSchema, collection: 'hesabe_sandbox_transactions' },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

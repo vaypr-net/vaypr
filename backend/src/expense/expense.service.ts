@@ -8,12 +8,14 @@ import { Model, Types } from 'mongoose';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { Expense, ExpenseDocument } from './entities/expense.entity';
+import { PlanLimitService } from '../common/services/plan-limit.service';
 
 @Injectable()
 export class ExpenseService {
   constructor(
     @InjectModel(Expense.name)
     private expenseModel: Model<ExpenseDocument>,
+    private readonly planLimits: PlanLimitService,
   ) {}
 
   async create(
@@ -21,6 +23,7 @@ export class ExpenseService {
     userId: string,
     receiptUrl?: string,
   ): Promise<Expense> {
+    await this.planLimits.enforceFeature(userId, 'expenseTracking');
     const expense = new this.expenseModel({
       ...createExpenseDto,
       userId: new Types.ObjectId(userId),

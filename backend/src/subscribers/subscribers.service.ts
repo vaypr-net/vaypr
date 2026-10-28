@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User } from '../user/entities/user.entity';
@@ -11,6 +11,8 @@ import { Recurring } from '../recurring/entities/recurring.entity';
 import { Transaction } from '../transcations/entities/transcation.entity';
 import { UpdateSubscriberDto } from './dto/update-subscriber.dto';
 import { CurrencyService } from '../common/services/currency.service';
+import { SubscriberActor, SubscriberLifecycleService, needsFreePlan } from '../common/services/subscriber-lifecycle.service';
+import { ManageSubscriberDto } from './dto/manage-subscriber.dto';
 
 type UiStatus = 'active' | 'inactive' | 'free' | 'canceled';
 type UiBillingCycle = 'monthly' | 'yearly';
@@ -38,6 +40,14 @@ export interface SubscriberResponse {
   lastPaymentDate: string;
   nextRenewalDate: string | null;
   internalNotes?: string;
+  version?: string;
+  archivedAt?: string | null;
+  archiveReason?: string;
+  paidAccessEndsAt?: string | null;
+  paidAccessEndedAt?: string | null;
+  paymentProvider?: string;
+  paymentEnvironment?: string;
+  managementHistory?: User['subscriberManagementHistory'];
   usage?: SubscriberUsage;
   billing?: {
     paymentMethod: string;
@@ -48,6 +58,8 @@ export interface SubscriberResponse {
       amount: number;
       currency: string;
       status: 'succeeded' | 'failed' | 'refunded' | 'pending';
+      environment?: string;
+      provider?: string;
     }>;
   };
   createdAt: string;
@@ -75,7 +87,21 @@ export class SubscribersService {
     @InjectModel(Recurring.name) private recurringModel: Model<Recurring>,
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
     private currencyService: CurrencyService,
+    private readonly lifecycle: SubscriberLifecycleService,
+    @InjectModel('HesabeSandboxTransaction') private readonly sandboxTransactions: Model<Transaction>,
   ) {}
+
+  private managementFields(user: any) {
+    return {
+      version: user.updatedAt ? new Date(user.updatedAt).toISOString() : undefined,
+      archivedAt: user.subscriberArchivedAt ? new Date(user.subscriberArchivedAt).toISOString() : null,
+      archiveReason: user.subscriberArchiveReason || '',
+      paidAccessEndsAt: user.paidAccessEndsAt ? new Date(user.paidAccessEndsAt).toISOString() : null,
+      paidAccessEndedAt: user.paidAccessEndedAt ? new Date(user.paidAccessEndedAt).toISOString() : null,
+      paymentProvider: user.paymentProvider,
+      paymentEnvironment: user.paymentEnvironment,
+    };
+  }
 
   private mapStatus(status: string | undefined): UiStatus {
     switch (status) {
@@ -144,6 +170,7 @@ export class SubscribersService {
     subscriptionType?: string,
     limit: number = 50,
     offset: number = 0,
+    visibility: string = 'active',
   ): Promise<{
     items: SubscriberResponse[];
     total: number;
@@ -151,9 +178,15 @@ export class SubscribersService {
     offset: number;
     hasMore: boolean;
   }> {
+    if (!['active', 'archived', 'all'].includes(visibility)) throw new BadRequestException('Invalid visibility filter');
+    await this.lifecycle.expireDueAccess();
+    limit = Math.min(Math.max(Number.isFinite(limit) ? limit : 50, 1), 500);
+    offset = Math.max(Number.isFinite(offset) ? offset : 0, 0);
     const query: any = {
       isSuperAdmin: { $ne: true },
     };
+    if (visibility === 'active') query.subscriberArchivedAt = null;
+    if (visibility === 'archived') query.subscriberArchivedAt = { $ne: null };
 
     if (search) {
       query.$or = [
@@ -227,7 +260,7 @@ export class SubscribersService {
         name: user.fullName,
         email: user.email,
         company: this.getCompanyFromEmail(user.email),
-        plan: user.planId?.name || 'Free',
+        plan: needsFreePlan(user) ? 'Free' : user.planId?.name || 'Free',
         subscriptionType: (user.billingCycle as UiBillingCycle) || 'monthly',
         subscriptionDate: (user.subscriptionStartedAt || user.createdAt || new Date()).toISOString(),
         status: uiStatus,
@@ -236,6 +269,7 @@ export class SubscribersService {
         nextRenewalDate: user.currentPeriodEnd ? new Date(user.currentPeriodEnd).toISOString() : null,
         internalNotes: user.internalNotes || '',
         createdAt: (user.createdAt || new Date()).toISOString(),
+        ...this.managementFields(user),
       };
     });
 
@@ -249,15 +283,17 @@ export class SubscribersService {
   }
 
   async findOne(id: string): Promise<SubscriberResponse> {
+    await this.lifecycle.expireDueAccess(id);
     const user = await this.userModel
       .findById(id)
       .select('-password -googleAccessToken -googleRefreshToken')
-      .populate('planId', 'name limits')
+      .populate('planId', 'name limits price')
       .lean();
 
     if (!user) {
       throw new NotFoundException('Subscriber not found');
     }
+    if (user.isSuperAdmin) throw new ForbiddenException('Super-admin accounts cannot be managed as subscribers');
 
     const [txAgg] = await this.transactionModel.aggregate([
       {
@@ -285,43 +321,15 @@ export class SubscribersService {
       .limit(5)
       .lean();
 
-    // Get payment method details from Stripe if available
-    let paymentMethod = 'Stripe';
-    let paymentMethodDetails = '-';
-    
-    if (user.stripeCustomerId) {
-      try {
-        // Fetch default payment method from Stripe customer
-        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-        const customer = await stripe.customers.retrieve(user.stripeCustomerId, {
-          expand: ['invoice_settings.default_payment_method'],
-        });
-        
-        if (customer.invoice_settings?.default_payment_method) {
-          const pm = customer.invoice_settings.default_payment_method as any;
-          if (pm.type === 'card' && pm.card) {
-            paymentMethod = 'Credit/Debit Card';
-            paymentMethodDetails = `${pm.card.brand.toUpperCase()} •••• ${pm.card.last4} (Exp: ${pm.card.exp_month}/${pm.card.exp_year})`;
-          } else {
-            paymentMethod = pm.type ? pm.type.charAt(0).toUpperCase() + pm.type.slice(1) : 'Stripe';
-            paymentMethodDetails = 'Payment method on file';
-          }
-        } else {
-          paymentMethod = 'Stripe';
-          paymentMethodDetails = 'No card on file yet';
-        }
-      } catch (error) {
-        console.error('Error fetching payment method from Stripe:', error);
-        paymentMethod = 'Stripe';
-        paymentMethodDetails = 'Unable to fetch payment details';
-      }
-    } else {
-      // No Stripe customer ID yet - user hasn't subscribed
-      paymentMethod = 'Stripe';
-      paymentMethodDetails = recentTransactions.length > 0 ? 'Card details not available' : 'No subscription yet';
-    }
+    // Historical records are read locally; administration never contacts a payment provider.
+    const sandboxHistory = await this.sandboxTransactions.find({ userId: new Types.ObjectId(id) })
+      .sort({ transactionDate: -1 }).limit(50).lean();
+    const paymentMethod = user.paymentProvider === 'hesabe' ? 'Hesabe' : 'Historical payments';
+    const paymentMethodDetails = user.paymentProvider === 'hesabe'
+      ? `${user.paymentEnvironment === 'sandbox' ? 'Sandbox test payments' : 'Fixed-term payments'} · Manual renewal`
+      : 'Recorded transactions only';
 
-    const planDoc: any = user.planId || null;
+    const planDoc: any = await this.lifecycle.effectivePlan(user);
     const usage = await this.buildUsage(new Types.ObjectId(id), planDoc?.limits || {});
 
     // Convert lifetime spend from AED to display currency (KWD)
@@ -341,11 +349,17 @@ export class SubscribersService {
       lastPaymentDate: txAgg?.lastPaymentDate ? new Date(txAgg.lastPaymentDate).toISOString() : '-',
       nextRenewalDate: user.currentPeriodEnd ? new Date(user.currentPeriodEnd).toISOString() : null,
       internalNotes: user.internalNotes || '',
+      ...this.managementFields(user),
+      managementHistory: (user.subscriberManagementHistory || []).slice(-100).reverse(),
       usage,
       billing: {
         paymentMethod,
         paymentMethodDetails,
-        recentInvoices: recentTransactions.map((tx: any) => {
+        recentInvoices: [...sandboxHistory.map((tx: any) => ({
+          id: tx.transactionId || String(tx._id), date: new Date(tx.transactionDate || tx.createdAt).toISOString(),
+          amount: tx.amount || 0, currency: tx.currency || 'KWD', status: tx.status || 'pending',
+          provider: 'hesabe', environment: 'sandbox',
+        })), ...recentTransactions.map((tx: any) => {
           // Convert transaction amount from AED to display currency (KWD)
           const amountAED = tx.amount || 0;
           const amountConverted = this.currencyService.convertToDisplayCurrency(amountAED);
@@ -356,16 +370,30 @@ export class SubscribersService {
             currency: tx.currency || 'KWD',
             status: tx.status || 'pending',
           };
-        }),
+        })].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
       },
       createdAt: (user.createdAt || new Date()).toISOString(),
     };
   }
 
-  async update(id: string, updateSubscriberDto: UpdateSubscriberDto): Promise<SubscriberResponse> {
+  async manage(id: string, body: ManageSubscriberDto, actor: SubscriberActor): Promise<SubscriberResponse> {
+    if (!body.reason?.trim() || body.reason.trim().length < 3) throw new BadRequestException('Please enter a reason');
+    await this.lifecycle.manage(id, actor, body.action, body.reason.trim(), body.mode, body.expectedUpdatedAt);
+    return this.findOne(id);
+  }
+
+  async update(id: string, updateSubscriberDto: UpdateSubscriberDto, actor: SubscriberActor): Promise<SubscriberResponse> {
+    await this.lifecycle.expireDueAccess(id);
     const existingUser = await this.userModel.findById(id).populate('planId', 'name');
     if (!existingUser) {
       throw new NotFoundException('Subscriber not found');
+    }
+    if (existingUser.isSuperAdmin || actor.userId === id) throw new ForbiddenException('Super-admin accounts cannot be managed as subscribers');
+    if (updateSubscriberDto.status === 'canceled') {
+      return this.manage(id, { action: 'end_paid_access', mode: 'immediately', reason: 'Administrator ended paid access', expectedUpdatedAt: existingUser.updatedAt.toISOString() }, actor);
+    }
+    if (updateSubscriberDto.status !== undefined && !updateSubscriberDto.plan) {
+      throw new BadRequestException('Use End Paid Access to change subscription access');
     }
 
     const updateData: any = {};
@@ -393,10 +421,8 @@ export class SubscribersService {
       const isFreePlan = requestedPlan.toLowerCase() === 'free';
 
       if (isFreePlan) {
-        updateData.planId = undefined;
-        if (updateSubscriberDto.status === undefined) {
-          updateData.subscriptionStatus = 'free';
-        }
+        updateData.planId = (await this.lifecycle.freePlan())._id;
+        updateData.subscriptionStatus = 'free';
         updateData.subscriptionAmount = 0;
       } else {
         const plan = await this.billingPlanModel.findOne({
@@ -407,14 +433,17 @@ export class SubscribersService {
         }
 
         updateData.planId = plan._id;
-        if (updateSubscriberDto.status === undefined) {
-          updateData.subscriptionStatus = 'active';
-        }
+        updateData.subscriptionStatus = 'active';
         updateData.subscriptionAmount = plan.price > 0 ? plan.price : 0;
       }
+      updateData.paidAccessEndsAt = null;
+      updateData.paidAccessEndedAt = null;
+      updateData.paidAccessEndReason = '';
     }
 
-    await this.userModel.findByIdAndUpdate(id, updateData, { new: true });
+    await this.lifecycle.updateWithHistory(existingUser, updateData,
+      updateSubscriberDto.plan ? 'plan_changed' : 'profile_updated', actor,
+      updateSubscriberDto.plan ? 'Administrator changed plan; no payment action' : 'Administrator updated subscriber profile');
     return this.findOne(id);
   }
 

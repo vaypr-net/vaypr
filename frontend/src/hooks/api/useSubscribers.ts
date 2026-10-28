@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { SubscriberService, UpdateSubscriberDto } from '@/api/services/subscriber.service';
+import { SubscriberService, UpdateSubscriberDto, ManageSubscriberRequest } from '@/api/services/subscriber.service';
 import { useToast } from '@/hooks/use-toast';
 
 // ==================== QUERY KEYS ====================
@@ -20,10 +20,27 @@ export function useGetSubscribers(
   subscriptionType?: string,
   limit: number = 50,
   offset: number = 0,
+  visibility: 'active' | 'archived' | 'all' = 'active',
 ) {
   return useQuery({
-    queryKey: SUBSCRIBER_QUERY_KEYS.filters({ search, status, subscriptionType, limit, offset }),
-    queryFn: () => SubscriberService.getSubscribers(search, status, subscriptionType, limit, offset),
+    queryKey: SUBSCRIBER_QUERY_KEYS.filters({ search, status, subscriptionType, limit, offset, visibility }),
+    queryFn: () => SubscriberService.getSubscribers(search, status, subscriptionType, limit, offset, visibility),
+  });
+}
+
+export function useManageSubscriber() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ManageSubscriberRequest }) => SubscriberService.manageSubscriber(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SUBSCRIBER_QUERY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['usage'] });
+      toast({ title: 'Subscriber updated', description: 'The administrative change has been recorded.' });
+    },
+    onError: (error: any) => toast({ title: 'Unable to update subscriber',
+      description: error.response?.data?.message || 'Please refresh and try again.', variant: 'destructive' }),
   });
 }
 

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CurrencyService } from './services/currency.service';
 import { PlanLimitService } from './services/plan-limit.service';
+import { SubscriberLifecycleService } from './services/subscriber-lifecycle.service';
 import { PdfGeneratorService } from './services/pdf-generator.service';
 import { User, UserSchema } from '../user/entities/user.entity';
 import { BillingPlan, BillingPlanSchema } from '../billing-plan/entities/billing-plan.entity';
@@ -15,7 +16,7 @@ import { BillingPlan, BillingPlanSchema } from '../billing-plan/entities/billing
       { name: BillingPlan.name, schema: BillingPlanSchema },
     ]),
   ],
-  providers: [CurrencyService, PlanLimitService, PdfGeneratorService],
-  exports: [CurrencyService, PlanLimitService, PdfGeneratorService],
+  providers: [CurrencyService, PlanLimitService, PdfGeneratorService, SubscriberLifecycleService],
+  exports: [CurrencyService, PlanLimitService, PdfGeneratorService, SubscriberLifecycleService],
 })
 export class CommonModule {}
