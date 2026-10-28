@@ -37,6 +37,9 @@ export class BillingPlanStripeSyncService {
    * Main entry point that orchestrates the sync process
    */
   async syncPlanToStripe(planId: string): Promise<BillingPlan | null> {
+    if (this.configService.get('PAYMENT_PROVIDER') === 'hesabe') {
+      return this.billingPlanModel.findById(planId).exec();
+    }
     if (!this.stripe) {
       this.logger.warn(
         `Stripe not configured. Skipping sync for plan ${planId}`,
