@@ -24,6 +24,7 @@ jobs:
         working-directory: backend
         run: |
           npm install
+          npm test -- --runInBand --runTestsByPath src/billing/hesabe.spec.ts
           npm run build
 
       - name: Validate frontend build
@@ -32,6 +33,7 @@ jobs:
           VITE_API_BASE_URL: https://api.vaypr.net
         run: |
           npm install
+          npm test
           npm run build
 
       - name: Configure SSH
@@ -65,9 +67,21 @@ jobs:
             test -f .env
 
             git pull --ff-only origin main
-            docker compose config >/tmp/vaypr-production-compose.yml
-            docker compose up -d --build
+            docker compose config --quiet
+            docker compose build
+            if docker container inspect vayper-backend >/dev/null 2>&1; then
+              docker image tag "$(docker inspect --format '{{.Image}}' vayper-backend)" vayper-backend:previous
+            fi
+            if docker container inspect vayper-frontend >/dev/null 2>&1; then
+              docker image tag "$(docker inspect --format '{{.Image}}' vayper-frontend)" vayper-frontend:previous
+            fi
+            docker compose up -d --no-build --wait --wait-timeout 180
             docker compose ps
             docker logs --tail=80 vayper-backend
             docker logs --tail=40 vayper-frontend
           EOF
+
+      - name: Verify public production routes
+        run: |
+          curl --fail --silent --show-error --retry 6 --retry-delay 10 --retry-all-errors https://api.vaypr.net/ >/dev/null
+          curl --fail --silent --show-error --retry 6 --retry-delay 10 --retry-all-errors https://vaypr.net/pricing >/dev/null

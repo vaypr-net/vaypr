@@ -48,3 +48,7 @@ Thumbs.db
 # NPM config files - platform-specific, not for version control
 .npmrc
 */.npmrc
+
+# Machine-local GitHub CLI and authentication configuration
+.codex/bin/
+.codex/github/
