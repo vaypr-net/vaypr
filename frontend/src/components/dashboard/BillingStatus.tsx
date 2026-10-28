@@ -194,7 +194,10 @@ export function BillingStatus() {
               </p>
             )}
             {isActive && !hasScheduledCancellation && renewalDate && currentPlan?.price > 0 && (
-              <p className="text-sm text-muted-foreground mt-1">Renews: {renewalDate}</p>
+              <p className="text-sm text-muted-foreground mt-1">{subscription?.autoRenew === false ? 'Access until' : 'Renews'}: {renewalDate}</p>
+            )}
+            {subscription?.environment === 'sandbox' && (
+              <p className="text-sm text-amber-700 mt-2">Hesabe sandbox · No real money charged. This test term does not renew automatically.</p>
             )}
             {hasScheduledCancellation && subscription?.accessUntilDate && (
               <p className="text-sm text-red-600 mt-1">
@@ -223,7 +226,7 @@ export function BillingStatus() {
             )}
             
             {/* Cancel button for active paid subscriptions */}
-            {isActive && !hasScheduledCancellation && currentPlan?.price > 0 && (
+            {isActive && subscription?.autoRenew !== false && !hasScheduledCancellation && currentPlan?.price > 0 && (
               <Button
                 onClick={() => setShowCancelDialog(true)}
                 variant="destructive"
