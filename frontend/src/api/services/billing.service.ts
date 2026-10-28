@@ -16,6 +16,9 @@ export interface BillingPortalResponse {
 }
 
 export interface SubscriptionInfo {
+  provider?: 'stripe' | 'hesabe';
+  environment?: 'sandbox' | 'production';
+  autoRenew?: boolean;
   plan: {
     _id: string;
     name: string;
@@ -99,6 +102,9 @@ export interface BillingHistoryItem {
 const BASE_URL = '/billing';
 
 export const billingService = {
+  async getConfiguration(): Promise<{ provider: 'stripe' | 'hesabe'; environment: string; autoRenew: boolean; referralsEnabled: boolean }> {
+    return (await axios.get(`${BASE_URL}/config`)).data;
+  },
   /**
    * Create a checkout session for subscription upgrade
    * Returns URL to redirect user to Stripe Checkout
